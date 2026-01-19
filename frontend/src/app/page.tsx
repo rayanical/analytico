@@ -19,6 +19,7 @@ export default function Home() {
   } = useData();
 
   const [showReasoning, setShowReasoning] = useState(false);
+  const [expandedFilterColumn, setExpandedFilterColumn] = useState<string | null>(null);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -38,7 +39,14 @@ export default function Home() {
           <section className="mb-6"><FileUploader /></section>
 
           {/* Filter Bar */}
-          {dataset && <section className="mb-6"><FilterBar /></section>}
+          {dataset && (
+            <section className="mb-6">
+              <FilterBar 
+                expandColumn={expandedFilterColumn} 
+                onExpandChange={setExpandedFilterColumn} 
+              />
+            </section>
+          )}
 
           {/* Mode Tabs and View Toggle */}
           {dataset && (

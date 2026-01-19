@@ -1,14 +1,55 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Filter, X, ChevronDown } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { Button } from '@/components/ui/button';
 
-export function FilterBar() {
+interface FilterBarProps {
+  /** Externally controlled column to expand */
+  expandColumn?: string | null;
+  /** Callback when expansion state changes */
+  onExpandChange?: (column: string | null) => void;
+}
+
+export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
   const { dataset, filters, addFilter, removeFilter, clearFilters, categoricalColumns } = useData();
   const [expandedColumn, setExpandedColumn] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sync with external control
+  useEffect(() => {
+    if (expandColumn !== undefined) {
+      setExpandedColumn(expandColumn);
+    }
+  }, [expandColumn]);
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        handleExpandChange(null);
+      }
+    };
+
+    if (expandedColumn) {
+      // Add listener with a small delay to prevent immediate close from the click that opened it
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 100);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [expandedColumn]);
+
+  const handleExpandChange = (column: string | null) => {
+    setExpandedColumn(column);
+    onExpandChange?.(column);
+  };
 
   if (!dataset || categoricalColumns.length === 0) {
     return null;
@@ -16,8 +57,14 @@ export function FilterBar() {
 
   const activeFilterCount = filters.length;
 
+  // Format column name for display (convert snake_case to Title Case)
+  const formatColumnName = (name: string) => {
+    return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
   return (
     <motion.div
+      ref={containerRef}
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       className="rounded-xl border border-border/50 bg-card/30 p-4"
@@ -53,14 +100,14 @@ export function FilterBar() {
           return (
             <div key={column.name} className="relative">
               <button
-                onClick={() => setExpandedColumn(isExpanded ? null : column.name)}
+                onClick={() => handleExpandChange(isExpanded ? null : column.name)}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-all ${
                   activeFilter
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-white/5 text-muted-foreground hover:bg-white/10'
                 }`}
               >
-                {column.name}
+                {formatColumnName(column.name)}
                 {activeFilter && (
                   <span className="text-xs opacity-75">
                     ({(activeFilter.values?.length ?? 0)})
@@ -76,43 +123,47 @@ export function FilterBar() {
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -5 }}
-                    className="absolute left-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-card p-2 shadow-xl"
+                    className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-border bg-card p-2 shadow-xl"
                   >
-                    <div className="max-h-48 space-y-1 overflow-y-auto">
-                      {column.sample_values.map((value, idx) => {
-                        const stringValue = String(value);
-                        const isSelected = activeFilter?.values?.includes(stringValue);
+                    <div className="max-h-64 space-y-1 overflow-y-auto">
+                      {column.sample_values.length === 0 ? (
+                        <p className="px-2 py-1 text-sm text-muted-foreground">No values available</p>
+                      ) : (
+                        column.sample_values.map((value, idx) => {
+                          const stringValue = String(value);
+                          const isSelected = activeFilter?.values?.includes(stringValue);
 
-                        return (
-                          <label
-                            key={idx}
-                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-white/5"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {
-                                const currentValues = activeFilter?.values ?? [];
-                                const newValues = isSelected
-                                  ? currentValues.filter(v => v !== stringValue)
-                                  : [...currentValues, stringValue];
+                          return (
+                            <label
+                              key={idx}
+                              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-white/5"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  const currentValues = (activeFilter?.values ?? []) as string[];
+                                  const newValues = isSelected
+                                    ? currentValues.filter(v => v !== stringValue)
+                                    : [...currentValues, stringValue];
 
-                                if (newValues.length === 0) {
-                                  removeFilter(column.name);
-                                } else {
-                                  addFilter({ column: column.name, values: newValues });
-                                }
-                              }}
-                              className="rounded border-border"
-                            />
-                            <span className="truncate">{stringValue}</span>
-                          </label>
-                        );
-                      })}
+                                  if (newValues.length === 0) {
+                                    removeFilter(column.name);
+                                  } else {
+                                    addFilter({ column: column.name, values: newValues });
+                                  }
+                                }}
+                                className="rounded border-border"
+                              />
+                              <span className="truncate">{stringValue}</span>
+                            </label>
+                          );
+                        })
+                      )}
                     </div>
-                    {column.unique_count > 5 && (
+                    {column.unique_count > 20 && (
                       <p className="mt-2 border-t border-border/50 pt-2 text-xs text-muted-foreground">
-                        Showing 5 of {column.unique_count} values
+                        Showing 20 of {column.unique_count} values
                       </p>
                     )}
                   </motion.div>
@@ -131,8 +182,8 @@ export function FilterBar() {
               key={filter.column}
               className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs text-primary"
             >
-              {filter.column}: {filter.values?.slice(0, 2).join(', ')}
-              {(filter.values?.length ?? 0) > 2 && ` +${(filter.values?.length ?? 0) - 2}`}
+              {formatColumnName(filter.column)}: {(filter.values as string[])?.slice(0, 2).join(', ')}
+              {((filter.values as string[])?.length ?? 0) > 2 && ` +${((filter.values as string[])?.length ?? 0) - 2}`}
               <button
                 onClick={() => removeFilter(filter.column)}
                 className="ml-1 rounded-full p-0.5 hover:bg-primary/20"

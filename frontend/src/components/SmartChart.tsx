@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
@@ -44,6 +44,54 @@ function formatValue(value: number, format: ColumnFormat, compact: boolean = fal
   return value.toLocaleString();
 }
 
+// ============================================================================
+// CustomTooltip - Extracted as memoized component for performance
+// ============================================================================
+
+interface TooltipPayloadEntry {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadEntry[];
+  label?: string;
+  formats: Record<string, ColumnFormat>;
+}
+
+const CustomTooltip = memo(function CustomTooltip({ 
+  active, 
+  payload, 
+  label, 
+  formats 
+}: CustomTooltipProps) {
+  if (!active || !payload?.length) return null;
+  
+  return (
+    <div className="rounded-lg border border-border bg-card p-3 shadow-xl">
+      <p className="mb-2 font-medium">{label}</p>
+      {payload.map((entry, index) => (
+        <p key={index} className="flex items-center gap-2 text-sm">
+          <span 
+            className="h-3 w-3 rounded-full" 
+            style={{ backgroundColor: entry.color }} 
+          />
+          <span className="text-muted-foreground">{entry.name}:</span>
+          <span className="font-medium">
+            {formatValue(entry.value, (formats[entry.name] || 'number') as ColumnFormat, false)}
+          </span>
+        </p>
+      ))}
+    </div>
+  );
+});
+
+// ============================================================================
+// SmartChart - Main chart component using composed Recharts architecture
+// ============================================================================
+
 export function SmartChart({ chartData }: SmartChartProps) {
   const { currentChart, dataset } = useData();
   const data = chartData || currentChart;
@@ -56,26 +104,33 @@ export function SmartChart({ chartData }: SmartChartProps) {
   // Get format for primary Y axis
   const primaryFormat = (formats[y_axis_keys[0]] || 'number') as ColumnFormat;
   
-  const tickFormatter = (v: number) => formatValue(v, primaryFormat, true);
+  // Memoize the tick formatter to prevent recreation on each render
+  const tickFormatter = useMemo(
+    () => (v: number) => formatValue(v, primaryFormat, true),
+    [primaryFormat]
+  );
   
-  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
-    if (!active || !payload?.length) return null;
-    return (
-      <div className="rounded-lg border border-border bg-card p-3 shadow-xl">
-        <p className="mb-2 font-medium">{label}</p>
-        {payload.map((e, i) => (
-          <p key={i} className="flex items-center gap-2 text-sm">
-            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: e.color }} />
-            <span className="text-muted-foreground">{e.name}:</span>
-            <span className="font-medium">{formatValue(e.value, (formats[e.name] || 'number') as ColumnFormat, false)}</span>
-          </p>
-        ))}
-      </div>
-    );
+  // Memoize axis style object - use explicit light color for dark background visibility
+  const axisStyle = useMemo(
+    () => ({ fontSize: 11, fill: '#a1a1aa' }), // zinc-400 - visible on dark backgrounds
+    []
+  );
+  
+  // Memoize common chart props - increased left margin for Y-axis label
+  const commonProps = useMemo(
+    () => ({ data: records, margin: { top: 20, right: 30, left: 70, bottom: 20 } }),
+    [records]
+  );
+
+  // Format legend names from snake_case to Title Case
+  const formatLegendName = (value: string) => {
+    return value
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
   };
 
-  const axisStyle = { fontSize: 11, fill: 'hsl(var(--muted-foreground))' };
-  const commonProps = { data: records, margin: { top: 20, right: 30, left: 20, bottom: 20 } };
+  // Create tooltip element with formats passed as prop
+  const tooltipContent = <CustomTooltip formats={formats} />;
 
   const renderChart = () => {
     switch (chart_type) {
@@ -83,11 +138,25 @@ export function SmartChart({ chartData }: SmartChartProps) {
         return (
           <LineChart {...commonProps}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-            <XAxis dataKey={x_axis_key} tick={axisStyle} axisLine={{ stroke: 'hsl(var(--border))' }} />
-            <YAxis tick={axisStyle} axisLine={{ stroke: 'hsl(var(--border))' }} tickFormatter={tickFormatter} label={y_axis_label ? { value: y_axis_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined} />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            {y_axis_keys.map((k, i) => <Line key={k} type="monotone" dataKey={k} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ fill: COLORS[i % COLORS.length], r: 4 }} />)}
+            <XAxis dataKey={x_axis_key} tick={axisStyle} axisLine={{ stroke: '#3f3f46' }} />
+            <YAxis 
+              tick={axisStyle} 
+              axisLine={{ stroke: '#3f3f46' }} 
+              tickFormatter={tickFormatter} 
+              label={y_axis_label ? { value: y_axis_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined} 
+            />
+            <Tooltip content={tooltipContent} />
+            <Legend formatter={formatLegendName} />
+            {y_axis_keys.map((k, i) => (
+              <Line 
+                key={k} 
+                type="monotone" 
+                dataKey={k} 
+                stroke={COLORS[i % COLORS.length]} 
+                strokeWidth={2} 
+                dot={{ fill: COLORS[i % COLORS.length], r: 4 }} 
+              />
+            ))}
           </LineChart>
         );
       case 'area':
@@ -104,21 +173,38 @@ export function SmartChart({ chartData }: SmartChartProps) {
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
             <XAxis dataKey={x_axis_key} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={tickFormatter} />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            {y_axis_keys.map((k, i) => <Area key={k} type="monotone" dataKey={k} stroke={COLORS[i % COLORS.length]} fill={`url(#grad-${k})`} />)}
+            <Tooltip content={tooltipContent} />
+            <Legend formatter={formatLegendName} />
+            {y_axis_keys.map((k, i) => (
+              <Area 
+                key={k} 
+                type="monotone" 
+                dataKey={k} 
+                stroke={COLORS[i % COLORS.length]} 
+                fill={`url(#grad-${k})`} 
+              />
+            ))}
           </AreaChart>
         );
       case 'pie':
         return (
           <PieChart>
-            <Pie data={records} dataKey={y_axis_keys[0]} nameKey={x_axis_key} cx="50%" cy="50%" outerRadius={150}
+            <Pie 
+              data={records} 
+              dataKey={y_axis_keys[0]} 
+              nameKey={x_axis_key} 
+              cx="50%" 
+              cy="50%" 
+              outerRadius={150}
               label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
-              labelLine={{ stroke: 'hsl(var(--muted-foreground))' }}>
-              {records.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              labelLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+            >
+              {records.map((_, i) => (
+                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              ))}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
+            <Tooltip content={tooltipContent} />
+            <Legend formatter={formatLegendName} />
           </PieChart>
         );
       case 'composed':
@@ -127,8 +213,8 @@ export function SmartChart({ chartData }: SmartChartProps) {
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
             <XAxis dataKey={x_axis_key} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={tickFormatter} />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
+            <Tooltip content={tooltipContent} />
+            <Legend formatter={formatLegendName} />
             {y_axis_keys.map((k, i) => i % 2 === 0
               ? <Bar key={k} dataKey={k} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} opacity={0.8} />
               : <Line key={k} type="monotone" dataKey={k} stroke={COLORS[i % COLORS.length]} strokeWidth={2} />
@@ -140,10 +226,16 @@ export function SmartChart({ chartData }: SmartChartProps) {
           <BarChart {...commonProps}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
             <XAxis dataKey={x_axis_key} tick={axisStyle} />
-            <YAxis tick={axisStyle} tickFormatter={tickFormatter} />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            {y_axis_keys.map((k, i) => <Bar key={k} dataKey={k} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} />)}
+            <YAxis 
+              tick={axisStyle} 
+              tickFormatter={tickFormatter}
+              label={y_axis_label ? { value: y_axis_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined}
+            />
+            <Tooltip content={tooltipContent} />
+            <Legend formatter={formatLegendName} />
+            {y_axis_keys.map((k, i) => (
+              <Bar key={k} dataKey={k} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} />
+            ))}
           </BarChart>
         );
     }

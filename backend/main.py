@@ -43,10 +43,68 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # ============================================================================
 
 def normalize_header(header: str) -> str:
-    """Convert header to snake_case"""
+    """Convert header to clean, short snake_case names"""
+    # First, basic cleanup
     clean = re.sub(r'[^\w\s]', '', header.strip())
-    clean = re.sub(r'\s+', '_', clean)
-    return clean.lower()
+    clean = re.sub(r'\s+', '_', clean).lower()
+    
+    # Phase 1: Full replacement patterns (match entire column to known pattern)
+    full_replacements = [
+        (r'^(how_old_are_you|what_is_your_age).*', 'age'),
+        (r'^(what_industry_do_you_work_in|industry_you_work_in).*', 'industry'),
+        (r'^(what_is_your_annual_salary|annual_salary).*', 'annual_salary'),
+        (r'^(what_is_your_job_title|job_title).*', 'job_title'),
+        (r'^(what_is_your_gender|gender_identity).*', 'gender'),
+        (r'^(what_country_do_you_work_in|country_you_work_in).*', 'country'),
+        (r'^(what_state_do_you_work_in|state_you_work_in).*', 'state'),
+        (r'^(what_city_do_you_work_in|city_you_work_in).*', 'city'),
+        (r'^(how_many_years_of|years_of_professional|years_of_experience).*', 'years_experience'),
+        (r'^(highest_level_of_education|education_level).*', 'education'),
+        (r'^(what_is_your_race|race).*', 'race'),
+        (r'^(please_indicate_the_currency|currency).*', 'currency'),
+        (r'^(how_much_additional_monetary).*', 'additional_comp'),
+        (r'^(if_your_job_title_needs).*', 'job_context'),
+        (r'^(if_your_income_needs).*', 'income_context'),
+        (r'^(if_youre_in_the_us).*', 'us_state'),
+        (r'^(if_other_please).*', 'other_info'),
+    ]
+    
+    for pattern, replacement in full_replacements:
+        if re.match(pattern, clean):
+            clean = replacement
+            break
+    
+    # Phase 2: Prefix removals (apply all that match)
+    prefix_removals = [
+        r'^(what_is_your_|whats_your_|what_is_the_|what_are_your_)',
+        r'^(please_indicate_the_|please_select_the_|please_enter_the_|please_specify_the_)',
+        r'^(please_indicate_your_|please_select_your_|please_enter_your_)',
+    ]
+    for pattern in prefix_removals:
+        clean = re.sub(pattern, '', clean)
+    
+    # Phase 3: Suffix removals (apply all that match)
+    suffix_removals = [
+        r'_youll_indicate.*$',  # Remove "youll_indicate_the_currency_in_a_later_question"
+        r'_you_would_earn.*$',
+        r'_please_only_include.*$',
+        r'_choose_all_that_apply$',
+        r'_or_prefer_not_to_answer$',
+        r'_if_any$',
+        r'_optional$',
+        r'_please$',
+    ]
+    for pattern in suffix_removals:
+        clean = re.sub(pattern, '', clean)
+    
+    # Final cleanup: remove leading/trailing underscores
+    clean = clean.strip('_')
+    
+    # Truncate overly long names (max 20 chars for cleaner display)
+    if len(clean) > 20:
+        clean = clean[:20].rstrip('_')
+    
+    return clean
 
 
 def detect_column_format(series: pd.Series, col_name: str) -> str:
@@ -84,9 +142,22 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
     missing_counts = {}
     column_formats = {}
     
-    # 1. Header Normalization
+    # 1. Header Normalization (with duplicate handling)
     original_cols = df.columns.tolist()
     new_cols = [normalize_header(col) for col in original_cols]
+    
+    # Handle duplicate column names by appending _2, _3, etc.
+    seen = {}
+    unique_cols = []
+    for col in new_cols:
+        if col in seen:
+            seen[col] += 1
+            unique_cols.append(f"{col}_{seen[col]}")
+        else:
+            seen[col] = 1
+            unique_cols.append(col)
+    new_cols = unique_cols
+    
     renamed = [(o, n) for o, n in zip(original_cols, new_cols) if o != n]
     if renamed:
         cleaning_actions.append(f"Normalized {len(renamed)} column headers")
@@ -342,12 +413,12 @@ def generate_dynamic_suggestions(df: pd.DataFrame, column_types: dict[str, str],
 # Module 3: Smart Aggregation
 # ============================================================================
 
-def smart_group_top_n(df: pd.DataFrame, x_col: str, y_cols: list[str], n: int = 19) -> pd.DataFrame:
+def smart_group_top_n(df: pd.DataFrame, x_col: str, y_cols: list[str], agg: str = "sum", n: int = 19) -> pd.DataFrame:
     """Group by x_col, keep top N by sum of first y_col, combine rest as 'Others'"""
     if df[x_col].nunique() <= n + 1:
         return df
     
-    # Calculate totals for ranking
+    # Calculate totals for ranking (always use sum for ranking)
     primary_y = y_cols[0]
     totals = df.groupby(x_col)[primary_y].sum().sort_values(ascending=False)
     
@@ -357,8 +428,9 @@ def smart_group_top_n(df: pd.DataFrame, x_col: str, y_cols: list[str], n: int = 
     df_copy = df.copy()
     df_copy['_x_grouped'] = df_copy[x_col].apply(lambda x: x if x in top_categories else 'Others')
     
-    # Aggregate
-    grouped = df_copy.groupby('_x_grouped', as_index=False)[y_cols].sum()
+    # Aggregate using the requested aggregation type
+    agg_map = {"sum": "sum", "mean": "mean", "count": "count", "min": "min", "max": "max"}
+    grouped = df_copy.groupby('_x_grouped', as_index=False)[y_cols].agg(agg_map.get(agg, "sum"))
     grouped = grouped.rename(columns={'_x_grouped': x_col})
     
     # Sort: top categories first, Others last
@@ -373,8 +445,8 @@ def smart_group_top_n(df: pd.DataFrame, x_col: str, y_cols: list[str], n: int = 
     return grouped
 
 
-def smart_resample_dates(df: pd.DataFrame, date_col: str, y_cols: list[str]) -> tuple[pd.DataFrame, str]:
-    """Auto-resample date data if too many points"""
+def smart_resample_dates(df: pd.DataFrame, date_col: str, y_cols: list[str], agg: str = "sum") -> tuple[pd.DataFrame, str]:
+    """Resample datetime data into appropriate periods (year/month/week)"""
     if date_col not in df.columns:
         return df, date_col
     
@@ -403,22 +475,37 @@ def smart_resample_dates(df: pd.DataFrame, date_col: str, y_cols: list[str]) -> 
         df_copy['_period'] = df_copy[date_col].dt.to_period('W').astype(str)
         new_col = f"{date_col}_week"
     
-    grouped = df_copy.groupby('_period', as_index=False)[y_cols].sum()
+    # Aggregate using the requested aggregation type
+    agg_map = {"sum": "sum", "mean": "mean", "count": "count", "min": "min", "max": "max"}
+    grouped = df_copy.groupby('_period', as_index=False)[y_cols].agg(agg_map.get(agg, "sum"))
     grouped = grouped.rename(columns={'_period': new_col})
     
     return grouped, new_col
 
 
-def enforce_semantic_rules(aggregation: str, y_axis_keys: list[str], column_types: dict[str, str]) -> tuple[str, list[str]]:
-    """Override aggregation for identifier columns"""
+def enforce_semantic_rules(aggregation: str, y_axis_keys: list[str], column_types: dict[str, str]) -> tuple[str, list[str], Optional[str]]:
+    """Override aggregation for identifier or categorical columns. Returns (agg, warnings, y_axis_label)."""
     warnings = []
-    identifier_cols = [col for col in y_axis_keys if column_types.get(col) == SemanticType.IDENTIFIER]
+    y_axis_label = None
     
+    identifier_cols = [col for col in y_axis_keys if column_types.get(col) == SemanticType.IDENTIFIER]
+    categorical_cols = [col for col in y_axis_keys if column_types.get(col) == SemanticType.CATEGORICAL]
+    
+    # Identifier columns should use COUNT
     if identifier_cols and aggregation in ['sum', 'mean']:
         warnings.append(f"Changed to COUNT for identifier columns: {identifier_cols}")
-        return 'count', warnings
+        return 'count', warnings, "Count of Records"
     
-    return aggregation, warnings
+    # Categorical columns should use COUNT (non-numeric fix)
+    if categorical_cols and aggregation in ['sum', 'mean']:
+        warnings.append(f"Switched to COUNT for categorical column: {categorical_cols[0]} (non-numeric data)")
+        return 'count', warnings, "Count of Records"
+    
+    # If aggregation is already COUNT, set appropriate label
+    if aggregation == 'count':
+        y_axis_label = "Count of Records"
+    
+    return aggregation, warnings, y_axis_label
 
 
 # ============================================================================
@@ -573,6 +660,10 @@ class QueryRequest(BaseModel):
 
 def get_column_summary(df: pd.DataFrame, col: str, sem_type: str, fmt: str) -> ColumnSummary:
     series = df[col]
+    # Get UNIQUE values for filtering, not just first 5 rows (which may have duplicates)
+    unique_vals = series.dropna().unique()
+    # Limit to 20 unique values for reasonable dropdown size, sorted for consistency
+    sample_vals = sorted([str(v) for v in unique_vals[:20]], key=str.lower)
     return ColumnSummary(
         name=col,
         dtype=str(series.dtype),
@@ -581,7 +672,7 @@ def get_column_summary(df: pd.DataFrame, col: str, sem_type: str, fmt: str) -> C
         semantic_type=sem_type,
         format=fmt,
         unique_count=int(series.nunique()),
-        sample_values=series.dropna().head(5).tolist()
+        sample_values=sample_vals
     )
 
 
@@ -749,8 +840,8 @@ async def aggregate_endpoint(request: AggregateRequest):
         msg = "; ".join(f"'{c}' not found, try: {suggestions.get(c, [])}" for c in missing)
         raise HTTPException(status_code=400, detail=msg)
     
-    # Enforce semantic rules
-    agg, warnings = enforce_semantic_rules(request.aggregation, request.y_axis_keys, ds.column_types)
+    # Enforce semantic rules (auto-switches to COUNT for categorical columns)
+    agg, warnings, y_axis_label = enforce_semantic_rules(request.aggregation, request.y_axis_keys, ds.column_types)
     
     # Apply filters
     filtered, applied_filters = apply_filters(df, request.filters)
@@ -760,13 +851,13 @@ async def aggregate_endpoint(request: AggregateRequest):
     # Module 3: Smart aggregation
     # Check if date column needs resampling
     if pd.api.types.is_datetime64_any_dtype(df.get(request.x_axis_key)):
-        filtered, new_x = smart_resample_dates(filtered, request.x_axis_key, request.y_axis_keys)
+        filtered, new_x = smart_resample_dates(filtered, request.x_axis_key, request.y_axis_keys, agg)
         x_key = new_x
     else:
         x_key = request.x_axis_key
         # Top N + Others for high cardinality
         if x_key in filtered.columns and filtered[x_key].nunique() > 20:
-            filtered = smart_group_top_n(filtered, x_key, request.y_axis_keys)
+            filtered = smart_group_top_n(filtered, x_key, request.y_axis_keys, agg)
     
     # Aggregate
     result = aggregate_data(filtered, x_key, request.y_axis_keys, agg)
@@ -783,6 +874,7 @@ async def aggregate_endpoint(request: AggregateRequest):
         y_axis_keys=request.y_axis_keys,
         chart_type=request.chart_type,
         title=f"{', '.join(request.y_axis_keys)} by {x_key}".replace('_', ' ').title(),
+        y_axis_label=y_axis_label,
         row_count=len(data),
         warnings=warnings or None,
         applied_filters=applied_filters or None
@@ -841,18 +933,18 @@ Rows: {len(df)}"""
         if filtered.empty:
             raise HTTPException(status_code=400, detail="No data after filters.")
         
-        # Enforce semantic rules
+        # Enforce semantic rules (auto-switches to COUNT for categorical columns)
         agg = config.get("aggregation", "sum")
-        agg, warnings = enforce_semantic_rules(agg, config["yAxisKeys"], ds.column_types)
+        agg, warnings, auto_y_label = enforce_semantic_rules(agg, config["yAxisKeys"], ds.column_types)
         
         # Smart aggregation
         x_key = config["xAxisKey"]
         y_keys = config["yAxisKeys"]
         
         if pd.api.types.is_datetime64_any_dtype(filtered.get(x_key)):
-            filtered, x_key = smart_resample_dates(filtered, x_key, y_keys)
+            filtered, x_key = smart_resample_dates(filtered, x_key, y_keys, agg)
         elif x_key in filtered.columns and filtered[x_key].nunique() > 20:
-            filtered = smart_group_top_n(filtered, x_key, y_keys)
+            filtered = smart_group_top_n(filtered, x_key, y_keys, agg)
         
         result = aggregate_data(filtered, x_key, y_keys, agg)
         
@@ -862,6 +954,9 @@ Rows: {len(df)}"""
                 if pd.isna(row[k]):
                     row[k] = 0
         
+        # Prefer auto-generated label when categorical counting is triggered
+        final_y_label = auto_y_label or config.get("yAxisLabel")
+        
         return ChartResponse(
             data=data,
             x_axis_key=x_key,
@@ -869,7 +964,7 @@ Rows: {len(df)}"""
             chart_type=config.get("chartType", "bar"),
             title=config.get("title", "Chart"),
             x_axis_label=config.get("xAxisLabel"),
-            y_axis_label=config.get("yAxisLabel"),
+            y_axis_label=final_y_label,
             row_count=len(data),
             reasoning=config.get("reasoning", "AI-generated configuration."),
             warnings=warnings or None,
