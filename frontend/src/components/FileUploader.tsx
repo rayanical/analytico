@@ -3,13 +3,13 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2, Database } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { uploadCSV } from '@/lib/api';
 import { toast } from 'sonner';
 
 export function FileUploader() {
-  const { dataState, setDataState, setIsUploading, isUploading, clearData } = useData();
+  const { dataset, setDataset, setIsUploading, isUploading, clearData } = useData();
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -22,20 +22,17 @@ export function FileUploader() {
     try {
       const response = await uploadCSV(file);
       
-      setDataState({
-        data: response.data,
-        columns: response.columns,
-        summary: response.summary,
-        fileName: file.name,
+      setDataset({
+        datasetId: response.dataset_id,
+        filename: response.filename,
         rowCount: response.row_count,
-        truncated: response.truncated,
+        columns: response.columns,
       });
 
-      if (response.truncated) {
-        toast.warning(`File truncated to ${response.row_count} rows to optimize performance.`);
-      } else {
-        toast.success(`Successfully loaded ${response.row_count} rows from ${file.name}`);
-      }
+      const numericCount = response.columns.filter(c => c.is_numeric).length;
+      toast.success(
+        `Loaded ${response.row_count.toLocaleString()} rows • ${response.columns.length} columns (${numericCount} numeric)`
+      );
     } catch (error) {
       console.error('Upload error:', error);
       const message = error instanceof Error ? error.message : 'Failed to upload file';
@@ -44,36 +41,36 @@ export function FileUploader() {
     } finally {
       setIsUploading(false);
     }
-  }, [setDataState, setIsUploading]);
+  }, [setDataset, setIsUploading]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'text/csv': ['.csv'],
-    },
+    accept: { 'text/csv': ['.csv'] },
     maxFiles: 1,
     disabled: isUploading,
   });
 
   // If we have data, show success state
-  if (dataState) {
+  if (dataset) {
+    const numericCount = dataset.columns.filter(c => c.is_numeric).length;
+    const categoricalCount = dataset.columns.filter(c => !c.is_numeric && !c.is_datetime).length;
+    
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="w-full"
       >
-        <div className="relative rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-6">
+        <div className="relative rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20">
-                <CheckCircle className="h-6 w-6 text-emerald-400" />
+                <Database className="h-6 w-6 text-emerald-400" />
               </div>
               <div>
-                <h3 className="font-semibold text-emerald-300">{dataState.fileName}</h3>
+                <h3 className="font-semibold text-emerald-300">{dataset.filename}</h3>
                 <p className="text-sm text-muted-foreground">
-                  {dataState.rowCount.toLocaleString()} rows • {dataState.columns.length} columns
-                  {dataState.truncated && ' (truncated)'}
+                  {dataset.rowCount.toLocaleString()} rows • {numericCount} numeric • {categoricalCount} categorical
                 </p>
               </div>
             </div>
@@ -81,7 +78,7 @@ export function FileUploader() {
               onClick={clearData}
               className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-white"
             >
-              Upload New File
+              Upload New
             </button>
           </div>
         </div>
@@ -98,11 +95,8 @@ export function FileUploader() {
       <div
         {...getRootProps()}
         className={`
-          relative cursor-pointer rounded-xl border-2 border-dashed p-12 text-center transition-all duration-300
-          ${isDragActive 
-            ? 'border-primary bg-primary/5 scale-[1.02]' 
-            : 'border-border/50 hover:border-primary/50 hover:bg-white/[0.02]'
-          }
+          relative cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-all duration-300
+          ${isDragActive ? 'border-primary bg-primary/5 scale-[1.02]' : 'border-border/50 hover:border-primary/50 hover:bg-white/[0.02]'}
           ${isUploading ? 'pointer-events-none opacity-60' : ''}
           ${uploadError ? 'border-destructive/50' : ''}
         `}
@@ -111,57 +105,28 @@ export function FileUploader() {
         
         <AnimatePresence mode="wait">
           {isUploading ? (
-            <motion.div
-              key="loading"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center gap-4"
-            >
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="text-lg font-medium">Processing your data...</p>
+            <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p className="font-medium">Processing...</p>
             </motion.div>
           ) : uploadError ? (
-            <motion.div
-              key="error"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center gap-4"
-            >
-              <AlertCircle className="h-12 w-12 text-destructive" />
-              <p className="text-lg font-medium text-destructive">{uploadError}</p>
-              <p className="text-sm text-muted-foreground">Click or drag to try again</p>
+            <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
+              <AlertCircle className="h-10 w-10 text-destructive" />
+              <p className="font-medium text-destructive">{uploadError}</p>
             </motion.div>
           ) : isDragActive ? (
-            <motion.div
-              key="drag"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center gap-4"
-            >
-              <FileSpreadsheet className="h-12 w-12 text-primary" />
-              <p className="text-lg font-medium text-primary">Drop your CSV file here</p>
+            <motion.div key="drag" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
+              <FileSpreadsheet className="h-10 w-10 text-primary" />
+              <p className="font-medium text-primary">Drop your CSV here</p>
             </motion.div>
           ) : (
-            <motion.div
-              key="default"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex flex-col items-center gap-4"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5">
-                <Upload className="h-8 w-8 text-primary" />
+            <motion.div key="default" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5">
+                <Upload className="h-7 w-7 text-primary" />
               </div>
               <div>
-                <p className="text-lg font-medium">
-                  Drag & drop your CSV file here
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  or click to browse files
-                </p>
+                <p className="font-medium">Drag & drop your CSV file</p>
+                <p className="mt-1 text-sm text-muted-foreground">or click to browse</p>
               </div>
             </motion.div>
           )}

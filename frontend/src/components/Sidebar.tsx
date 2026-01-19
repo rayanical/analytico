@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Clock, Trash2, ChevronRight } from 'lucide-react';
+import { BarChart3, Clock, Trash2, ChevronRight, Wand2, Wrench } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { HistoryItem } from '@/types';
 
@@ -26,16 +26,12 @@ export function Sidebar() {
 
   const chartTypeIcon = (type: string) => {
     switch (type) {
-      case 'bar':
-        return '📊';
-      case 'line':
-        return '📈';
-      case 'area':
-        return '📉';
-      case 'composed':
-        return '📦';
-      default:
-        return '📊';
+      case 'bar': return '📊';
+      case 'line': return '📈';
+      case 'area': return '📉';
+      case 'pie': return '🥧';
+      case 'composed': return '📦';
+      default: return '📊';
     }
   };
 
@@ -52,7 +48,7 @@ export function Sidebar() {
         </div>
         <div>
           <h1 className="text-lg font-bold text-foreground">Analytico</h1>
-          <p className="text-xs text-muted-foreground">AI Data Visualization</p>
+          <p className="text-xs text-muted-foreground">Self-Service Analytics</p>
         </div>
       </div>
 
@@ -82,7 +78,7 @@ export function Sidebar() {
             </div>
             <p className="text-sm text-muted-foreground">No charts yet</p>
             <p className="mt-1 text-xs text-muted-foreground/60">
-              Upload data and ask a question
+              Upload data and create a chart
             </p>
           </div>
         ) : (
@@ -95,17 +91,24 @@ export function Sidebar() {
                 transition={{ delay: index * 0.05 }}
                 onClick={() => selectFromHistory(item)}
                 className={`group w-full rounded-lg p-3 text-left transition-all ${
-                  currentChart?.title === item.chartConfig.title
+                  currentChart?.title === item.chartResponse.title
                     ? 'bg-primary/10 border border-primary/30'
                     : 'hover:bg-white/[0.03]'
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <span className="text-lg">{chartTypeIcon(item.chartConfig.chartType)}</span>
+                  <span className="text-lg">{chartTypeIcon(item.chartResponse.chart_type)}</span>
                   <div className="flex-1 overflow-hidden">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {item.chartConfig.title}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {item.chartResponse.title}
+                      </p>
+                      {item.isManual ? (
+                        <Wrench className="h-3 w-3 text-muted-foreground" />
+                      ) : (
+                        <Wand2 className="h-3 w-3 text-primary" />
+                      )}
+                    </div>
                     <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {item.query}
                     </p>

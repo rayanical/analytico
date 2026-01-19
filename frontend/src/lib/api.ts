@@ -1,5 +1,10 @@
-import axios from 'axios';
-import { ChartConfig, QueryRequest, UploadResponse } from '@/types';
+import axios, { AxiosError } from 'axios';
+import {
+  UploadResponse,
+  QueryRequest,
+  ChartResponse,
+  AggregateRequest,
+} from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -10,28 +15,85 @@ const api = axios.create({
   },
 });
 
-/**
- * Upload a CSV file and get parsed data with statistics
- */
-export async function uploadCSV(file: File): Promise<UploadResponse> {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const response = await api.post<UploadResponse>('/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-
-  return response.data;
+// Error handler
+function handleApiError(error: unknown): never {
+  if (error instanceof AxiosError && error.response?.data?.detail) {
+    throw new Error(error.response.data.detail);
+  }
+  throw error;
 }
 
 /**
- * Query the AI to generate a chart configuration
+ * Upload a CSV file - returns dataset_id and column metadata (no raw data)
  */
-export async function queryChart(request: QueryRequest): Promise<ChartConfig> {
-  const response = await api.post<ChartConfig>('/query', request);
-  return response.data;
+export async function uploadCSV(file: File): Promise<UploadResponse> {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post<UploadResponse>('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/**
+ * Query the AI to generate a chart configuration and get aggregated data
+ */
+export async function queryChart(request: QueryRequest): Promise<ChartResponse> {
+  try {
+    const response = await api.post<ChartResponse>('/query', {
+      dataset_id: request.dataset_id,
+      user_prompt: request.user_prompt,
+      filters: request.filters,
+    });
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/**
+ * Aggregate data manually (bypasses AI)
+ */
+export async function aggregateData(request: AggregateRequest): Promise<ChartResponse> {
+  try {
+    const response = await api.post<ChartResponse>('/aggregate', {
+      dataset_id: request.dataset_id,
+      x_axis_key: request.x_axis_key,
+      y_axis_keys: request.y_axis_keys,
+      aggregation: request.aggregation,
+      chart_type: request.chart_type,
+      filters: request.filters,
+    });
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/**
+ * Preview dataset rows
+ */
+export async function previewDataset(datasetId: string, limit: number = 100): Promise<{
+  data: Record<string, unknown>[];
+  total_rows: number;
+  showing: number;
+}> {
+  try {
+    const response = await api.get(`/dataset/${datasetId}/preview`, {
+      params: { limit },
+    });
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
 }
 
 export default api;

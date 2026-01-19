@@ -1,29 +1,49 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { DataSummary, ChartConfig, HistoryItem } from '@/types';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import {
+  ColumnSummary,
+  ChartResponse,
+  HistoryItem,
+  FilterConfig,
+  ViewMode,
+  BuilderMode,
+} from '@/types';
 
-interface DataState {
-  data: Record<string, unknown>[];
-  columns: string[];
-  summary: DataSummary;
-  fileName: string | null;
+interface DatasetState {
+  datasetId: string;
+  filename: string;
   rowCount: number;
-  truncated: boolean;
+  columns: ColumnSummary[];
 }
 
 interface DataContextType {
-  // Data state
-  dataState: DataState | null;
-  setDataState: (state: DataState | null) => void;
+  // Dataset state (no raw data, just metadata)
+  dataset: DatasetState | null;
+  setDataset: (state: DatasetState | null) => void;
   
-  // Current chart
-  currentChart: ChartConfig | null;
-  setCurrentChart: (chart: ChartConfig | null) => void;
+  // Current chart response (aggregated data)
+  currentChart: ChartResponse | null;
+  setCurrentChart: (chart: ChartResponse | null) => void;
+  
+  // Filters
+  filters: FilterConfig[];
+  setFilters: (filters: FilterConfig[]) => void;
+  addFilter: (filter: FilterConfig) => void;
+  removeFilter: (column: string) => void;
+  clearFilters: () => void;
+  
+  // View mode (chart vs table)
+  viewMode: ViewMode;
+  setViewMode: (mode: ViewMode) => void;
+  
+  // Builder mode (AI vs manual)
+  builderMode: BuilderMode;
+  setBuilderMode: (mode: BuilderMode) => void;
   
   // History
   history: HistoryItem[];
-  addToHistory: (query: string, config: ChartConfig) => void;
+  addToHistory: (query: string, response: ChartResponse, isManual: boolean) => void;
   selectFromHistory: (item: HistoryItem) => void;
   clearHistory: () => void;
   
@@ -33,31 +53,38 @@ interface DataContextType {
   isQuerying: boolean;
   setIsQuerying: (loading: boolean) => void;
   
-  // Clear all data
+  // Helpers
+  numericColumns: ColumnSummary[];
+  categoricalColumns: ColumnSummary[];
+  dateColumns: ColumnSummary[];
+  
+  // Clear all
   clearData: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'analytico_data';
+const DATASET_KEY = 'analytico_dataset';
 const HISTORY_KEY = 'analytico_history';
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [dataState, setDataStateInternal] = useState<DataState | null>(null);
-  const [currentChart, setCurrentChart] = useState<ChartConfig | null>(null);
+  const [dataset, setDatasetInternal] = useState<DatasetState | null>(null);
+  const [currentChart, setCurrentChart] = useState<ChartResponse | null>(null);
+  const [filters, setFiltersInternal] = useState<FilterConfig[]>([]);
+  const [viewMode, setViewMode] = useState<ViewMode>('chart');
+  const [builderMode, setBuilderMode] = useState<BuilderMode>('ai');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isQuerying, setIsQuerying] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
-  // Load from localStorage on mount (client-side only)
+  // Load from localStorage on mount
   useEffect(() => {
     setIsClient(true);
     try {
-      const savedData = localStorage.getItem(STORAGE_KEY);
-      if (savedData) {
-        const parsed = JSON.parse(savedData);
-        setDataStateInternal(parsed);
+      const savedDataset = localStorage.getItem(DATASET_KEY);
+      if (savedDataset) {
+        setDatasetInternal(JSON.parse(savedDataset));
       }
       
       const savedHistory = localStorage.getItem(HISTORY_KEY);
@@ -73,69 +100,106 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Save data to localStorage when it changes
-  const setDataState = (state: DataState | null) => {
-    setDataStateInternal(state);
-    if (isClient) {
-      try {
-        if (state) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      } catch (error) {
-        console.error('Error saving to localStorage:', error);
+  // Save dataset to localStorage
+  const setDataset = useCallback((state: DatasetState | null) => {
+    setDatasetInternal(state);
+    setCurrentChart(null);
+    setFiltersInternal([]);
+    if (typeof window !== 'undefined') {
+      if (state) {
+        localStorage.setItem(DATASET_KEY, JSON.stringify(state));
+      } else {
+        localStorage.removeItem(DATASET_KEY);
       }
     }
-  };
+  }, []);
 
-  // Save history to localStorage when it changes
+  // Save history to localStorage
   useEffect(() => {
     if (isClient && history.length > 0) {
-      try {
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-      } catch (error) {
-        console.error('Error saving history to localStorage:', error);
-      }
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
     }
   }, [history, isClient]);
 
-  const addToHistory = (query: string, config: ChartConfig) => {
+  // Filter management
+  const setFilters = useCallback((newFilters: FilterConfig[]) => {
+    setFiltersInternal(newFilters);
+  }, []);
+
+  const addFilter = useCallback((filter: FilterConfig) => {
+    setFiltersInternal(prev => {
+      const existing = prev.findIndex(f => f.column === filter.column);
+      if (existing >= 0) {
+        const updated = [...prev];
+        updated[existing] = filter;
+        return updated;
+      }
+      return [...prev, filter];
+    });
+  }, []);
+
+  const removeFilter = useCallback((column: string) => {
+    setFiltersInternal(prev => prev.filter(f => f.column !== column));
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setFiltersInternal([]);
+  }, []);
+
+  // History management
+  const addToHistory = useCallback((query: string, response: ChartResponse, isManual: boolean) => {
     const newItem: HistoryItem = {
       id: crypto.randomUUID(),
       query,
-      chartConfig: config,
+      chartResponse: response,
       timestamp: new Date(),
+      isManual,
     };
-    setHistory(prev => [newItem, ...prev].slice(0, 20)); // Keep last 20 items
-  };
+    setHistory(prev => [newItem, ...prev].slice(0, 20));
+  }, []);
 
-  const selectFromHistory = (item: HistoryItem) => {
-    setCurrentChart(item.chartConfig);
-  };
+  const selectFromHistory = useCallback((item: HistoryItem) => {
+    setCurrentChart(item.chartResponse);
+    setViewMode('chart');
+  }, []);
 
-  const clearHistory = () => {
+  const clearHistory = useCallback(() => {
     setHistory([]);
-    if (isClient) {
+    if (typeof window !== 'undefined') {
       localStorage.removeItem(HISTORY_KEY);
     }
-  };
+  }, []);
 
-  const clearData = () => {
-    setDataStateInternal(null);
+  const clearData = useCallback(() => {
+    setDatasetInternal(null);
     setCurrentChart(null);
-    if (isClient) {
-      localStorage.removeItem(STORAGE_KEY);
+    setFiltersInternal([]);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(DATASET_KEY);
     }
-  };
+  }, []);
+
+  // Computed column helpers
+  const numericColumns = dataset?.columns.filter(c => c.is_numeric) ?? [];
+  const categoricalColumns = dataset?.columns.filter(c => !c.is_numeric && !c.is_datetime) ?? [];
+  const dateColumns = dataset?.columns.filter(c => c.is_datetime) ?? [];
 
   return (
     <DataContext.Provider
       value={{
-        dataState,
-        setDataState,
+        dataset,
+        setDataset,
         currentChart,
         setCurrentChart,
+        filters,
+        setFilters,
+        addFilter,
+        removeFilter,
+        clearFilters,
+        viewMode,
+        setViewMode,
+        builderMode,
+        setBuilderMode,
         history,
         addToHistory,
         selectFromHistory,
@@ -144,6 +208,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setIsUploading,
         isQuerying,
         setIsQuerying,
+        numericColumns,
+        categoricalColumns,
+        dateColumns,
         clearData,
       }}
     >

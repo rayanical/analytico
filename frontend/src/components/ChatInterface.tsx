@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState,FormEvent } from 'react';
+import React, { useState, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,27 +10,28 @@ import { queryChart } from '@/lib/api';
 import { toast } from 'sonner';
 
 export function ChatInterface() {
-  const { dataState, setCurrentChart, addToHistory, isQuerying, setIsQuerying } = useData();
+  const { dataset, filters, setCurrentChart, addToHistory, isQuerying, setIsQuerying, setViewMode } = useData();
   const [query, setQuery] = useState('');
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
-    if (!query.trim() || !dataState || isQuerying) return;
+    if (!query.trim() || !dataset || isQuerying) return;
 
     setIsQuerying(true);
 
     try {
-      const chartConfig = await queryChart({
+      const response = await queryChart({
+        dataset_id: dataset.datasetId,
         user_prompt: query.trim(),
-        columns: dataState.columns,
-        data_summary: dataState.summary,
+        filters: filters.length > 0 ? filters : undefined,
       });
 
-      setCurrentChart(chartConfig);
-      addToHistory(query.trim(), chartConfig);
+      setCurrentChart(response);
+      addToHistory(query.trim(), response, false);
+      setViewMode('chart');
       setQuery('');
-      toast.success(`Generated: ${chartConfig.title}`);
+      toast.success(`Generated: ${response.title}`);
     } catch (error) {
       console.error('Query error:', error);
       const message = error instanceof Error ? error.message : 'Failed to generate chart';
@@ -40,10 +41,10 @@ export function ChatInterface() {
     }
   };
 
-  const isDisabled = !dataState || isQuerying;
+  const isDisabled = !dataset || isQuerying;
 
   const suggestions = [
-    'Show me a bar chart of revenue by month',
+    'Show me revenue by month as a bar chart',
     'Compare sales vs costs over time',
     'Create an area chart of monthly trends',
   ];
@@ -55,7 +56,7 @@ export function ChatInterface() {
       className="w-full"
     >
       {/* Suggestions */}
-      {dataState && !isQuerying && (
+      {dataset && !isQuerying && (
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -81,7 +82,7 @@ export function ChatInterface() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={dataState ? "Ask me to create a chart... (e.g., 'Show revenue by month as a bar chart')" : "Upload a CSV file first to start creating charts"}
+            placeholder={dataset ? "Ask me to create a chart..." : "Upload a CSV file first"}
             disabled={isDisabled}
             className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground/50 focus-visible:ring-0"
           />
@@ -90,7 +91,7 @@ export function ChatInterface() {
             type="submit"
             disabled={isDisabled || !query.trim()}
             size="icon"
-            className="h-10 w-10 shrink-0 rounded-lg bg-primary text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50"
+            className="h-10 w-10 shrink-0 rounded-lg"
           >
             {isQuerying ? (
               <Loader2 className="h-4 w-4 animate-spin" />
