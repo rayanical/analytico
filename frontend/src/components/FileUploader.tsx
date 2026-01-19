@@ -3,13 +3,29 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2, Database, Sparkles, AlertTriangle } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, Loader2, Database, Sparkles, AlertTriangle, TrendingUp } from 'lucide-react';
 import { useData } from '@/context/DataContext';
-import { uploadCSV } from '@/lib/api';
+import { uploadCSV, aggregateData } from '@/lib/api';
 import { toast } from 'sonner';
 
+// Smart number formatter with proper K/M/B scaling and $ prefix
+function formatCompact(value: number): string {
+  const abs = Math.abs(value);
+  if (abs >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `$${(value / 1e3).toFixed(1)}K`;
+  return `$${value.toFixed(0)}`;
+}
+
+// Format column name for display
+function formatName(name: string): string {
+  return name
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
 export function FileUploader() {
-  const { dataset, setDataset, setIsUploading, isUploading, clearData } = useData();
+  const { dataset, setDataset, setCurrentChart, addToHistory, setIsUploading, isUploading, clearData } = useData();
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -27,97 +43,98 @@ export function FileUploader() {
         filename: response.filename,
         rowCount: response.row_count,
         columns: response.columns,
+        columnFormats: response.column_formats,
         dataHealth: response.data_health,
+        profile: response.profile,
+        defaultChart: response.default_chart,
+        suggestions: response.suggestions,
       });
 
-      // Show cleaning actions if any
-      if (response.data_health.cleaning_actions.length > 0) {
-        toast.success(`Data cleaned: ${response.data_health.cleaning_actions.length} improvements made`, {
-          description: response.data_health.cleaning_actions[0],
-        });
+      // Auto-render default chart if available
+      if (response.default_chart) {
+        try {
+          const chartData = await aggregateData({
+            dataset_id: response.dataset_id,
+            x_axis_key: response.default_chart.x_axis_key,
+            y_axis_keys: response.default_chart.y_axis_keys,
+            aggregation: response.default_chart.aggregation,
+            chart_type: response.default_chart.chart_type,
+          });
+          
+          chartData.reasoning = response.default_chart.reasoning;
+          setCurrentChart(chartData);
+          addToHistory('Auto-generated insight', chartData, true);
+          
+          toast.success('Data loaded with instant insight!', {
+            description: response.default_chart.title,
+          });
+        } catch (e) {
+          console.error('Default chart error:', e);
+          toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
+        }
+      } else if (response.data_health.cleaning_actions.length > 0) {
+        toast.success(`Data cleaned: ${response.data_health.cleaning_actions.length} improvements`);
       } else {
         toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
       }
     } catch (error) {
-      console.error('Upload error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to upload file';
+      const message = error instanceof Error ? error.message : 'Upload failed';
       setUploadError(message);
       toast.error(message);
     } finally {
       setIsUploading(false);
     }
-  }, [setDataset, setIsUploading]);
+  }, [setDataset, setCurrentChart, addToHistory, setIsUploading]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'text/csv': ['.csv'] },
-    maxFiles: 1,
-    disabled: isUploading,
+    onDrop, accept: { 'text/csv': ['.csv'] }, maxFiles: 1, disabled: isUploading,
   });
 
-  // If we have data, show success state with health info
   if (dataset) {
-    const { dataHealth } = dataset;
+    const { dataHealth, profile } = dataset;
     const hasCleaning = dataHealth.cleaning_actions.length > 0;
-    const missingCount = Object.values(dataHealth.missing_values).reduce((a, b) => a + b, 0);
-    const totalCells = dataset.rowCount * dataset.columns.length;
-    const missingPercent = totalCells > 0 ? (missingCount / totalCells) * 100 : 0;
-    const hasWarning = missingPercent > 10;
+    const hasWarning = dataHealth.quality_score < 90;
     
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full"
-      >
-        <div className={`relative rounded-xl border p-4 ${
-          hasWarning 
-            ? 'border-yellow-500/30 bg-yellow-500/5' 
-            : 'border-emerald-500/30 bg-emerald-500/5'
-        }`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                hasWarning ? 'bg-yellow-500/20' : 'bg-emerald-500/20'
-              }`}>
-                {hasWarning ? (
-                  <AlertTriangle className="h-6 w-6 text-yellow-400" />
-                ) : (
-                  <Database className="h-6 w-6 text-emerald-400" />
-                )}
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full">
+        <div className={`rounded-xl border p-4 ${hasWarning ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-emerald-500/30 bg-emerald-500/5'}`}>
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-4">
+              <div className={`flex h-12 w-12 items-center justify-center rounded-full ${hasWarning ? 'bg-yellow-500/20' : 'bg-emerald-500/20'}`}>
+                {hasWarning ? <AlertTriangle className="h-6 w-6 text-yellow-400" /> : <Database className="h-6 w-6 text-emerald-400" />}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className={`font-semibold ${hasWarning ? 'text-yellow-300' : 'text-emerald-300'}`}>
-                    {dataset.filename}
-                  </h3>
+                  <h3 className={`font-semibold ${hasWarning ? 'text-yellow-300' : 'text-emerald-300'}`}>{dataset.filename}</h3>
                   {hasCleaning && (
                     <span className="flex items-center gap-1 rounded-full bg-primary/20 px-2 py-0.5 text-xs font-medium text-primary">
-                      <Sparkles className="h-3 w-3" />
-                      Data Cleaned
+                      <Sparkles className="h-3 w-3" />Data Cleaned
                     </span>
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {dataset.rowCount.toLocaleString()} rows • {dataset.columns.length} columns
-                  {dataHealth.quality_score < 100 && (
-                    <span className={`ml-2 ${hasWarning ? 'text-yellow-400' : ''}`}>
-                      • Quality: {dataHealth.quality_score.toFixed(0)}%
-                    </span>
-                  )}
+                  {dataset.rowCount.toLocaleString()} rows • {dataset.columns.length} cols • {dataHealth.quality_score.toFixed(0)}% quality
                 </p>
-                {hasCleaning && (
-                  <p className="mt-1 text-xs text-muted-foreground/70">
-                    {dataHealth.cleaning_actions[0]}
-                    {dataHealth.cleaning_actions.length > 1 && ` +${dataHealth.cleaning_actions.length - 1} more`}
-                  </p>
+                {/* Executive Summary with smart formatting */}
+                {profile.top_metrics.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {profile.top_metrics.slice(0, 2).map(m => (
+                      <div key={m.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <TrendingUp className="h-3 w-3 text-primary" />
+                        <span className="font-medium">{formatName(m.name)}:</span>
+                        <span>{formatCompact(m.total)} total</span>
+                      </div>
+                    ))}
+                    {profile.time_range && (
+                      <div className="text-xs text-muted-foreground">
+                        📅 {profile.time_range.start.slice(0, 10)} → {profile.time_range.end.slice(0, 10)}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
-            <button
-              onClick={clearData}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-white/5 hover:text-white"
-            >
+            <button onClick={clearData} className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-white">
               Upload New
             </button>
           </div>
@@ -127,27 +144,16 @@ export function FileUploader() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="w-full"
-    >
-      <div
-        {...getRootProps()}
-        className={`
-          relative cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-all duration-300
-          ${isDragActive ? 'border-primary bg-primary/5 scale-[1.02]' : 'border-border/50 hover:border-primary/50 hover:bg-white/[0.02]'}
-          ${isUploading ? 'pointer-events-none opacity-60' : ''}
-          ${uploadError ? 'border-destructive/50' : ''}
-        `}
-      >
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full">
+      <div {...getRootProps()} className={`relative cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-all duration-300
+        ${isDragActive ? 'border-primary bg-primary/5 scale-[1.02]' : 'border-border/50 hover:border-primary/50 hover:bg-white/[0.02]'}
+        ${isUploading ? 'pointer-events-none opacity-60' : ''} ${uploadError ? 'border-destructive/50' : ''}`}>
         <input {...getInputProps()} />
-        
         <AnimatePresence mode="wait">
           {isUploading ? (
             <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="font-medium">Processing & cleaning data...</p>
+              <p className="font-medium">Analyzing & cleaning data...</p>
             </motion.div>
           ) : uploadError ? (
             <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
@@ -157,7 +163,7 @@ export function FileUploader() {
           ) : isDragActive ? (
             <motion.div key="drag" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
               <FileSpreadsheet className="h-10 w-10 text-primary" />
-              <p className="font-medium text-primary">Drop your CSV here</p>
+              <p className="font-medium text-primary">Drop to analyze</p>
             </motion.div>
           ) : (
             <motion.div key="default" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
@@ -165,8 +171,8 @@ export function FileUploader() {
                 <Upload className="h-7 w-7 text-primary" />
               </div>
               <div>
-                <p className="font-medium">Drag & drop your CSV file</p>
-                <p className="mt-1 text-sm text-muted-foreground">We'll auto-clean and validate your data</p>
+                <p className="font-medium">Drop any CSV — we&apos;ll handle the rest</p>
+                <p className="mt-1 text-sm text-muted-foreground">Auto-clean, profile, and generate instant insights</p>
               </div>
             </motion.div>
           )}
