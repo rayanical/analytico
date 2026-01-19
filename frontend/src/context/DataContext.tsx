@@ -8,6 +8,7 @@ import {
   FilterConfig,
   ViewMode,
   BuilderMode,
+  DataHealth,
 } from '@/types';
 
 interface DatasetState {
@@ -15,14 +16,15 @@ interface DatasetState {
   filename: string;
   rowCount: number;
   columns: ColumnSummary[];
+  dataHealth: DataHealth;
 }
 
 interface DataContextType {
-  // Dataset state (no raw data, just metadata)
+  // Dataset state
   dataset: DatasetState | null;
   setDataset: (state: DatasetState | null) => void;
   
-  // Current chart response (aggregated data)
+  // Current chart response
   currentChart: ChartResponse | null;
   setCurrentChart: (chart: ChartResponse | null) => void;
   
@@ -33,11 +35,9 @@ interface DataContextType {
   removeFilter: (column: string) => void;
   clearFilters: () => void;
   
-  // View mode (chart vs table)
+  // View & Builder modes
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
-  
-  // Builder mode (AI vs manual)
   builderMode: BuilderMode;
   setBuilderMode: (mode: BuilderMode) => void;
   
@@ -53,19 +53,20 @@ interface DataContextType {
   isQuerying: boolean;
   setIsQuerying: (loading: boolean) => void;
   
-  // Helpers
+  // Column helpers
   numericColumns: ColumnSummary[];
   categoricalColumns: ColumnSummary[];
-  dateColumns: ColumnSummary[];
+  metricColumns: ColumnSummary[];
+  temporalColumns: ColumnSummary[];
   
-  // Clear all
+  // Clear
   clearData: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
-const DATASET_KEY = 'analytico_dataset';
-const HISTORY_KEY = 'analytico_history';
+const DATASET_KEY = 'analytico_dataset_v3';
+const HISTORY_KEY = 'analytico_history_v3';
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [dataset, setDatasetInternal] = useState<DatasetState | null>(null);
@@ -78,7 +79,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [isQuerying, setIsQuerying] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
-  // Load from localStorage on mount
   useEffect(() => {
     setIsClient(true);
     try {
@@ -100,7 +100,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Save dataset to localStorage
   const setDataset = useCallback((state: DatasetState | null) => {
     setDatasetInternal(state);
     setCurrentChart(null);
@@ -114,14 +113,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Save history to localStorage
   useEffect(() => {
     if (isClient && history.length > 0) {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
     }
   }, [history, isClient]);
 
-  // Filter management
   const setFilters = useCallback((newFilters: FilterConfig[]) => {
     setFiltersInternal(newFilters);
   }, []);
@@ -146,7 +143,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setFiltersInternal([]);
   }, []);
 
-  // History management
   const addToHistory = useCallback((query: string, response: ChartResponse, isManual: boolean) => {
     const newItem: HistoryItem = {
       id: crypto.randomUUID(),
@@ -179,10 +175,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Computed column helpers
+  // Column helpers based on semantic types
   const numericColumns = dataset?.columns.filter(c => c.is_numeric) ?? [];
-  const categoricalColumns = dataset?.columns.filter(c => !c.is_numeric && !c.is_datetime) ?? [];
-  const dateColumns = dataset?.columns.filter(c => c.is_datetime) ?? [];
+  const categoricalColumns = dataset?.columns.filter(c => c.semantic_type === 'categorical') ?? [];
+  const metricColumns = dataset?.columns.filter(c => c.semantic_type === 'metric') ?? [];
+  const temporalColumns = dataset?.columns.filter(c => c.semantic_type === 'temporal') ?? [];
 
   return (
     <DataContext.Provider
@@ -210,7 +207,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setIsQuerying,
         numericColumns,
         categoricalColumns,
-        dateColumns,
+        metricColumns,
+        temporalColumns,
         clearData,
       }}
     >

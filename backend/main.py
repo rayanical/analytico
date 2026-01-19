@@ -1,12 +1,13 @@
 """
-Analytico Backend V2 - FastAPI Server
+Analytico Backend V3 - FastAPI Server
 Self-service data visualization with AI-powered chart generation
-Features: Dataset persistence, aggregation, filtering, fuzzy validation
+Features: Smart ingestion, semantic guardrails, health scorecard, explainability
 """
 
 import difflib
 import json
 import os
+import re
 import uuid
 from datetime import datetime, timedelta
 from typing import Any, Optional
@@ -23,12 +24,12 @@ load_dotenv()
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Analytico API V2",
-    description="AI-powered data visualization backend with aggregation",
-    version="2.0.0"
+    title="Analytico API V3",
+    description="AI-powered data visualization with robustness pillars",
+    version="3.0.0"
 )
 
-# Configure CORS for frontend
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -40,47 +41,230 @@ app.add_middleware(
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+
 # ============================================================================
-# Dataset Storage (In-Memory with Expiry)
+# Pillar 1: Data Janitor (Smart Ingestion)
+# ============================================================================
+
+def normalize_header(header: str) -> str:
+    """Convert header to snake_case"""
+    # Strip whitespace and special chars
+    clean = re.sub(r'[^\w\s]', '', header.strip())
+    # Replace spaces with underscores
+    clean = re.sub(r'\s+', '_', clean)
+    # Convert to lowercase
+    return clean.lower()
+
+
+def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str, int]]:
+    """
+    Clean and repair a DataFrame.
+    Returns: (cleaned_df, cleaning_actions, missing_counts)
+    """
+    cleaning_actions = []
+    missing_counts = {}
+    
+    # 1. Header Normalization
+    original_cols = df.columns.tolist()
+    new_cols = [normalize_header(col) for col in original_cols]
+    
+    # Track renamed columns
+    renamed = [(orig, new) for orig, new in zip(original_cols, new_cols) if orig != new]
+    if renamed:
+        cleaning_actions.append(f"Normalized {len(renamed)} column headers to snake_case")
+    
+    df.columns = new_cols
+    
+    # 2. Type Repair for string columns
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            # Sample non-null values
+            sample = df[col].dropna().head(100).astype(str)
+            if len(sample) == 0:
+                continue
+            
+            # Check for currency pattern ($1,234.56)
+            currency_pattern = r'^\$?[\d,]+\.?\d*$'
+            currency_matches = sample.str.replace(',', '').str.match(currency_pattern).sum()
+            
+            if currency_matches > len(sample) * 0.5:
+                try:
+                    # Remove $ and , then convert
+                    df[col] = df[col].astype(str).str.replace('$', '', regex=False).str.replace(',', '', regex=False)
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                    cleaning_actions.append(f"Converted '{col}' from currency text to numeric")
+                except Exception:
+                    pass
+                continue
+            
+            # Check for percentage pattern (15%, 0.15)
+            pct_pattern = r'^\d+\.?\d*%$'
+            pct_matches = sample.str.match(pct_pattern).sum()
+            
+            if pct_matches > len(sample) * 0.5:
+                try:
+                    df[col] = df[col].astype(str).str.replace('%', '', regex=False)
+                    df[col] = pd.to_numeric(df[col], errors='coerce') / 100
+                    cleaning_actions.append(f"Converted '{col}' from percentage text to decimal")
+                except Exception:
+                    pass
+    
+    # 3. Auto-Imputation for numeric columns
+    numeric_cols = df.select_dtypes(include=['number']).columns
+    for col in numeric_cols:
+        missing_count = df[col].isna().sum()
+        if missing_count > 0:
+            missing_counts[col] = int(missing_count)
+            df[col] = df[col].fillna(0)
+    
+    if missing_counts:
+        total = sum(missing_counts.values())
+        cleaning_actions.append(f"Filled {total} missing numeric values with 0")
+    
+    return df, cleaning_actions, missing_counts
+
+
+# ============================================================================
+# Pillar 2: Semantic Guardrails
+# ============================================================================
+
+class SemanticType:
+    METRIC = "metric"         # Normal numeric for aggregation
+    IDENTIFIER = "identifier" # IDs, keys, codes - only COUNT
+    TEMPORAL = "temporal"     # Year, month - prefer as X-axis
+    CATEGORICAL = "categorical"
+
+
+def detect_semantic_type(df: pd.DataFrame, col: str) -> str:
+    """Detect the semantic type of a column"""
+    series = df[col]
+    col_lower = col.lower()
+    
+    # Check for temporal patterns
+    temporal_keywords = ['year', 'month', 'quarter', 'fy', 'fiscal', 'period', 'week', 'day']
+    if any(kw in col_lower for kw in temporal_keywords):
+        return SemanticType.TEMPORAL
+    
+    # Check for identifiers (numeric with high uniqueness)
+    if pd.api.types.is_numeric_dtype(series):
+        unique_ratio = series.nunique() / max(len(series), 1)
+        id_keywords = ['id', 'key', 'code', 'num', 'number', 'zip', 'postal', 'phone', 'ssn']
+        
+        if unique_ratio > 0.9 and any(kw in col_lower for kw in id_keywords):
+            return SemanticType.IDENTIFIER
+        
+        return SemanticType.METRIC
+    
+    return SemanticType.CATEGORICAL
+
+
+def enforce_semantic_rules(
+    aggregation: str,
+    y_axis_keys: list[str],
+    column_types: dict[str, str]
+) -> tuple[str, list[str]]:
+    """
+    Enforce semantic rules on aggregation.
+    Returns: (adjusted_aggregation, warnings)
+    """
+    warnings = []
+    
+    # Check if any y-axis column is an identifier
+    identifier_cols = [col for col in y_axis_keys if column_types.get(col) == SemanticType.IDENTIFIER]
+    
+    if identifier_cols and aggregation in ['sum', 'mean']:
+        warnings.append(f"Changed aggregation from '{aggregation}' to 'count' for identifier columns: {identifier_cols}")
+        return 'count', warnings
+    
+    return aggregation, warnings
+
+
+# ============================================================================
+# Pillar 4: Explainability Helpers
+# ============================================================================
+
+def df_to_markdown_sample(df: pd.DataFrame, n: int = 5) -> str:
+    """Convert first N rows of DataFrame to Markdown table"""
+    sample = df.head(n)
+    
+    # Build header
+    header = "| " + " | ".join(str(col) for col in sample.columns) + " |"
+    separator = "| " + " | ".join("---" for _ in sample.columns) + " |"
+    
+    # Build rows
+    rows = []
+    for _, row in sample.iterrows():
+        row_str = "| " + " | ".join(str(v)[:30] for v in row.values) + " |"
+        rows.append(row_str)
+    
+    return "\n".join([header, separator] + rows)
+
+
+def compute_calculated_field(df: pd.DataFrame, expression: str, field_name: str) -> pd.DataFrame:
+    """
+    Compute a calculated field from an expression.
+    Example: expression = "revenue - cost", field_name = "profit"
+    """
+    try:
+        # Parse simple arithmetic expressions
+        # Supported: addition, subtraction, multiplication, division
+        df = df.copy()
+        
+        # Replace column names with df['col'] syntax
+        expr = expression
+        for col in df.columns:
+            # Match whole word only
+            expr = re.sub(rf'\b{re.escape(col)}\b', f"df['{col}']", expr)
+        
+        # Evaluate safely
+        df[field_name] = eval(expr)
+        return df
+    except Exception as e:
+        # If calculation fails, return original df
+        return df
+
+
+# ============================================================================
+# Dataset Storage
 # ============================================================================
 
 class DatasetInfo:
-    def __init__(self, df: pd.DataFrame, filename: str):
+    def __init__(self, df: pd.DataFrame, filename: str, 
+                 cleaning_actions: list[str], missing_counts: dict[str, int],
+                 column_types: dict[str, str]):
         self.df = df
         self.filename = filename
         self.created_at = datetime.now()
         self.last_accessed = datetime.now()
+        self.cleaning_actions = cleaning_actions
+        self.missing_counts = missing_counts
+        self.column_types = column_types
     
     def touch(self):
-        """Update last accessed time"""
         self.last_accessed = datetime.now()
     
     def is_expired(self, ttl_hours: int = 1) -> bool:
-        """Check if dataset has expired"""
         return datetime.now() - self.last_accessed > timedelta(hours=ttl_hours)
 
 
-# In-memory dataset store
 DATASETS: dict[str, DatasetInfo] = {}
 MAX_DATASETS = 10
 DATASET_TTL_HOURS = 1
 
 
 def cleanup_expired_datasets():
-    """Remove expired datasets"""
     expired = [k for k, v in DATASETS.items() if v.is_expired(DATASET_TTL_HOURS)]
     for key in expired:
         del DATASETS[key]
 
 
 def get_dataset(dataset_id: str) -> DatasetInfo:
-    """Get dataset by ID, raises 404 if not found"""
     cleanup_expired_datasets()
     
     if dataset_id not in DATASETS:
         raise HTTPException(
             status_code=404,
-            detail=f"Dataset '{dataset_id}' not found or expired. Please re-upload your file."
+            detail=f"Dataset '{dataset_id}' not found or expired. Please re-upload."
         )
     
     dataset = DATASETS[dataset_id]
@@ -92,11 +276,18 @@ def get_dataset(dataset_id: str) -> DatasetInfo:
 # Pydantic Models
 # ============================================================================
 
+class DataHealth(BaseModel):
+    missing_values: dict[str, int]
+    cleaning_actions: list[str]
+    quality_score: float  # 0-100
+
+
 class ColumnSummary(BaseModel):
     name: str
     dtype: str
     is_numeric: bool
     is_datetime: bool
+    semantic_type: str
     unique_count: int
     sample_values: list[Any]
     min_val: Optional[float] = None
@@ -109,20 +300,21 @@ class UploadResponse(BaseModel):
     filename: str
     row_count: int
     columns: list[ColumnSummary]
+    data_health: DataHealth
 
 
 class FilterConfig(BaseModel):
     column: str
-    values: Optional[list[Any]] = None  # For categorical
-    min_val: Optional[Any] = None       # For numeric/date range
-    max_val: Optional[Any] = None       # For numeric/date range
+    values: Optional[list[Any]] = None
+    min_val: Optional[Any] = None
+    max_val: Optional[Any] = None
 
 
 class AggregateRequest(BaseModel):
     dataset_id: str
     x_axis_key: str
     y_axis_keys: list[str]
-    aggregation: str = "sum"  # sum, mean, count, min, max
+    aggregation: str = "sum"
     chart_type: str = "bar"
     filters: Optional[list[FilterConfig]] = None
 
@@ -134,6 +326,8 @@ class AggregateResponse(BaseModel):
     chart_type: str
     title: str
     row_count: int
+    reasoning: Optional[str] = None
+    warnings: Optional[list[str]] = None
 
 
 class QueryRequest(BaseModel):
@@ -149,19 +343,15 @@ class QueryResponse(BaseModel):
     chart_type: str
     title: str
     row_count: int
-
-
-class ErrorResponse(BaseModel):
-    error: str
-    suggestions: Optional[list[str]] = None
+    reasoning: str
+    warnings: Optional[list[str]] = None
 
 
 # ============================================================================
 # Helper Functions
 # ============================================================================
 
-def get_column_summary(df: pd.DataFrame, col: str) -> ColumnSummary:
-    """Generate summary for a single column"""
+def get_column_summary(df: pd.DataFrame, col: str, semantic_type: str) -> ColumnSummary:
     series = df[col]
     is_numeric = pd.api.types.is_numeric_dtype(series)
     is_datetime = pd.api.types.is_datetime64_any_dtype(series)
@@ -171,6 +361,7 @@ def get_column_summary(df: pd.DataFrame, col: str) -> ColumnSummary:
         dtype=str(series.dtype),
         is_numeric=is_numeric,
         is_datetime=is_datetime,
+        semantic_type=semantic_type,
         unique_count=int(series.nunique()),
         sample_values=series.dropna().head(5).tolist()
     )
@@ -184,10 +375,6 @@ def get_column_summary(df: pd.DataFrame, col: str) -> ColumnSummary:
 
 
 def validate_columns(df: pd.DataFrame, columns: list[str]) -> tuple[bool, list[str], dict[str, list[str]]]:
-    """
-    Validate that columns exist in DataFrame.
-    Returns: (is_valid, missing_columns, suggestions_map)
-    """
     df_columns = df.columns.tolist()
     missing = [col for col in columns if col not in df_columns]
     
@@ -203,7 +390,6 @@ def validate_columns(df: pd.DataFrame, columns: list[str]) -> tuple[bool, list[s
 
 
 def apply_filters(df: pd.DataFrame, filters: Optional[list[FilterConfig]]) -> pd.DataFrame:
-    """Apply filters to DataFrame"""
     if not filters:
         return df
     
@@ -213,11 +399,9 @@ def apply_filters(df: pd.DataFrame, filters: Optional[list[FilterConfig]]) -> pd
         if f.column not in filtered_df.columns:
             continue
         
-        # Categorical filter
         if f.values is not None:
             filtered_df = filtered_df[filtered_df[f.column].isin(f.values)]
         
-        # Range filter
         if f.min_val is not None:
             filtered_df = filtered_df[filtered_df[f.column] >= f.min_val]
         if f.max_val is not None:
@@ -232,24 +416,12 @@ def aggregate_data(
     y_axis_keys: list[str],
     aggregation: str = "sum"
 ) -> pd.DataFrame:
-    """Aggregate data by grouping on x_axis_key"""
-    agg_funcs = {
-        "sum": "sum",
-        "mean": "mean",
-        "count": "count",
-        "min": "min",
-        "max": "max"
-    }
-    
+    agg_funcs = {"sum": "sum", "mean": "mean", "count": "count", "min": "min", "max": "max"}
     agg_func = agg_funcs.get(aggregation, "sum")
     
-    # Group and aggregate
     grouped = df.groupby(x_axis_key, as_index=False)[y_axis_keys].agg(agg_func)
-    
-    # Sort by x-axis for better visualization
     grouped = grouped.sort_values(x_axis_key)
     
-    # Limit to 100 rows max for performance
     if len(grouped) > 100:
         grouped = grouped.head(100)
     
@@ -257,7 +429,6 @@ def aggregate_data(
 
 
 def generate_chart_title(x_axis: str, y_axes: list[str], chart_type: str) -> str:
-    """Generate a descriptive title for the chart"""
     y_str = " vs ".join(y_axes[:3])
     if len(y_axes) > 3:
         y_str += f" (+{len(y_axes) - 3} more)"
@@ -265,21 +436,35 @@ def generate_chart_title(x_axis: str, y_axes: list[str], chart_type: str) -> str
 
 
 # ============================================================================
-# System Prompt for OpenAI
+# System Prompt for OpenAI (Updated for Explainability)
 # ============================================================================
 
-SYSTEM_PROMPT = """You are a data visualization assistant. You receive a user question and dataset metadata.
-Return a raw JSON object (no markdown) that maps the user's request to columns for a Recharts graph.
+SYSTEM_PROMPT = """You are a data visualization assistant. You receive a user question, dataset columns with semantic types, and a sample of the data.
 
-Rules:
-1. xAxisKey MUST be a column from the provided columns list
-2. yAxisKeys MUST only contain NUMERIC columns from the provided list
-3. chartType must be: "bar", "line", "area", "pie", or "composed"
-4. aggregation must be: "sum", "mean", "count", "min", or "max"
-5. Generate a descriptive title
+Return a raw JSON object (no markdown) with:
+1. xAxisKey: Column for X-axis (prefer TEMPORAL or CATEGORICAL columns)
+2. yAxisKeys: List of METRIC columns for Y-axis
+3. chartType: "bar", "line", "area", "pie", or "composed"
+4. aggregation: "sum", "mean", "count", "min", or "max"
+5. title: Descriptive chart title
+6. reasoning: 1-2 sentences explaining WHY you chose this configuration
+7. calculated_field (optional): Object with {name, expression} if user wants derived metrics (e.g., profit = revenue - cost)
+
+Semantic Type Rules:
+- IDENTIFIER columns (IDs, codes): Use COUNT, never SUM/AVG
+- TEMPORAL columns (year, month): Prefer as X-axis
+- METRIC columns: Use for Y-axis with appropriate aggregation
 
 Example Output:
-{"xAxisKey": "month", "yAxisKeys": ["revenue", "cost"], "chartType": "bar", "aggregation": "sum", "title": "Revenue vs Cost by Month"}
+{
+  "xAxisKey": "department",
+  "yAxisKeys": ["salary", "bonus"],
+  "chartType": "bar",
+  "aggregation": "sum",
+  "title": "Total Compensation by Department",
+  "reasoning": "I selected a Bar Chart because 'department' is categorical. I used 'sum' for 'salary' and 'bonus' to show total spend per department.",
+  "calculated_field": null
+}
 
 Return ONLY the JSON object."""
 
@@ -290,65 +475,76 @@ Return ONLY the JSON object."""
 
 @app.get("/")
 async def root():
-    """Health check endpoint"""
     return {
         "status": "ok",
-        "message": "Analytico API V2",
+        "message": "Analytico API V3",
         "active_datasets": len(DATASETS)
     }
 
 
 @app.post("/upload", response_model=UploadResponse)
 async def upload_csv(file: UploadFile = File(...)):
-    """
-    Upload a CSV file. The file is stored server-side and a dataset_id is returned.
-    Only metadata (columns, summary) is sent to the frontend.
-    """
-    # Validate file type
+    """Upload and clean a CSV file"""
     if not file.filename or not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Please upload a CSV file.")
     
     try:
-        # Read CSV
         df = pd.read_csv(file.file)
         
         if df.empty:
             raise HTTPException(status_code=400, detail="The CSV file is empty.")
         
-        # Clean up expired datasets and check limit
+        # Pillar 1: Clean the DataFrame
+        df, cleaning_actions, missing_counts = clean_dataframe(df)
+        
+        # Pillar 2: Detect semantic types
+        column_types = {col: detect_semantic_type(df, col) for col in df.columns}
+        
+        # Calculate quality score
+        total_cells = len(df) * len(df.columns)
+        missing_total = sum(missing_counts.values())
+        quality_score = max(0, 100 - (missing_total / max(total_cells, 1) * 100))
+        
+        # Cleanup and store
         cleanup_expired_datasets()
         if len(DATASETS) >= MAX_DATASETS:
-            # Remove oldest dataset
             oldest_key = min(DATASETS, key=lambda k: DATASETS[k].last_accessed)
             del DATASETS[oldest_key]
         
-        # Generate dataset ID and store
         dataset_id = str(uuid.uuid4())
-        DATASETS[dataset_id] = DatasetInfo(df, file.filename)
+        DATASETS[dataset_id] = DatasetInfo(
+            df, file.filename, cleaning_actions, missing_counts, column_types
+        )
         
-        # Generate column summaries
-        columns = [get_column_summary(df, col) for col in df.columns]
+        # Build response
+        columns = [
+            get_column_summary(df, col, column_types[col]) 
+            for col in df.columns
+        ]
         
         return UploadResponse(
             dataset_id=dataset_id,
             filename=file.filename,
             row_count=len(df),
-            columns=columns
+            columns=columns,
+            data_health=DataHealth(
+                missing_values=missing_counts,
+                cleaning_actions=cleaning_actions,
+                quality_score=round(quality_score, 1)
+            )
         )
         
     except pd.errors.EmptyDataError:
-        raise HTTPException(status_code=400, detail="The CSV file is empty or malformed.")
+        raise HTTPException(status_code=400, detail="Empty or malformed CSV.")
     except pd.errors.ParserError as e:
-        raise HTTPException(status_code=400, detail=f"Failed to parse CSV: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Parse error: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
 @app.post("/aggregate", response_model=AggregateResponse)
 async def aggregate_data_endpoint(request: AggregateRequest):
-    """
-    Aggregate data from a stored dataset. Used by the Manual Chart Builder.
-    """
+    """Aggregate data with semantic guardrails"""
     dataset = get_dataset(request.dataset_id)
     df = dataset.df
     
@@ -369,29 +565,26 @@ async def aggregate_data_endpoint(request: AggregateRequest):
     numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
     non_numeric = [col for col in request.y_axis_keys if col not in numeric_cols]
     if non_numeric:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Y-axis columns must be numeric. Non-numeric: {non_numeric}"
-        )
+        raise HTTPException(status_code=400, detail=f"Y-axis columns must be numeric: {non_numeric}")
+    
+    # Pillar 2: Enforce semantic rules
+    aggregation, warnings = enforce_semantic_rules(
+        request.aggregation,
+        request.y_axis_keys,
+        dataset.column_types
+    )
     
     # Apply filters
     filtered_df = apply_filters(df, request.filters)
     
     if filtered_df.empty:
-        raise HTTPException(status_code=400, detail="No data matches the applied filters.")
+        raise HTTPException(status_code=400, detail="No data matches filters.")
     
     # Aggregate
-    aggregated = aggregate_data(
-        filtered_df,
-        request.x_axis_key,
-        request.y_axis_keys,
-        request.aggregation
-    )
+    aggregated = aggregate_data(filtered_df, request.x_axis_key, request.y_axis_keys, aggregation)
     
     # Convert to records
     data = aggregated.to_dict(orient='records')
-    
-    # Clean NaN values
     for row in data:
         for key in row:
             if pd.isna(row[key]):
@@ -403,39 +596,39 @@ async def aggregate_data_endpoint(request: AggregateRequest):
         y_axis_keys=request.y_axis_keys,
         chart_type=request.chart_type,
         title=generate_chart_title(request.x_axis_key, request.y_axis_keys, request.chart_type),
-        row_count=len(data)
+        row_count=len(data),
+        warnings=warnings if warnings else None
     )
 
 
 @app.post("/query", response_model=QueryResponse)
 async def query_data(request: QueryRequest):
-    """
-    Generate a chart configuration from a natural language query.
-    Uses OpenAI to interpret the request, then aggregates server-side.
-    """
-    # Check for OpenAI API key
+    """AI-powered chart generation with context and explainability"""
     if not os.getenv("OPENAI_API_KEY"):
-        raise HTTPException(
-            status_code=500,
-            detail="OpenAI API key not configured."
-        )
+        raise HTTPException(status_code=500, detail="OpenAI API key not configured.")
     
     dataset = get_dataset(request.dataset_id)
     df = dataset.df
     
-    # Build column info for AI
+    # Build column info with semantic types
     columns_info = []
     for col in df.columns:
+        sem_type = dataset.column_types.get(col, "unknown")
         is_numeric = pd.api.types.is_numeric_dtype(df[col])
-        col_type = "numeric" if is_numeric else "categorical"
-        columns_info.append(f"{col} ({col_type})")
+        type_label = f"{sem_type.upper()}, {'numeric' if is_numeric else 'text'}"
+        columns_info.append(f"- {col} ({type_label})")
+    
+    # Pillar 4: Context injection with sample data
+    sample_table = df_to_markdown_sample(df, 5)
     
     try:
-        # Call OpenAI
         user_message = f"""User Question: {request.user_prompt}
 
 Available Columns:
 {chr(10).join(columns_info)}
+
+Sample Data (first 5 rows):
+{sample_table}
 
 Dataset has {len(df)} rows."""
 
@@ -446,7 +639,7 @@ Dataset has {len(df)} rows."""
                 {"role": "user", "content": user_message}
             ],
             temperature=0.3,
-            max_tokens=500
+            max_tokens=800
         )
         
         content = response.choices[0].message.content
@@ -461,7 +654,7 @@ Dataset has {len(df)} rows."""
         
         chart_config = json.loads(cleaned)
         
-        # Validate columns exist
+        # Validate columns
         all_columns = [chart_config["xAxisKey"]] + chart_config["yAxisKeys"]
         is_valid, missing, suggestions = validate_columns(df, all_columns)
         
@@ -471,28 +664,35 @@ Dataset has {len(df)} rows."""
                 if suggestions.get(col):
                     error_parts.append(f"Column '{col}' not found. Did you mean: {', '.join(suggestions[col])}?")
                 else:
-                    error_parts.append(f"Column '{col}' not found in dataset.")
+                    error_parts.append(f"Column '{col}' not found.")
             raise HTTPException(status_code=400, detail=" ".join(error_parts))
         
+        # Handle calculated fields
+        working_df = df.copy()
+        y_keys = chart_config["yAxisKeys"]
+        
+        if chart_config.get("calculated_field"):
+            calc = chart_config["calculated_field"]
+            if isinstance(calc, dict) and "name" in calc and "expression" in calc:
+                working_df = compute_calculated_field(working_df, calc["expression"], calc["name"])
+                if calc["name"] in working_df.columns:
+                    y_keys = y_keys + [calc["name"]]
+        
         # Apply filters
-        filtered_df = apply_filters(df, request.filters)
+        filtered_df = apply_filters(working_df, request.filters)
         
         if filtered_df.empty:
-            raise HTTPException(status_code=400, detail="No data matches the applied filters.")
+            raise HTTPException(status_code=400, detail="No data matches filters.")
+        
+        # Enforce semantic rules
+        aggregation = chart_config.get("aggregation", "sum")
+        aggregation, warnings = enforce_semantic_rules(aggregation, y_keys, dataset.column_types)
         
         # Aggregate
-        aggregation = chart_config.get("aggregation", "sum")
-        aggregated = aggregate_data(
-            filtered_df,
-            chart_config["xAxisKey"],
-            chart_config["yAxisKeys"],
-            aggregation
-        )
+        aggregated = aggregate_data(filtered_df, chart_config["xAxisKey"], y_keys, aggregation)
         
         # Convert to records
         data = aggregated.to_dict(orient='records')
-        
-        # Clean NaN values
         for row in data:
             for key in row:
                 if pd.isna(row[key]):
@@ -501,10 +701,12 @@ Dataset has {len(df)} rows."""
         return QueryResponse(
             data=data,
             x_axis_key=chart_config["xAxisKey"],
-            y_axis_keys=chart_config["yAxisKeys"],
+            y_axis_keys=y_keys,
             chart_type=chart_config.get("chartType", "bar"),
             title=chart_config.get("title", "Chart"),
-            row_count=len(data)
+            row_count=len(data),
+            reasoning=chart_config.get("reasoning", "AI-generated chart configuration."),
+            warnings=warnings if warnings else None
         )
         
     except json.JSONDecodeError as e:
@@ -517,14 +719,17 @@ Dataset has {len(df)} rows."""
 
 @app.get("/dataset/{dataset_id}/preview")
 async def preview_dataset(dataset_id: str, limit: int = 100):
-    """Preview first N rows of a dataset"""
     dataset = get_dataset(dataset_id)
     df = dataset.df.head(limit)
     
     return {
         "data": df.to_dict(orient='records'),
         "total_rows": len(dataset.df),
-        "showing": len(df)
+        "showing": len(df),
+        "data_health": {
+            "cleaning_actions": dataset.cleaning_actions,
+            "missing_values": dataset.missing_counts
+        }
     }
 
 

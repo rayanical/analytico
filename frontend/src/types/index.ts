@@ -1,6 +1,16 @@
 /**
- * Analytico V2 Type Definitions
+ * Analytico V3 Type Definitions
  */
+
+// Semantic types
+export type SemanticType = 'metric' | 'identifier' | 'temporal' | 'categorical';
+
+// Data health from upload
+export interface DataHealth {
+  missing_values: Record<string, number>;
+  cleaning_actions: string[];
+  quality_score: number;
+}
 
 // Column metadata from upload
 export interface ColumnSummary {
@@ -8,6 +18,7 @@ export interface ColumnSummary {
   dtype: string;
   is_numeric: boolean;
   is_datetime: boolean;
+  semantic_type: SemanticType;
   unique_count: number;
   sample_values: unknown[];
   min_val?: number;
@@ -15,20 +26,21 @@ export interface ColumnSummary {
   mean_val?: number;
 }
 
-// Upload response (no raw data, just metadata)
+// Upload response with health scorecard
 export interface UploadResponse {
   dataset_id: string;
   filename: string;
   row_count: number;
   columns: ColumnSummary[];
+  data_health: DataHealth;
 }
 
 // Filter configuration
 export interface FilterConfig {
   column: string;
-  values?: unknown[];    // For categorical
-  min_val?: unknown;     // For range
-  max_val?: unknown;     // For range
+  values?: unknown[];
+  min_val?: unknown;
+  max_val?: unknown;
 }
 
 // Aggregation request
@@ -36,12 +48,12 @@ export interface AggregateRequest {
   dataset_id: string;
   x_axis_key: string;
   y_axis_keys: string[];
-  aggregation: 'sum' | 'mean' | 'count' | 'min' | 'max';
+  aggregation: AggregationType;
   chart_type: ChartType;
   filters?: FilterConfig[];
 }
 
-// Chart response (from both /aggregate and /query)
+// Chart response with reasoning
 export interface ChartResponse {
   data: Record<string, unknown>[];
   x_axis_key: string;
@@ -49,6 +61,8 @@ export interface ChartResponse {
   chart_type: ChartType;
   title: string;
   row_count: number;
+  reasoning?: string;
+  warnings?: string[];
 }
 
 // Query request

@@ -1,6 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '@/components/Sidebar';
 import { FileUploader } from '@/components/FileUploader';
 import { ChatInterface } from '@/components/ChatInterface';
@@ -10,7 +11,7 @@ import { ChartSkeleton } from '@/components/ChartSkeleton';
 import { DataTable } from '@/components/DataTable';
 import { FilterBar } from '@/components/FilterBar';
 import { useData } from '@/context/DataContext';
-import { BarChart3, Sparkles, Wand2, Wrench, Table, LineChart } from 'lucide-react';
+import { BarChart3, Sparkles, Wand2, Wrench, Table, LineChart, Info, AlertTriangle, X } from 'lucide-react';
 
 export default function Home() {
   const {
@@ -23,17 +24,15 @@ export default function Home() {
     setBuilderMode,
   } = useData();
 
+  const [showReasoning, setShowReasoning] = useState(false);
+
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
       <Sidebar />
       
-      {/* Main Content */}
       <main className="relative flex flex-1 flex-col overflow-hidden">
-        {/* Background gradient */}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
         
-        {/* Content area */}
         <div className="relative flex flex-1 flex-col overflow-y-auto p-6">
           {/* Header */}
           <motion.div
@@ -49,12 +48,12 @@ export default function Home() {
             </p>
           </motion.div>
 
-          {/* File Upload Section */}
+          {/* File Upload */}
           <section className="mb-6">
             <FileUploader />
           </section>
 
-          {/* Filter Bar (only show if data loaded) */}
+          {/* Filter Bar */}
           {dataset && (
             <section className="mb-6">
               <FilterBar />
@@ -64,7 +63,6 @@ export default function Home() {
           {/* Mode Tabs and View Toggle */}
           {dataset && (
             <div className="mb-6 flex items-center justify-between">
-              {/* Mode Tabs */}
               <div className="flex rounded-lg bg-muted/30 p-1">
                 <button
                   onClick={() => setBuilderMode('ai')}
@@ -90,7 +88,6 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* View Toggle (only show if chart exists) */}
               {currentChart && (
                 <div className="flex rounded-lg bg-muted/30 p-1">
                   <button
@@ -120,9 +117,8 @@ export default function Home() {
             </div>
           )}
 
-          {/* Main Content Area */}
+          {/* Main Content */}
           <div className="flex flex-1 gap-6">
-            {/* Chart/Table Display */}
             <div className="flex-1">
               {isQuerying ? (
                 <ChartSkeleton />
@@ -133,13 +129,76 @@ export default function Home() {
                   animate={{ opacity: 1 }}
                   className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm"
                 >
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-xl font-semibold text-foreground">
-                      {currentChart.title}
-                    </h3>
-                    <span className="text-sm text-muted-foreground">
-                      {currentChart.row_count} data points
-                    </span>
+                  {/* Chart Header with Title, Reasoning, and Warnings */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-xl font-semibold text-foreground">
+                          {currentChart.title}
+                        </h3>
+                        
+                        {/* Reasoning Info Icon */}
+                        {currentChart.reasoning && (
+                          <button
+                            onClick={() => setShowReasoning(!showReasoning)}
+                            className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                            title="View AI reasoning"
+                          >
+                            <Info className="h-4 w-4" />
+                          </button>
+                        )}
+                        
+                        {/* Warnings */}
+                        {currentChart.warnings && currentChart.warnings.length > 0 && (
+                          <span className="flex items-center gap-1 rounded-full bg-yellow-500/20 px-2 py-1 text-xs text-yellow-400">
+                            <AlertTriangle className="h-3 w-3" />
+                            {currentChart.warnings.length} adjustment{currentChart.warnings.length > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <span className="text-sm text-muted-foreground">
+                        {currentChart.row_count} data points
+                      </span>
+                    </div>
+                    
+                    {/* Reasoning Panel */}
+                    <AnimatePresence>
+                      {showReasoning && currentChart.reasoning && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-3 overflow-hidden"
+                        >
+                          <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-primary">AI Reasoning</p>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {currentChart.reasoning}
+                              </p>
+                              {currentChart.warnings && currentChart.warnings.length > 0 && (
+                                <div className="mt-2 space-y-1">
+                                  {currentChart.warnings.map((warning, idx) => (
+                                    <p key={idx} className="flex items-center gap-1.5 text-xs text-yellow-400">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      {warning}
+                                    </p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setShowReasoning(false)}
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                   
                   {viewMode === 'chart' ? <SmartChart /> : <DataTable />}
@@ -181,7 +240,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* Manual Builder Panel (only in manual mode) */}
+            {/* Manual Builder Panel */}
             {builderMode === 'manual' && dataset && (
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
@@ -198,7 +257,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Chat Input (only in AI mode) */}
+        {/* Chat Input (AI mode only) */}
         {builderMode === 'ai' && (
           <div className="relative border-t border-border/50 bg-background/80 p-6 backdrop-blur-xl">
             <div className="mx-auto max-w-4xl">

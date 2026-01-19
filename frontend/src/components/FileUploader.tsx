@@ -3,7 +3,7 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2, Database } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2, Database, Sparkles, AlertTriangle } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { uploadCSV } from '@/lib/api';
 import { toast } from 'sonner';
@@ -27,12 +27,17 @@ export function FileUploader() {
         filename: response.filename,
         rowCount: response.row_count,
         columns: response.columns,
+        dataHealth: response.data_health,
       });
 
-      const numericCount = response.columns.filter(c => c.is_numeric).length;
-      toast.success(
-        `Loaded ${response.row_count.toLocaleString()} rows • ${response.columns.length} columns (${numericCount} numeric)`
-      );
+      // Show cleaning actions if any
+      if (response.data_health.cleaning_actions.length > 0) {
+        toast.success(`Data cleaned: ${response.data_health.cleaning_actions.length} improvements made`, {
+          description: response.data_health.cleaning_actions[0],
+        });
+      } else {
+        toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
+      }
     } catch (error) {
       console.error('Upload error:', error);
       const message = error instanceof Error ? error.message : 'Failed to upload file';
@@ -50,10 +55,14 @@ export function FileUploader() {
     disabled: isUploading,
   });
 
-  // If we have data, show success state
+  // If we have data, show success state with health info
   if (dataset) {
-    const numericCount = dataset.columns.filter(c => c.is_numeric).length;
-    const categoricalCount = dataset.columns.filter(c => !c.is_numeric && !c.is_datetime).length;
+    const { dataHealth } = dataset;
+    const hasCleaning = dataHealth.cleaning_actions.length > 0;
+    const missingCount = Object.values(dataHealth.missing_values).reduce((a, b) => a + b, 0);
+    const totalCells = dataset.rowCount * dataset.columns.length;
+    const missingPercent = totalCells > 0 ? (missingCount / totalCells) * 100 : 0;
+    const hasWarning = missingPercent > 10;
     
     return (
       <motion.div
@@ -61,17 +70,48 @@ export function FileUploader() {
         animate={{ opacity: 1, scale: 1 }}
         className="w-full"
       >
-        <div className="relative rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+        <div className={`relative rounded-xl border p-4 ${
+          hasWarning 
+            ? 'border-yellow-500/30 bg-yellow-500/5' 
+            : 'border-emerald-500/30 bg-emerald-500/5'
+        }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20">
-                <Database className="h-6 w-6 text-emerald-400" />
+              <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                hasWarning ? 'bg-yellow-500/20' : 'bg-emerald-500/20'
+              }`}>
+                {hasWarning ? (
+                  <AlertTriangle className="h-6 w-6 text-yellow-400" />
+                ) : (
+                  <Database className="h-6 w-6 text-emerald-400" />
+                )}
               </div>
               <div>
-                <h3 className="font-semibold text-emerald-300">{dataset.filename}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className={`font-semibold ${hasWarning ? 'text-yellow-300' : 'text-emerald-300'}`}>
+                    {dataset.filename}
+                  </h3>
+                  {hasCleaning && (
+                    <span className="flex items-center gap-1 rounded-full bg-primary/20 px-2 py-0.5 text-xs font-medium text-primary">
+                      <Sparkles className="h-3 w-3" />
+                      Data Cleaned
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  {dataset.rowCount.toLocaleString()} rows • {numericCount} numeric • {categoricalCount} categorical
+                  {dataset.rowCount.toLocaleString()} rows • {dataset.columns.length} columns
+                  {dataHealth.quality_score < 100 && (
+                    <span className={`ml-2 ${hasWarning ? 'text-yellow-400' : ''}`}>
+                      • Quality: {dataHealth.quality_score.toFixed(0)}%
+                    </span>
+                  )}
                 </p>
+                {hasCleaning && (
+                  <p className="mt-1 text-xs text-muted-foreground/70">
+                    {dataHealth.cleaning_actions[0]}
+                    {dataHealth.cleaning_actions.length > 1 && ` +${dataHealth.cleaning_actions.length - 1} more`}
+                  </p>
+                )}
               </div>
             </div>
             <button
@@ -107,7 +147,7 @@ export function FileUploader() {
           {isUploading ? (
             <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="font-medium">Processing...</p>
+              <p className="font-medium">Processing & cleaning data...</p>
             </motion.div>
           ) : uploadError ? (
             <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
@@ -126,7 +166,7 @@ export function FileUploader() {
               </div>
               <div>
                 <p className="font-medium">Drag & drop your CSV file</p>
-                <p className="mt-1 text-sm text-muted-foreground">or click to browse</p>
+                <p className="mt-1 text-sm text-muted-foreground">We'll auto-clean and validate your data</p>
               </div>
             </motion.div>
           )}
