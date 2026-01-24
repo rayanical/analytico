@@ -3,11 +3,15 @@ Analytico Backend V4 - Zero Friction Enterprise Analytics
 Smart ingestion, auto-analysis, robust aggregation, explainability
 """
 
+import ast
+import contextlib
 import difflib
+import io
 import json
 import os
 import re
 import uuid
+import traceback
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
@@ -42,7 +46,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # Module 1: Data Janitor (Smart Ingestion)
 # ============================================================================
 
-def normalize_header(header: str) -> str:
+def legacy_normalize_header(header: str) -> str:
     """Convert header to clean, short snake_case names"""
     # First, basic cleanup
     clean = re.sub(r'[^\w\s]', '', header.strip())
@@ -107,6 +111,48 @@ def normalize_header(header: str) -> str:
     return clean
 
 
+def llm_clean_headers(headers: list[str]) -> list[str]:
+    """Smart header normalization using LLM with legacy fallback"""
+    # Quick fallback if no API key
+    if not os.getenv("OPENAI_API_KEY"):
+        return [legacy_normalize_header(h) for h in headers]
+        
+    try:
+        prompt = f"""Normalize these column headers to clean snake_case variable names.
+        Rules:
+        1. "How old are you?" -> "age"
+        2. "What is your annual salary?" -> "annual_salary"
+        3. "DoB" -> "date_of_birth"
+        4. Remove "what_is_your", "please_indicate", etc.
+        5. Return JSON: {{"mapping": {{"original": "clean", ...}}}}
+
+        Headers: {json.dumps(headers)}"""
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            response_format={"type": "json_object"}
+        )
+        content = response.choices[0].message.content
+        mapping = json.loads(content).get("mapping", {})
+        
+        results = []
+        for h in headers:
+            # Prefer LLM result, fallback to legacy
+            cleaned = mapping.get(h)
+            if not cleaned:
+                cleaned = legacy_normalize_header(h)
+            # Ensure safe char set even if LLM is creative
+            cleaned = re.sub(r'[^\w]', '_', cleaned).lower()
+            results.append(cleaned)
+        return results
+            
+    except Exception as e:
+        print(f"LLM Header Clean failed: {e}")
+        return [legacy_normalize_header(h) for h in headers]
+
+
 def detect_column_format(series: pd.Series, col_name: str) -> str:
     """Detect the display format for a column"""
     col_lower = col_name.lower()
@@ -142,9 +188,10 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
     missing_counts = {}
     column_formats = {}
     
-    # 1. Header Normalization (with duplicate handling)
+    # 1. Header Normalization (LLM Powered)
     original_cols = df.columns.tolist()
-    new_cols = [normalize_header(col) for col in original_cols]
+    # Use LLM with regex fallback inside llm_clean_headers
+    new_cols = llm_clean_headers(original_cols)
     
     # Handle duplicate column names by appending _2, _3, etc.
     seen = {}
@@ -632,6 +679,8 @@ class AggregateRequest(BaseModel):
     aggregation: str = "sum"
     chart_type: str = "bar"
     filters: Optional[list[FilterConfig]] = None
+    limit: Optional[int] = None
+    sort_by: Optional[str] = "value" # "value" or "label"
 
 
 class ChartResponse(BaseModel):
@@ -646,12 +695,19 @@ class ChartResponse(BaseModel):
     reasoning: Optional[str] = None
     warnings: Optional[list[str]] = None
     applied_filters: Optional[list[str]] = None
+    answer: Optional[str] = None # For scalar results from Python queries
 
 
 class QueryRequest(BaseModel):
     dataset_id: str
     user_prompt: str
     filters: Optional[list[FilterConfig]] = None
+
+
+class DrillDownRequest(BaseModel):
+    dataset_id: str
+    filters: Optional[list[FilterConfig]] = None
+    limit: int = 50
 
 
 # ============================================================================
@@ -746,6 +802,46 @@ Rules:
 - Format labels based on column format (currency → include $)
 
 Return ONLY raw JSON, no markdown."""
+
+
+def secure_exec(code: str, df: pd.DataFrame) -> Any:
+    """
+    Execute generated Python code securely-ish using AST whitelisting.
+    """
+    # AST Check
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as e:
+        return f"Syntax Error: {e}"
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+             raise ValueError("Security: Imports are not allowed.")
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in ['open', 'eval', 'exec', 'compile']:
+                raise ValueError(f"Security: Function '{node.func.id}' is banned.")
+            if isinstance(node.func, ast.Attribute) and node.func.attr == '__builtins__':
+                raise ValueError("Security: Access to __builtins__ is banned.")
+
+    # Execution Scope
+    # We provide a copy of df to prevent mutation of the global dataset cache (though expensive, it's safer)
+    local_scope = {'df': df.copy(), 'pd': pd, 'np': np, 'result': None}
+    
+    capture = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(capture):
+            exec(code, {'__builtins__': {}}, local_scope)
+    except Exception as e:
+        return f"Runtime Error: {e}\n{traceback.format_exc()}"
+    
+    # If the code calculated 'result', return it. Otherwise return printed output.
+    output = capture.getvalue().strip()
+    if local_scope.get('result') is not None:
+        return local_scope['result']
+    return output or "No output."
+
+
+
 
 
 # ============================================================================
@@ -855,12 +951,20 @@ async def aggregate_endpoint(request: AggregateRequest):
         x_key = new_x
     else:
         x_key = request.x_axis_key
-        # Top N + Others for high cardinality
-        if x_key in filtered.columns and filtered[x_key].nunique() > 20:
-            filtered = smart_group_top_n(filtered, x_key, request.y_axis_keys, agg)
+        # Top N + Others (User defined or Smart default)
+        limit = request.limit if request.limit else 19
+        if request.limit or (x_key in filtered.columns and filtered[x_key].nunique() > 20):
+            filtered = smart_group_top_n(filtered, x_key, request.y_axis_keys, agg, n=limit)
     
     # Aggregate
     result = aggregate_data(filtered, x_key, request.y_axis_keys, agg)
+    
+    # Sorting
+    if request.sort_by == "value" and request.y_axis_keys:
+        result = result.sort_values(request.y_axis_keys[0], ascending=False)
+    elif request.sort_by == "label":
+        # Already sorted by label in aggregate_data usually, but ensure it
+        result = result.sort_values(x_key, ascending=True)
     
     data = result.to_dict(orient='records')
     for row in data:
@@ -911,9 +1015,72 @@ Rows: {len(df)}"""
                 {"role": "user", "content": user_msg}
             ],
             temperature=0.3,
-            max_tokens=800
+            max_tokens=800,
+            tools=[{
+                "type": "function",
+                "function": {
+                    "name": "generate_python_analysis",
+                    "description": "Write a Python script to answer complex questions or perform advanced calculations. df is available.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "code": {
+                                "type": "string",
+                                "description": "The python code to execute. Assign final answer to variable 'result' or print it."
+                            },
+                             "explanation": {
+                                "type": "string",
+                                "description": "Explanation of the analysis."
+                            }
+                        },
+                        "required": ["code", "explanation"]
+                    }
+                }
+            }]
         )
         
+        tool_calls = resp.choices[0].message.tool_calls
+        
+        if tool_calls:
+            # Python Execution Path
+            call = tool_calls[0]
+            args = json.loads(call.function.arguments)
+            code = args['code']
+            explanation = args.get('explanation', '')
+            
+            # Execute
+            try:
+                # Apply filters before execution so the script works on filtered data
+                filtered, _ = apply_filters(df, request.filters)
+                
+                exec_result = secure_exec(code, filtered)
+                
+                # If result is a DataFrame/Series, can we chart it?
+                # For now, let's treat it as a scalar answer unless it looks like a table
+                if isinstance(exec_result, (pd.DataFrame, pd.Series)):
+                    # Convert to simple records for chart display
+                    # This is tricky without knowing what the user wants to see.
+                    # fallback to string repr
+                     final_answer = f"{explanation}\n\nResult:\n{exec_result.to_string()}"
+                else:
+                    final_answer = f"{explanation}\n\nResult: {exec_result}"
+                
+                return ChartResponse(
+                    data=[], 
+                    x_axis_key="", 
+                    y_axis_keys=[], 
+                    chart_type="empty", 
+                    title="Analysis Result", 
+                    row_count=0,
+                    year_axis_label="",
+                    reasoning=final_answer,
+                    answer=str(exec_result)
+                )
+
+            except Exception as e:
+                 raise HTTPException(status_code=500, detail=f"Execution Failed: {str(e)}")
+
+        # Legacy JSON Path
         content = resp.choices[0].message.content or ""
         cleaned = content.strip()
         if cleaned.startswith("```"):
@@ -976,6 +1143,28 @@ Rows: {len(df)}"""
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/drilldown")
+async def drilldown_endpoint(request: DrillDownRequest):
+    ds = get_dataset(request.dataset_id)
+    df = ds.df
+    
+    filtered, _ = apply_filters(df, request.filters)
+    
+    # Get raw data
+    data = filtered.head(request.limit).to_dict(orient='records')
+    # Clean NaNs
+    for row in data:
+        for k in row:
+            if pd.isna(row[k]):
+                row[k] = None
+                
+    return {
+        "data": data,
+        "total_rows": len(filtered),
+        "limit": request.limit
+    }
 
 
 if __name__ == "__main__":

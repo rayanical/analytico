@@ -4,6 +4,7 @@ import {
   QueryRequest,
   ChartResponse,
   AggregateRequest,
+  DrillDownRequest,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -89,6 +90,22 @@ export async function previewDataset(datasetId: string, limit: number = 100): Pr
   try {
     const response = await api.get(`/dataset/${datasetId}/preview`, {
       params: { limit },
+    });
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/**
+ * Drill down into specific data points
+ */
+export async function drillDown(request: DrillDownRequest): Promise<{ data: Record<string, unknown>[]; total_rows: number; limit: number }> {
+  try {
+    const response = await api.post('/drilldown', {
+      dataset_id: request.dataset_id,
+      filters: request.filters,
+      limit: request.limit,
     });
     return response.data;
   } catch (error) {

@@ -53,6 +53,11 @@ interface DataContextType {
   categoricalColumns: ColumnSummary[];
   metricColumns: ColumnSummary[];
   temporalColumns: ColumnSummary[];
+  // Drill Down
+  drillDownData: any[] | null;
+  setDrillDownData: (data: any[] | null) => void;
+  isDrillDownOpen: boolean;
+  setIsDrillDownOpen: (open: boolean) => void;
   // Clear
   clearData: () => void;
 }
@@ -71,6 +76,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isQuerying, setIsQuerying] = useState(false);
+  const [drillDownData, setDrillDownData] = useState<any[] | null>(null);
+  const [isDrillDownOpen, setIsDrillDownOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -131,6 +138,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       dataset, setDataset, currentChart, setCurrentChart, filters, setFilters, addFilter, removeFilter, clearFilters,
       viewMode, setViewMode, builderMode, setBuilderMode, history, addToHistory, selectFromHistory, clearHistory,
       isUploading, setIsUploading, isQuerying, setIsQuerying, numericColumns, categoricalColumns, metricColumns, temporalColumns, clearData,
+      drillDownData, setDrillDownData, isDrillDownOpen, setIsDrillDownOpen,
     }}>
       {children}
     </DataContext.Provider>

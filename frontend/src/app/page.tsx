@@ -10,8 +10,11 @@ import { SmartChart } from '@/components/SmartChart';
 import { ChartSkeleton } from '@/components/ChartSkeleton';
 import { DataTable } from '@/components/DataTable';
 import { FilterBar } from '@/components/FilterBar';
+import { DrillDownModal } from '@/components/DrillDownModal';
 import { useData } from '@/context/DataContext';
-import { BarChart3, Sparkles, Wand2, Wrench, Table, LineChart, Info, AlertTriangle, X, Filter } from 'lucide-react';
+import { BarChart3, Sparkles, Wand2, Wrench, Table, LineChart, Info, AlertTriangle, X, Filter, Download, FileJson, FileImage } from 'lucide-react';
+import { toPng, toSvg } from 'html-to-image';
+import { toast } from 'sonner';
 
 export default function Home() {
   const {
@@ -20,6 +23,36 @@ export default function Home() {
 
   const [showReasoning, setShowReasoning] = useState(false);
   const [expandedFilterColumn, setExpandedFilterColumn] = useState<string | null>(null);
+
+  const downloadChart = async (format: 'png' | 'svg') => {
+    const node = document.getElementById('chart-export-container');
+    if (!node) {
+      toast.error('Chart container not found');
+      return;
+    }
+    
+    // Show toast
+    const toastId = toast.loading(`Generating ${format.toUpperCase()}...`);
+    
+    try {
+      // Small delay to ensure render
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const dataUrl = format === 'png' 
+        ? await toPng(node, { backgroundColor: '#09090b', style: { borderRadius: '0' } }) 
+        : await toSvg(node, { backgroundColor: '#09090b', style: { borderRadius: '0' } });
+        
+      const link = document.createElement('a');
+      link.download = `analytico-chart-${dataset?.filename || 'export'}.${format}`;
+      link.href = dataUrl;
+      link.click();
+      toast.dismiss(toastId);
+      toast.success(`${format.toUpperCase()} downloaded`);
+    } catch (error) {
+      console.error(error);
+      toast.error('Export failed', { id: toastId });
+    }
+  };
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -78,24 +111,42 @@ export default function Home() {
               {isQuerying ? (
                 <ChartSkeleton />
               ) : currentChart ? (
-                <motion.div key={viewMode} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+                <motion.div 
+                  id="chart-export-container"
+                  key={viewMode} 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm"
+                >
                   {/* Chart Header */}
                   <div className="mb-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <h3 className="text-xl font-semibold">{currentChart.title}</h3>
                         {currentChart.reasoning && (
-                          <button onClick={() => setShowReasoning(!showReasoning)} className="rounded-full p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary" title="View AI reasoning">
+                          <button onClick={() => setShowReasoning(!showReasoning)} className="rounded-full p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary" title="Reasoning">
                             <Info className="h-4 w-4" />
                           </button>
                         )}
                         {currentChart.warnings?.length ? (
                           <span className="flex items-center gap-1 rounded-full bg-yellow-500/20 px-2 py-1 text-xs text-yellow-400">
-                            <AlertTriangle className="h-3 w-3" />{currentChart.warnings.length} adjustment{currentChart.warnings.length > 1 ? 's' : ''}
+                            <AlertTriangle className="h-3 w-3" />{currentChart.warnings.length}
                           </span>
                         ) : null}
                       </div>
-                      <span className="text-sm text-muted-foreground">{currentChart.row_count} points</span>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground mr-2">{currentChart.row_count} points</span>
+                        <div className="flex rounded-md bg-muted/30 p-0.5">
+                          <button onClick={() => downloadChart('png')} className="rounded px-2.5 py-1.5 text-xs font-medium hover:bg-background hover:text-primary transition-all" title="Download PNG">
+                            PNG
+                          </button>
+                          <div className="w-[1px] bg-border/50 my-1" />
+                          <button onClick={() => downloadChart('svg')} className="rounded px-2.5 py-1.5 text-xs font-medium hover:bg-background hover:text-primary transition-all" title="Download SVG">
+                            SVG
+                          </button>
+                        </div>
+                      </div>
                     </div>
                     
                     {/* Active Filter Chips */}
@@ -172,6 +223,9 @@ export default function Home() {
           </div>
         )}
       </main>
+      
+      {/* Modals */}
+      <DrillDownModal />
     </div>
   );
 }

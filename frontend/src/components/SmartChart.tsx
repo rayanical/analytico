@@ -8,6 +8,8 @@ import {
 } from 'recharts';
 import { useData } from '@/context/DataContext';
 import { ChartResponse, ColumnFormat } from '@/types';
+import { drillDown } from '@/lib/api';
+import { toast } from 'sonner';
 
 const COLORS = [
   'hsl(252, 87%, 64%)', 'hsl(173, 80%, 40%)', 'hsl(43, 96%, 56%)',
@@ -93,13 +95,45 @@ const CustomTooltip = memo(function CustomTooltip({
 // ============================================================================
 
 export function SmartChart({ chartData }: SmartChartProps) {
-  const { currentChart, dataset } = useData();
+  const { currentChart, dataset, filters, setDrillDownData, setIsDrillDownOpen } = useData();
   const data = chartData || currentChart;
   
   if (!data?.data.length) return null;
 
   const { data: records, x_axis_key, y_axis_keys, chart_type, y_axis_label } = data;
   const formats = dataset?.columnFormats ?? {};
+  
+  const handleDrillDown = async (entry: any) => {
+    if (!dataset?.datasetId || !x_axis_key) return;
+    
+    // Extract value for the x-axis key from the clicked entry (payload)
+    const xVal = entry[x_axis_key];
+    if (xVal === undefined) return;
+
+    const toastId = toast.loading(`Loading details for ${xVal}...`);
+    
+    try {
+      const drillFilters = [
+        ...filters,
+        { column: x_axis_key, values: [xVal] }
+      ];
+      
+      const result = await drillDown({ 
+        dataset_id: dataset.datasetId, 
+        filters: drillFilters,
+        limit: 50 
+      });
+      
+      if (result && result.data) {
+        setDrillDownData(result.data);
+        setIsDrillDownOpen(true);
+        toast.dismiss(toastId);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to fetch drill-down data", { id: toastId });
+    }
+  };
   
   // Get format for primary Y axis
   const primaryFormat = (formats[y_axis_keys[0]] || 'number') as ColumnFormat;
@@ -154,7 +188,8 @@ export function SmartChart({ chartData }: SmartChartProps) {
                 dataKey={k} 
                 stroke={COLORS[i % COLORS.length]} 
                 strokeWidth={2} 
-                dot={{ fill: COLORS[i % COLORS.length], r: 4 }} 
+                dot={{ fill: COLORS[i % COLORS.length], r: 4 }}
+                activeDot={{ r: 6, onClick: (e: any) => handleDrillDown(e.payload) }}
               />
             ))}
           </LineChart>
@@ -182,6 +217,8 @@ export function SmartChart({ chartData }: SmartChartProps) {
                 dataKey={k} 
                 stroke={COLORS[i % COLORS.length]} 
                 fill={`url(#grad-${k})`} 
+                onClick={(e: any) => handleDrillDown(e.payload)}
+                cursor="pointer"
               />
             ))}
           </AreaChart>
@@ -199,8 +236,13 @@ export function SmartChart({ chartData }: SmartChartProps) {
               label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
               labelLine={{ stroke: 'hsl(var(--muted-foreground))' }}
             >
-              {records.map((_, i) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              {records.map((entry, i) => (
+                <Cell 
+                  key={i} 
+                  fill={COLORS[i % COLORS.length]} 
+                  onClick={() => handleDrillDown(entry)}
+                  cursor="pointer"
+                />
               ))}
             </Pie>
             <Tooltip content={tooltipContent} />
@@ -234,7 +276,14 @@ export function SmartChart({ chartData }: SmartChartProps) {
             <Tooltip content={tooltipContent} />
             <Legend formatter={formatLegendName} />
             {y_axis_keys.map((k, i) => (
-              <Bar key={k} dataKey={k} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} />
+              <Bar 
+                key={k} 
+                dataKey={k} 
+                fill={COLORS[i % COLORS.length]} 
+                radius={[4, 4, 0, 0]} 
+                onClick={(e: any) => handleDrillDown(e.payload)}
+                cursor="pointer"
+              />
             ))}
           </BarChart>
         );

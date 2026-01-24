@@ -90,6 +90,8 @@ export interface AggregateRequest {
   aggregation: AggregationType;
   chart_type: ChartType;
   filters?: FilterConfig[];
+  limit?: number;
+  sort_by?: 'value' | 'label';
 }
 
 // Chart response with labels and applied filters
@@ -105,6 +107,14 @@ export interface ChartResponse {
   reasoning?: string;
   warnings?: string[];
   applied_filters?: string[];
+  answer?: string;
+}
+
+// Drilldown request
+export interface DrillDownRequest {
+  dataset_id: string;
+  filters?: FilterConfig[];
+  limit?: number;
 }
 
 // Query request

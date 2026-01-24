@@ -32,6 +32,8 @@ export function ChartBuilder() {
   const [xAxis, setXAxis] = useState<string>('');
   const [yAxes, setYAxes] = useState<string[]>([]);
   const [aggregation, setAggregation] = useState<AggregationType>('sum');
+  const [limit, setLimit] = useState<number>(20);
+  const [sortBy, setSortBy] = useState<'value' | 'label'>('value');
 
   const allColumns = dataset?.columns ?? [];
 
@@ -59,6 +61,8 @@ export function ChartBuilder() {
         aggregation,
         chart_type: chartType,
         filters: filters.length > 0 ? filters : undefined,
+        limit,
+        sort_by: sortBy,
       });
 
       setCurrentChart(response);
@@ -177,6 +181,39 @@ export function ChartBuilder() {
               {label}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Advanced Controls */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-muted-foreground">Top Results: {limit}</label>
+          <input 
+            type="range" 
+            min="5" 
+            max="50" 
+            step="1"
+            value={limit}
+            onChange={(e) => setLimit(parseInt(e.target.value))}
+            className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+          />
+        </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium text-muted-foreground">Sort By</label>
+          <div className="flex rounded-lg bg-white/5 p-1">
+            <button
+              onClick={() => setSortBy('value')}
+              className={`flex-1 rounded py-1 text-xs font-medium transition-all ${sortBy === 'value' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Value
+            </button>
+            <button
+              onClick={() => setSortBy('label')}
+              className={`flex-1 rounded py-1 text-xs font-medium transition-all ${sortBy === 'label' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Label (A-Z)
+            </button>
+          </div>
         </div>
       </div>
 
