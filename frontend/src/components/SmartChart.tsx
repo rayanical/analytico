@@ -98,9 +98,28 @@ export function SmartChart({ chartData }: SmartChartProps) {
   const { currentChart, dataset, filters, setDrillDownData, setIsDrillDownOpen } = useData();
   const data = chartData || currentChart;
   
-  if (!data?.data.length) return null;
+  if (!data?.data.length && !data?.answer) return null;
 
-  const { data: records, x_axis_key, y_axis_keys, chart_type, y_axis_label } = data;
+  const { data: records, x_axis_key, y_axis_keys, chart_type, y_axis_label, answer, reasoning } = data;
+  
+  // Text-Only Answer View
+  if (chart_type === 'empty' || (answer && !records.length)) {
+    return (
+      <div className="flex h-full min-h-[400px] flex-col overflow-y-auto rounded-lg p-6">
+         <div className="mb-6 rounded-lg bg-primary/10 p-4">
+           <h3 className="mb-2 text-lg font-semibold text-primary">Insight</h3>
+           <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">{answer}</div>
+         </div>
+         {reasoning && (
+           <div className="rounded-lg border border-border/50 bg-card/30 p-4">
+             <h4 className="mb-2 text-sm font-medium text-muted-foreground">Reasoning</h4>
+             <p className="text-sm text-foreground/80">{reasoning}</p>
+           </div>
+         )}
+      </div>
+    );
+  }
+  
   const formats = dataset?.columnFormats ?? {};
   
   const handleDrillDown = async (entry: any) => {
@@ -109,6 +128,12 @@ export function SmartChart({ chartData }: SmartChartProps) {
     // Extract value for the x-axis key from the clicked entry (payload)
     const xVal = entry[x_axis_key];
     if (xVal === undefined) return;
+    
+    // Protection: Prevent drill-down into "Others"
+    if (xVal === 'Others') {
+      toast.warning("Cannot drill down into aggregated 'Others' group.");
+      return;
+    }
 
     const toastId = toast.loading(`Loading details for ${xVal}...`);
     
@@ -290,9 +315,18 @@ export function SmartChart({ chartData }: SmartChartProps) {
     }
   };
 
+  // Calculate dynamic width for scrolling - keep container fixed, scroll inside
+  const minBarWidth = 40; // Minimum pixels per bar/point
+  const minWidth = Math.max(records.length * minBarWidth, 600); // At least 600px or enough for all bars
+  const shouldScroll = records.length > 15; // Enable scroll if more than 15 items
+
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-[400px] w-full">
-      <ResponsiveContainer width="100%" height="100%">{renderChart()}</ResponsiveContainer>
-    </motion.div>
+    <div className="relative h-[450px] w-full rounded-lg border border-border/50 bg-card/30 p-4">
+      <div className={`h-full w-full ${shouldScroll ? 'overflow-x-auto' : 'overflow-hidden'}`}>
+        <div style={{ width: shouldScroll ? `${minWidth}px` : '100%', height: '100%', minHeight: '350px' }}>
+          <ResponsiveContainer width="100%" height="100%">{renderChart()}</ResponsiveContainer>
+        </div>
+      </div>
+    </div>
   );
 }

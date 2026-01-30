@@ -26,13 +26,12 @@ const AGGREGATIONS: { type: AggregationType; label: string }[] = [
 ];
 
 export function ChartBuilder() {
-  const { dataset, numericColumns, filters, setCurrentChart, addToHistory, isQuerying, setIsQuerying } = useData();
+  const { dataset, numericColumns, filters, setCurrentChart, addToHistory, isQuerying, setIsQuerying, groupOthers, setGroupOthers, limit, setLimit } = useData();
   
   const [chartType, setChartType] = useState<ChartType>('bar');
   const [xAxis, setXAxis] = useState<string>('');
   const [yAxes, setYAxes] = useState<string[]>([]);
   const [aggregation, setAggregation] = useState<AggregationType>('sum');
-  const [limit, setLimit] = useState<number>(20);
   const [sortBy, setSortBy] = useState<'value' | 'label'>('value');
 
   const allColumns = dataset?.columns ?? [];
@@ -63,6 +62,7 @@ export function ChartBuilder() {
         filters: filters.length > 0 ? filters : undefined,
         limit,
         sort_by: sortBy,
+        group_others: groupOthers,
       });
 
       setCurrentChart(response);
@@ -214,6 +214,20 @@ export function ChartBuilder() {
               Label (A-Z)
             </button>
           </div>
+        </div>
+        
+        {/* Toggle Group Others */}
+        <div className="col-span-2 flex items-center justify-between rounded-lg border border-border/50 bg-card/30 p-3">
+          <div className="flex flex-col">
+            <span className="text-sm font-medium">Group Small Values</span>
+            <span className="text-xs text-muted-foreground">Combine items outside Top N into "Others"</span>
+          </div>
+          <button 
+            onClick={() => setGroupOthers(!groupOthers)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${groupOthers ? 'bg-primary' : 'bg-muted'}`}
+          >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${groupOthers ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
         </div>
       </div>
 

@@ -25,6 +25,18 @@ function handleApiError(error: unknown): never {
 }
 
 /**
+ * Validate if a dataset ID still exists in backend memory
+ */
+export async function validateDataset(datasetId: string): Promise<boolean> {
+  try {
+    const response = await api.get<{ valid: boolean }>(`/validate/${datasetId}`);
+    return response.data.valid;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Upload a CSV file - returns dataset_id and column metadata (no raw data)
  */
 export async function uploadCSV(file: File): Promise<UploadResponse> {
@@ -53,6 +65,8 @@ export async function queryChart(request: QueryRequest): Promise<ChartResponse> 
       dataset_id: request.dataset_id,
       user_prompt: request.user_prompt,
       filters: request.filters,
+      limit: request.limit,
+      group_others: request.group_others,
     });
     return response.data;
   } catch (error) {
@@ -72,6 +86,9 @@ export async function aggregateData(request: AggregateRequest): Promise<ChartRes
       aggregation: request.aggregation,
       chart_type: request.chart_type,
       filters: request.filters,
+      limit: request.limit,
+      sort_by: request.sort_by,
+      group_others: request.group_others,
     });
     return response.data;
   } catch (error) {

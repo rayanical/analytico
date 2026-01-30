@@ -10,7 +10,7 @@ import { queryChart } from '@/lib/api';
 import { toast } from 'sonner';
 
 export function ChatInterface() {
-  const { dataset, filters, setCurrentChart, addToHistory, isQuerying, setIsQuerying, setViewMode } = useData();
+  const { dataset, filters, setCurrentChart, addToHistory, isQuerying, setIsQuerying, setViewMode, groupOthers, limit } = useData();
   const [query, setQuery] = useState('');
 
   const handleSubmit = async (e: FormEvent) => {
@@ -23,6 +23,8 @@ export function ChatInterface() {
         dataset_id: dataset.datasetId,
         user_prompt: query.trim(),
         filters: filters.length > 0 ? filters : undefined,
+        limit: limit,
+        group_others: groupOthers,
       });
       setCurrentChart(response);
       addToHistory(query.trim(), response, false);

@@ -24,6 +24,7 @@ interface DatasetState {
   profile: DataProfile;
   defaultChart: DefaultChart | null;
   suggestions: string[];
+  summary?: string;
 }
 
 interface DataContextType {
@@ -58,6 +59,11 @@ interface DataContextType {
   setDrillDownData: (data: any[] | null) => void;
   isDrillDownOpen: boolean;
   setIsDrillDownOpen: (open: boolean) => void;
+  // Global Settings
+  groupOthers: boolean;
+  setGroupOthers: (group: boolean) => void;
+  limit: number;
+  setLimit: (limit: number) => void;
   // Clear
   clearData: () => void;
 }
@@ -78,20 +84,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [isQuerying, setIsQuerying] = useState(false);
   const [drillDownData, setDrillDownData] = useState<any[] | null>(null);
   const [isDrillDownOpen, setIsDrillDownOpen] = useState(false);
+  const [groupOthers, setGroupOthers] = useState(true);
+  const [limit, setLimit] = useState(20);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    try {
-      const saved = localStorage.getItem(DATASET_KEY);
-      if (saved) setDatasetInternal(JSON.parse(saved));
-      const hist = localStorage.getItem(HISTORY_KEY);
-      if (hist) {
-        setHistory(JSON.parse(hist).map((i: HistoryItem) => ({ ...i, timestamp: new Date(i.timestamp) })));
+    const loadAndValidate = async () => {
+      try {
+        const saved = localStorage.getItem(DATASET_KEY);
+        const hist = localStorage.getItem(HISTORY_KEY);
+        
+        if (hist) {
+          setHistory(JSON.parse(hist).map((i: HistoryItem) => ({ ...i, timestamp: new Date(i.timestamp) })));
+        }
+        
+        if (saved) {
+          const parsedDataset = JSON.parse(saved);
+          // Validate that dataset still exists in backend
+          const { validateDataset } = await import('@/lib/api');
+          const isValid = await validateDataset(parsedDataset.datasetId);
+          
+          if (isValid) {
+            setDatasetInternal(parsedDataset);
+          } else {
+            // Dataset expired or server restarted - clear stale data
+            localStorage.removeItem(DATASET_KEY);
+            console.log('Dataset expired - please re-upload');
+          }
+        }
+      } catch (e) {
+        console.error('Load error:', e);
       }
-    } catch (e) {
-      console.error('Load error:', e);
-    }
+    };
+    loadAndValidate();
   }, []);
 
   const setDataset = useCallback((state: DatasetState | null) => {
@@ -139,6 +165,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       viewMode, setViewMode, builderMode, setBuilderMode, history, addToHistory, selectFromHistory, clearHistory,
       isUploading, setIsUploading, isQuerying, setIsQuerying, numericColumns, categoricalColumns, metricColumns, temporalColumns, clearData,
       drillDownData, setDrillDownData, isDrillDownOpen, setIsDrillDownOpen,
+      groupOthers, setGroupOthers, limit, setLimit,
     }}>
       {children}
     </DataContext.Provider>

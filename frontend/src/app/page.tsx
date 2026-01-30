@@ -23,6 +23,7 @@ export default function Home() {
 
   const [showReasoning, setShowReasoning] = useState(false);
   const [expandedFilterColumn, setExpandedFilterColumn] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const downloadChart = async (format: 'png' | 'svg') => {
     const node = document.getElementById('chart-export-container');
@@ -56,9 +57,9 @@ export default function Home() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
       
-      <main className="relative flex flex-1 flex-col overflow-hidden">
+      <main className="relative flex flex-1 flex-col overflow-hidden min-w-0">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
         
         <div className="relative flex flex-1 flex-col overflow-y-auto p-6">
@@ -69,7 +70,26 @@ export default function Home() {
           </motion.div>
 
           {/* File Upload */}
-          <section className="mb-6"><FileUploader /></section>
+          <section className="mb-6">
+            <FileUploader />
+            {dataset?.summary && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="rounded-full bg-primary/10 p-2 text-primary">
+                     <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="mb-1 text-sm font-semibold text-foreground">AI Business Summary</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{dataset.summary}</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </section>
 
           {/* Filter Bar */}
           {dataset && (

@@ -72,6 +72,7 @@ export interface UploadResponse {
   profile: DataProfile;
   default_chart: DefaultChart | null;
   suggestions: string[];
+  summary?: string;
 }
 
 // Filter configuration
@@ -92,6 +93,7 @@ export interface AggregateRequest {
   filters?: FilterConfig[];
   limit?: number;
   sort_by?: 'value' | 'label';
+  group_others?: boolean;
 }
 
 // Chart response with labels and applied filters
@@ -122,10 +124,12 @@ export interface QueryRequest {
   dataset_id: string;
   user_prompt: string;
   filters?: FilterConfig[];
+  limit?: number;
+  group_others?: boolean;
 }
 
 // Chart types
-export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'composed';
+export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'composed' | 'empty';
 
 // Aggregation types
 export type AggregationType = 'sum' | 'mean' | 'count' | 'min' | 'max';
