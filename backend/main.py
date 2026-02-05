@@ -437,39 +437,94 @@ Rows: {len(df)}"""
                 filtered, _ = apply_filters(df, request.filters)
                 exec_result = secure_exec(code, filtered)
                 
-                if isinstance(exec_result, (pd.DataFrame, pd.Series)):
-                    final_answer = f"{explanation}\n\nResult:\n{exec_result.to_string()}"
+                # Handle DataFrame results - convert to chartable format
+                if isinstance(exec_result, pd.DataFrame) and len(exec_result) > 0:
+                    # Extract column names dynamically
+                    cols = exec_result.columns.tolist()
+                    x_key = cols[0] if len(cols) > 0 else ""
+                    y_keys = cols[1:] if len(cols) > 1 else []
+                    
+                    # Convert to records
+                    data = exec_result.head(100).to_dict(orient='records')
+                    for row in data:
+                        for k in row:
+                            if pd.isna(row[k]):
+                                row[k] = 0
+                    
+                    return ChartResponse(
+                        data=data,
+                        x_axis_key=x_key,
+                        y_axis_keys=y_keys if y_keys else [x_key],
+                        chart_type="bar",
+                        title=f"Analysis: {request.user_prompt[:50]}...",
+                        row_count=len(data),
+                        y_axis_label="",
+                        reasoning=explanation,
+                        answer=None
+                    )
+                elif isinstance(exec_result, pd.Series):
+                    # Convert Series to DataFrame for charting
+                    result_df = exec_result.reset_index()
+                    result_df.columns = ['category', 'value']
+                    data = result_df.head(50).to_dict(orient='records')
+                    
+                    return ChartResponse(
+                        data=data,
+                        x_axis_key="category",
+                        y_axis_keys=["value"],
+                        chart_type="bar",
+                        title=f"Analysis: {request.user_prompt[:50]}...",
+                        row_count=len(data),
+                        y_axis_label="",
+                        reasoning=explanation,
+                        answer=None
+                    )
                 else:
+                    # Scalar or text result
                     final_answer = f"{explanation}\n\nResult: {exec_result}"
-                
-                return ChartResponse(
-                    data=[], 
-                    x_axis_key="", 
-                    y_axis_keys=[], 
-                    chart_type="empty", 
-                    title="Analysis Result", 
-                    row_count=0,
-                    y_axis_label="",
-                    reasoning=final_answer,
-                    answer=str(exec_result)
-                )
+                    return ChartResponse(
+                        data=[], 
+                        x_axis_key="", 
+                        y_axis_keys=[], 
+                        chart_type="empty", 
+                        title="Analysis Result", 
+                        row_count=0,
+                        y_axis_label="",
+                        reasoning=final_answer,
+                        answer=str(exec_result)
+                    )
 
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Execution Failed: {str(e)}")
 
-        # Legacy JSON Path
+        # Legacy JSON Path - with text-only fallback
         content = resp.choices[0].message.content or ""
         cleaned = content.strip()
         if cleaned.startswith("```"):
             cleaned = "\n".join(cleaned.split("\n")[1:-1])
         
-        config = json.loads(cleaned)
+        # Try to parse as JSON, fallback to text response if it fails
+        try:
+            config = json.loads(cleaned)
+        except json.JSONDecodeError:
+            # AI returned plain text instead of JSON - return as text answer
+            return ChartResponse(
+                data=[],
+                x_axis_key="",
+                y_axis_keys=[],
+                chart_type="empty",
+                title="AI Response",
+                row_count=0,
+                y_axis_label="",
+                reasoning=content,  # Original content as reasoning
+                answer=content
+            )
         
         # Validate
         all_cols = [config["xAxisKey"]] + config["yAxisKeys"]
         valid, missing, sugg = validate_columns(df, all_cols)
         if not valid:
-            msg = "; ".join(f"'{c}' not found, try: {sugg.get(c, [])}" for c in missing)
+            msg = "; ".join(f"'{c}' not found, try: {sugg.get(c, [])}'" for c in missing)
             raise HTTPException(status_code=400, detail=msg)
         
         # Apply filters
@@ -517,8 +572,6 @@ Rows: {len(df)}"""
             warnings=warnings or None,
             applied_filters=applied or None
         )
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=500, detail=f"Parse error: {e}")
     except HTTPException:
         raise
     except Exception as e:

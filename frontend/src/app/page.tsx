@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '@/components/Sidebar';
 import { FileUploader } from '@/components/FileUploader';
@@ -12,6 +12,7 @@ import { DataTable } from '@/components/DataTable';
 import { FilterBar } from '@/components/FilterBar';
 import { DrillDownModal } from '@/components/DrillDownModal';
 import { useData } from '@/context/DataContext';
+import { aggregateData } from '@/lib/api';
 import { BarChart3, Sparkles, Wand2, Wrench, Table, LineChart, Info, AlertTriangle, X, Filter, Download, FileJson, FileImage } from 'lucide-react';
 import { toPng, toSvg } from 'html-to-image';
 import { toast } from 'sonner';
@@ -19,11 +20,60 @@ import { toast } from 'sonner';
 export default function Home() {
   const {
     dataset, currentChart, isQuerying, viewMode, setViewMode, builderMode, setBuilderMode,
+    filters, setCurrentChart, limit, groupOthers, setIsQuerying,
   } = useData();
 
   const [showReasoning, setShowReasoning] = useState(false);
   const [expandedFilterColumn, setExpandedFilterColumn] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  // Track previous filters to detect changes
+  const prevFiltersRef = useRef(JSON.stringify(filters));
+  const isInitialMount = useRef(true);
+  
+  // Auto-refresh chart when filters change
+  useEffect(() => {
+    // Skip on initial mount
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      prevFiltersRef.current = JSON.stringify(filters);
+      return;
+    }
+    
+    const currentFiltersStr = JSON.stringify(filters);
+    
+    // Only refresh if filters actually changed and we have an active chart
+    if (prevFiltersRef.current !== currentFiltersStr && currentChart && dataset) {
+      prevFiltersRef.current = currentFiltersStr;
+      
+      // Only auto-refresh if we have a valid chart config (not empty/text-only response)
+      if (currentChart.x_axis_key && currentChart.y_axis_keys.length > 0 && currentChart.chart_type !== 'empty') {
+        const refreshChart = async () => {
+          setIsQuerying(true);
+          try {
+            const response = await aggregateData({
+              dataset_id: dataset.datasetId,
+              x_axis_key: currentChart.x_axis_key,
+              y_axis_keys: currentChart.y_axis_keys,
+              aggregation: 'sum', // Default
+              chart_type: currentChart.chart_type,
+              filters: filters.length > 0 ? filters : undefined,
+              limit,
+              group_others: groupOthers,
+            });
+            setCurrentChart({ ...response, reasoning: currentChart.reasoning });
+            toast.success('Chart updated with filters');
+          } catch (error) {
+            console.error('Filter refresh error:', error);
+            toast.error('Failed to apply filters');
+          } finally {
+            setIsQuerying(false);
+          }
+        };
+        refreshChart();
+      }
+    }
+  }, [filters, currentChart, dataset, limit, groupOthers, setCurrentChart, setIsQuerying]);
 
   const downloadChart = async (format: 'png' | 'svg') => {
     const node = document.getElementById('chart-export-container');

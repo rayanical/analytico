@@ -13,7 +13,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onToggle }: SidebarProps) {
-  const { history, selectFromHistory, clearHistory, currentChart } = useData();
+  const { history, selectFromHistory, clearHistory, currentChart, dataset } = useData();
 
   const formatTime = (date: Date) => {
     const now = new Date();
@@ -67,6 +67,17 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           </motion.div>
         )}
       </div>
+
+      {/* Dataset Summary Card */}
+      {isOpen && dataset?.summary && (
+        <div className="mx-3 mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Wand2 className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-medium text-primary">Dataset Context</span>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">{dataset.summary}</p>
+        </div>
+      )}
 
       {/* History Header */}
       {isOpen ? (

@@ -316,14 +316,25 @@ export function SmartChart({ chartData }: SmartChartProps) {
   };
 
   // Calculate dynamic width for scrolling - keep container fixed, scroll inside
-  const minBarWidth = 40; // Minimum pixels per bar/point
-  const minWidth = Math.max(records.length * minBarWidth, 600); // At least 600px or enough for all bars
-  const shouldScroll = records.length > 15; // Enable scroll if more than 15 items
+  const minBarWidth = 50; // Minimum pixels per bar/point
+  const calculatedWidth = records.length * minBarWidth;
+  const shouldScroll = records.length > 12; // Enable scroll if more than 12 items
+  const innerWidth = shouldScroll ? Math.max(calculatedWidth, 800) : '100%';
 
   return (
-    <div className="relative h-[450px] w-full rounded-lg border border-border/50 bg-card/30 p-4">
-      <div className={`h-full w-full ${shouldScroll ? 'overflow-x-auto' : 'overflow-hidden'}`}>
-        <div style={{ width: shouldScroll ? `${minWidth}px` : '100%', height: '100%', minHeight: '350px' }}>
+    <div 
+      className="relative h-[450px] w-full rounded-lg border border-border/50 bg-card/30 p-4"
+      style={{ maxWidth: '100%', display: 'block' }}
+    >
+      <div 
+        className="h-full w-full"
+        style={{ 
+          overflowX: shouldScroll ? 'auto' : 'hidden', 
+          overflowY: 'hidden',
+          maxWidth: '100%'
+        }}
+      >
+        <div style={{ width: innerWidth, height: '100%', minHeight: '350px', minWidth: shouldScroll ? `${calculatedWidth}px` : undefined }}>
           <ResponsiveContainer width="100%" height="100%">{renderChart()}</ResponsiveContainer>
         </div>
       </div>
