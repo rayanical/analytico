@@ -45,9 +45,12 @@ def smart_group_top_n(
     # Keep top (n-1) to leave room for "Others"
     top_categories = totals.head(target_items).index.tolist()
     
-    # Split into top and others
+    # Convert top categories to strings for type-safe comparison
+    top_categories_str = [str(cat) for cat in top_categories]
+    
+    # Split into top and others (type-safe string comparison)
     df_copy = df.copy()
-    df_copy['_x_grouped'] = df_copy[x_col].apply(lambda x: x if x in top_categories else 'Others')
+    df_copy['_x_grouped'] = df_copy[x_col].apply(lambda x: x if str(x) in top_categories_str else 'Others')
     
     # Aggregate using the requested aggregation type
     agg_map = {"sum": "sum", "mean": "mean", "count": "count", "min": "min", "max": "max"}

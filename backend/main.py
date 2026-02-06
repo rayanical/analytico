@@ -53,7 +53,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -326,11 +326,12 @@ async def aggregate_endpoint(request: AggregateRequest):
     else:
         x_key = request.x_axis_key
     
-    # Smart grouping (Top N + Others)
-    limit = request.limit or 50
+    # Smart grouping (Top N + Others) - limit=0 means "show all"
+    limit = request.limit if request.limit is not None else 50
     group_others = request.group_others if request.group_others is not None else True
 
-    if request.x_axis_key in filtered.columns:
+    # Skip grouping if limit=0 (show all mode)
+    if limit > 0 and request.x_axis_key in filtered.columns:
         unique_cnt = filtered[request.x_axis_key].nunique()
         if unique_cnt > limit:
             filtered = smart_group_top_n(
@@ -543,10 +544,11 @@ Rows: {len(df)}"""
         if pd.api.types.is_datetime64_any_dtype(filtered.get(x_key)):
             filtered, x_key = smart_resample_dates(filtered, x_key, y_keys, agg)
         elif x_key in filtered.columns:
-            limit = request.limit or 20
+            limit = request.limit if request.limit is not None else 20
             group_others = request.group_others if request.group_others is not None else True
             
-            if filtered[x_key].nunique() > limit:
+            # Skip grouping if limit=0 (show all mode)
+            if limit > 0 and filtered[x_key].nunique() > limit:
                 filtered = smart_group_top_n(filtered, x_key, y_keys, agg, n=limit, group_others=group_others)
         
         result = aggregate_data(filtered, x_key, y_keys, agg)

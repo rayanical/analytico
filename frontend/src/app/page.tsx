@@ -27,24 +27,33 @@ export default function Home() {
   const [expandedFilterColumn, setExpandedFilterColumn] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
-  // Track previous filters to detect changes
+  // Track previous filters and settings to detect changes
   const prevFiltersRef = useRef(JSON.stringify(filters));
+  const prevLimitRef = useRef(limit);
+  const prevGroupOthersRef = useRef(groupOthers);
   const isInitialMount = useRef(true);
   
-  // Auto-refresh chart when filters change
+  // Auto-refresh chart when filters or settings change
   useEffect(() => {
     // Skip on initial mount
     if (isInitialMount.current) {
       isInitialMount.current = false;
       prevFiltersRef.current = JSON.stringify(filters);
+      prevLimitRef.current = limit;
+      prevGroupOthersRef.current = groupOthers;
       return;
     }
     
     const currentFiltersStr = JSON.stringify(filters);
+    const filtersChanged = prevFiltersRef.current !== currentFiltersStr;
+    const limitChanged = prevLimitRef.current !== limit;
+    const groupOthersChanged = prevGroupOthersRef.current !== groupOthers;
     
-    // Only refresh if filters actually changed and we have an active chart
-    if (prevFiltersRef.current !== currentFiltersStr && currentChart && dataset) {
+    // Only refresh if something actually changed and we have an active chart
+    if ((filtersChanged || limitChanged || groupOthersChanged) && currentChart && dataset) {
       prevFiltersRef.current = currentFiltersStr;
+      prevLimitRef.current = limit;
+      prevGroupOthersRef.current = groupOthers;
       
       // Only auto-refresh if we have a valid chart config (not empty/text-only response)
       if (currentChart.x_axis_key && currentChart.y_axis_keys.length > 0 && currentChart.chart_type !== 'empty') {
@@ -62,10 +71,18 @@ export default function Home() {
               group_others: groupOthers,
             });
             setCurrentChart({ ...response, reasoning: currentChart.reasoning });
-            toast.success('Chart updated with filters');
+            
+            // Show appropriate success message
+            if (filtersChanged && (limitChanged || groupOthersChanged)) {
+              toast.success('Chart updated with filters and settings');
+            } else if (filtersChanged) {
+              toast.success('Chart updated with filters');
+            } else {
+              toast.success('Chart updated with settings');
+            }
           } catch (error) {
-            console.error('Filter refresh error:', error);
-            toast.error('Failed to apply filters');
+            console.error('Chart refresh error:', error);
+            toast.error('Failed to update chart');
           } finally {
             setIsQuerying(false);
           }

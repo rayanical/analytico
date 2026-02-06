@@ -185,48 +185,20 @@ export function ChartBuilder() {
       </div>
 
       {/* Advanced Controls */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="mb-2 block text-sm font-medium text-muted-foreground">Top Results: {limit}</label>
-          <input 
-            type="range" 
-            min="5" 
-            max="50" 
-            step="1"
-            value={limit}
-            onChange={(e) => setLimit(parseInt(e.target.value))}
-            className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
-          />
-        </div>
-        <div>
-          <label className="mb-2 block text-sm font-medium text-muted-foreground">Sort By</label>
-          <div className="flex rounded-lg bg-white/5 p-1">
-            <button
-              onClick={() => setSortBy('value')}
-              className={`flex-1 rounded py-1 text-xs font-medium transition-all ${sortBy === 'value' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              Value
-            </button>
-            <button
-              onClick={() => setSortBy('label')}
-              className={`flex-1 rounded py-1 text-xs font-medium transition-all ${sortBy === 'label' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              Label (A-Z)
-            </button>
-          </div>
-        </div>
-        
-        {/* Toggle Group Others */}
-        <div className="col-span-2 flex items-center justify-between rounded-lg border border-border/50 bg-card/30 p-3">
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">Group Small Values</span>
-            <span className="text-xs text-muted-foreground">Combine items outside Top N into "Others"</span>
-          </div>
-          <button 
-            onClick={() => setGroupOthers(!groupOthers)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${groupOthers ? 'bg-primary' : 'bg-muted'}`}
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted-foreground">Sort By</label>
+        <div className="flex rounded-lg bg-white/5 p-1">
+          <button
+            onClick={() => setSortBy('value')}
+            className={`flex-1 rounded py-2 text-sm font-medium transition-all ${sortBy === 'value' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
           >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${groupOthers ? 'translate-x-6' : 'translate-x-1'}`} />
+            Value
+          </button>
+          <button
+            onClick={() => setSortBy('label')}
+            className={`flex-1 rounded py-2 text-sm font-medium transition-all ${sortBy === 'label' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            Label (A-Z)
           </button>
         </div>
       </div>

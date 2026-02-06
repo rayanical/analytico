@@ -282,7 +282,7 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             
             # Try date parsing
             try:
-                parsed = pd.to_datetime(df[col], errors='coerce')
+                parsed = pd.to_datetime(df[col], errors='coerce', format='mixed')
                 if parsed.notna().sum() > len(df) * 0.7:
                     df[col] = parsed
                     column_formats[col] = 'date'
