@@ -86,23 +86,48 @@ def legacy_normalize_header(header: str) -> str:
     return clean
 
 
-def llm_clean_headers(headers: list[str]) -> list[str]:
-    """Smart header normalization using LLM with legacy fallback"""
+def llm_clean_headers(headers: list[str], df: pd.DataFrame) -> list[str]:
+    """Smart header normalization using LLM with sample data context"""
     # Quick fallback if no API key
     if not os.getenv("OPENAI_API_KEY"):
         return [legacy_normalize_header(h) for h in headers]
         
     try:
         client = get_openai_client()
+        
+        # Build sample rows for context (much better than individual columns)
+        # Get up to 3 sample rows to show relationships between columns
+        sample_rows = df.head(3).to_dict('records')
+        # Convert all values to strings for JSON serialization
+        sample_rows = [{k: str(v) for k, v in row.items()} for row in sample_rows]
+        
         prompt = f"""Normalize these column headers to clean snake_case variable names.
+        
+        IMPORTANT: You are provided with sample rows showing ALL columns together.
+        Use this context to infer the meaning of abbreviated or unclear headers.
+        
+        For example:
+        - If you see headers ["emp_id", "nm", "dept", "sal"] with sample rows like:
+          {{"emp_id": "101", "nm": "John Doe", "dept": "Engineering", "sal": "75000"}}
+          You can infer: "nm" -> "name", "sal" -> "salary"
+        
+        - If you see "wt" alongside "product_name" and "price", it's likely "weight"
+        - If you see "wt" alongside "employee_name" and "department", it might be "work_type"
+        
         Rules:
         1. "How old are you?" -> "age"
         2. "What is your annual salary?" -> "annual_salary"
         3. "DoB" -> "date_of_birth"
-        4. Remove "what_is_your", "please_indicate", etc.
-        5. Return JSON: {{"mapping": {{"original": "clean", ...}}}}
+        4. Remove verbose prefixes: "what_is_your", "please_indicate", etc.
+        5. Use context from OTHER columns to disambiguate abbreviations
+        6. Keep names concise but descriptive (max 25 characters)
+        7. Return JSON: {{"mapping": {{"original": "clean", ...}}}}
 
-        Headers: {json.dumps(headers)}"""
+        Original headers:
+        {json.dumps(headers)}
+        
+        Sample rows for context:
+        {json.dumps(sample_rows, indent=2)}"""
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -203,9 +228,9 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
     missing_counts = {}
     column_formats = {}
     
-    # 1. Header Normalization (LLM Powered)
+    # 1. Header Normalization (LLM Powered with Sample Data)
     original_cols = df.columns.tolist()
-    new_cols = llm_clean_headers(original_cols)
+    new_cols = llm_clean_headers(original_cols, df)
     
     # Handle duplicate column names by appending _2, _3, etc.
     seen = {}

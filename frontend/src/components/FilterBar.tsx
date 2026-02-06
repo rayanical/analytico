@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Filter, X, ChevronDown } from 'lucide-react';
+import { Filter, X, ChevronDown, Check } from 'lucide-react';
 import { useData } from '@/context/DataContext';
+import { FilterConfig } from '@/types';
 import { Button } from '@/components/ui/button';
 
 interface FilterBarProps {
@@ -14,9 +15,18 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
-  const { dataset, filters, addFilter, removeFilter, clearFilters, categoricalColumns } = useData();
+  const { dataset, filters, setFilters, clearFilters, categoricalColumns } = useData();
   const [expandedColumn, setExpandedColumn] = useState<string | null>(null);
+  const [pendingFilters, setPendingFilters] = useState<FilterConfig[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Initialize pending filters from applied filters
+  useEffect(() => {
+    setPendingFilters(filters);
+  }, [filters]);
+
+  // Compute dirty state (pending !== applied)
+  const isDirty = JSON.stringify(pendingFilters) !== JSON.stringify(filters);
 
   // Sync with external control
   useEffect(() => {
@@ -51,6 +61,32 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
     onExpandChange?.(column);
   };
 
+  // Local filter mutation helpers
+  const addPendingFilter = (filter: FilterConfig) => {
+    setPendingFilters(prev => {
+      const idx = prev.findIndex(f => f.column === filter.column);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = filter;
+        return updated;
+      }
+      return [...prev, filter];
+    });
+  };
+
+  const removePendingFilter = (column: string) => {
+    setPendingFilters(prev => prev.filter(f => f.column !== column));
+  };
+
+  const handleApplyFilters = () => {
+    setFilters(pendingFilters);
+  };
+
+  const handleClearAll = () => {
+    setPendingFilters([]);
+    clearFilters();
+  };
+
   if (!dataset || categoricalColumns.length === 0) {
     return null;
   }
@@ -71,7 +107,12 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
+          <div className="relative">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            {isDirty && (
+              <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-orange-500" title="Unapplied changes" />
+            )}
+          </div>
           <span className="text-sm font-medium">Filters</span>
           {activeFilterCount > 0 && (
             <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs font-medium text-primary">
@@ -79,22 +120,35 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
             </span>
           )}
         </div>
-        {activeFilterCount > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilters}
-            className="h-7 text-xs text-muted-foreground hover:text-foreground"
-          >
-            Clear all
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isDirty && (
+            <Button
+              size="sm"
+              onClick={handleApplyFilters}
+              className="h-7 text-xs"
+            >
+              <Check className="h-3 w-3 mr-1" />
+              Apply Filters
+            </Button>
+          )}
+          {(activeFilterCount > 0 || pendingFilters.length > 0) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearAll}
+              className="h-7 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Clear all
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter Chips */}
       <div className="flex flex-wrap gap-2">
         {categoricalColumns.slice(0, 6).map(column => {
-          const activeFilter = filters.find(f => f.column === column.name);
+          const pendingFilter = pendingFilters.find(f => f.column === column.name);
+          const appliedFilter = filters.find(f => f.column === column.name);
           const isExpanded = expandedColumn === column.name;
 
           return (
@@ -102,15 +156,17 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
               <button
                 onClick={() => handleExpandChange(isExpanded ? null : column.name)}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-all ${
-                  activeFilter
+                  appliedFilter
                     ? 'bg-primary text-primary-foreground'
+                    : pendingFilter
+                    ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                     : 'bg-white/5 text-muted-foreground hover:bg-white/10'
                 }`}
               >
                 {formatColumnName(column.name)}
-                {activeFilter && (
+                {pendingFilter && (
                   <span className="text-xs opacity-75">
-                    ({(activeFilter.values?.length ?? 0)})
+                    ({(pendingFilter.values?.length ?? 0)})
                   </span>
                 )}
                 <ChevronDown className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -131,7 +187,7 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
                       ) : (
                         column.sample_values.map((value, idx) => {
                           const stringValue = String(value);
-                          const isSelected = activeFilter?.values?.includes(stringValue);
+                          const isSelected = pendingFilter?.values?.includes(stringValue);
 
                           return (
                             <label
@@ -142,15 +198,15 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={() => {
-                                  const currentValues = (activeFilter?.values ?? []) as string[];
+                                  const currentValues = (pendingFilter?.values ?? []) as string[];
                                   const newValues = isSelected
                                     ? currentValues.filter(v => v !== stringValue)
                                     : [...currentValues, stringValue];
 
                                   if (newValues.length === 0) {
-                                    removeFilter(column.name);
+                                    removePendingFilter(column.name);
                                   } else {
-                                    addFilter({ column: column.name, values: newValues });
+                                    addPendingFilter({ column: column.name, values: newValues });
                                   }
                                 }}
                                 className="rounded border-border"
@@ -185,7 +241,11 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
               {formatColumnName(filter.column)}: {(filter.values as string[])?.slice(0, 2).join(', ')}
               {((filter.values as string[])?.length ?? 0) > 2 && ` +${((filter.values as string[])?.length ?? 0) - 2}`}
               <button
-                onClick={() => removeFilter(filter.column)}
+                onClick={() => {
+                  removePendingFilter(filter.column);
+                  // Also remove from applied immediately for filter tags
+                  setFilters(filters.filter(f => f.column !== filter.column));
+                }}
                 className="ml-1 rounded-full p-0.5 hover:bg-primary/20"
               >
                 <X className="h-3 w-3" />
