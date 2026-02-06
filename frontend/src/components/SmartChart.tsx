@@ -1,14 +1,16 @@
 'use client';
 
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
   PieChart, Pie, Cell, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts';
+import { Loader2 } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { ChartResponse, ColumnFormat } from '@/types';
-import { drillDown } from '@/lib/api';
+import { aggregateData, drillDown } from '@/lib/api';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 const COLORS = [
@@ -95,12 +97,13 @@ const CustomTooltip = memo(function CustomTooltip({
 // ============================================================================
 
 export function SmartChart({ chartData }: SmartChartProps) {
-  const { currentChart, dataset, filters, setDrillDownData, setIsDrillDownOpen } = useData();
+  const { currentChart, dataset, filters, setCurrentChart, setDrillDownData, setIsDrillDownOpen, limit, groupOthers, sortBy } = useData();
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const data = chartData || currentChart;
   
   if (!data?.data.length && !data?.answer) return null;
 
-  const { data: records, x_axis_key, y_axis_keys, chart_type, y_axis_label, answer, analysis } = data;
+  const { data: records, x_axis_key, y_axis_keys, chart_type, y_axis_label, answer, analysis, aggregation } = data;
   
   // Text-Only Answer View
   if (chart_type === 'empty' || (answer && !records.length)) {
@@ -121,6 +124,33 @@ export function SmartChart({ chartData }: SmartChartProps) {
   }
   
   const formats = dataset?.columnFormats ?? {};
+
+  const handleAnalyze = async () => {
+    if (!dataset?.datasetId || !x_axis_key || !y_axis_keys?.length) return;
+    setIsAnalyzing(true);
+    try {
+      const response = await aggregateData({
+        dataset_id: dataset.datasetId,
+        x_axis_key,
+        y_axis_keys,
+        aggregation: aggregation || 'sum',
+        chart_type,
+        filters: filters.length > 0 ? filters : undefined,
+        limit,
+        sort_by: sortBy,
+        group_others: groupOthers,
+        include_analysis: true,
+      });
+      setCurrentChart(response);
+      toast.success('Analysis added');
+    } catch (error) {
+      console.error('Analyze error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to analyze chart';
+      toast.error(message);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
   
   const handleDrillDown = async (entry: any) => {
     if (!dataset?.datasetId || !x_axis_key) return;
@@ -355,6 +385,21 @@ export function SmartChart({ chartData }: SmartChartProps) {
       {x_axis_key && chart_type !== 'pie' && (
         <div className="text-center font-medium text-muted-foreground mt-2 text-sm">
           {formatLegendName(x_axis_key)}
+        </div>
+      )}
+
+      {!analysis && chart_type !== 'empty' && (
+        <div className="mt-3 flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleAnalyze}
+            disabled={isAnalyzing}
+            title="Generate a 2-sentence insight for this view"
+          >
+            {isAnalyzing && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isAnalyzing ? 'Analyzing...' : '✨ Analyze this view'}
+          </Button>
         </div>
       )}
     </div>

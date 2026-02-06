@@ -84,6 +84,7 @@ class AggregateRequest(BaseModel):
     limit: Optional[int] = None
     sort_by: Optional[str] = "value"  # "value" or "label"
     group_others: Optional[bool] = True
+    include_analysis: bool = False
 
 
 class ChartResponse(BaseModel):
@@ -92,6 +93,7 @@ class ChartResponse(BaseModel):
     y_axis_keys: list[str]
     chart_type: str
     title: str
+    aggregation: Optional[str] = None
     x_axis_label: Optional[str] = None
     y_axis_label: Optional[str] = None
     row_count: int

@@ -301,6 +301,9 @@ async def upload_csv(file: UploadFile = File(...)):
 
 @app.post("/aggregate", response_model=ChartResponse)
 async def aggregate_endpoint(request: AggregateRequest):
+    if request.include_analysis and not os.getenv("OPENAI_API_KEY"):
+        raise HTTPException(status_code=500, detail="OpenAI API key not configured.")
+
     ds = get_dataset(request.dataset_id)
     df = ds.df
     
@@ -369,6 +372,28 @@ async def aggregate_endpoint(request: AggregateRequest):
     elif sort_by == "label":
         result = result.sort_values(x_key, ascending=True)
     
+    analysis = None
+    if request.include_analysis:
+        try:
+            summary_md = df_to_markdown(result.head(20), n=20)
+            prompt = f"""Analyze this data summary (2 sentences). 1. Context, 2. Insight.
+
+Data:
+{summary_md}"""
+
+            analysis_resp = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a data analyst. Be concise. Only two sentences."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=120,
+                temperature=0.3
+            )
+            analysis = analysis_resp.choices[0].message.content.strip()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
     data = result.to_dict(orient='records')
     for row in data:
         for k in row:
@@ -381,8 +406,10 @@ async def aggregate_endpoint(request: AggregateRequest):
         y_axis_keys=request.y_axis_keys,
         chart_type=request.chart_type,
         title=f"{', '.join(request.y_axis_keys)} by {x_key}".replace('_', ' ').title(),
+        aggregation=agg,
         y_axis_label=y_axis_label,
         row_count=len(data),
+        analysis=analysis,
         warnings=warnings or None,
         applied_filters=applied_filters or None
     )
@@ -475,6 +502,7 @@ Rows: {len(df)}"""
                         y_axis_keys=y_keys if y_keys else [x_key],
                         chart_type="bar",
                         title=f"Analysis: {request.user_prompt[:50]}...",
+                        aggregation=None,
                         row_count=len(data),
                         y_axis_label="",
                         analysis=explanation,
@@ -492,6 +520,7 @@ Rows: {len(df)}"""
                         y_axis_keys=["value"],
                         chart_type="bar",
                         title=f"Analysis: {request.user_prompt[:50]}...",
+                        aggregation=None,
                         row_count=len(data),
                         y_axis_label="",
                         analysis=explanation,
@@ -506,6 +535,7 @@ Rows: {len(df)}"""
                         y_axis_keys=[], 
                         chart_type="empty", 
                         title="Analysis Result", 
+                        aggregation=None,
                         row_count=0,
                         y_axis_label="",
                         analysis=final_answer,
@@ -532,6 +562,7 @@ Rows: {len(df)}"""
                 y_axis_keys=[],
                 chart_type="empty",
                 title="AI Response",
+                aggregation=None,
                 row_count=0,
                 y_axis_label="",
                 analysis=content,  # Original content as analysis
@@ -584,6 +615,7 @@ Rows: {len(df)}"""
             y_axis_keys=y_keys,
             chart_type=config.get("chartType", "bar"),
             title=config.get("title", "Chart"),
+            aggregation=agg,
             x_axis_label=config.get("xAxisLabel"),
             y_axis_label=final_y_label,
             row_count=len(data),

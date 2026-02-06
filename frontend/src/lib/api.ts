@@ -89,6 +89,7 @@ export async function aggregateData(request: AggregateRequest): Promise<ChartRes
       limit: request.limit,
       sort_by: request.sort_by,
       group_others: request.group_others,
+      include_analysis: request.include_analysis,
     });
     return response.data;
   } catch (error) {

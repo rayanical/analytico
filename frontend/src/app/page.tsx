@@ -16,6 +16,7 @@ import { aggregateData } from '@/lib/api';
 import { BarChart3, Sparkles, Wand2, Wrench, Table, LineChart, Info, AlertTriangle, X, Filter, Download, FileJson, FileImage } from 'lucide-react';
 import { toPng, toSvg } from 'html-to-image';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 
 export default function Home() {
   const {
@@ -26,6 +27,7 @@ export default function Home() {
   const [showReasoning, setShowReasoning] = useState(false);
   const [expandedFilterColumn, setExpandedFilterColumn] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   // Track previous filters and settings to detect changes
   const prevFiltersRef = useRef(JSON.stringify(filters));
@@ -68,14 +70,14 @@ export default function Home() {
               dataset_id: dataset.datasetId,
               x_axis_key: currentChart.x_axis_key,
               y_axis_keys: currentChart.y_axis_keys,
-              aggregation: 'sum', // Default
+              aggregation: currentChart.aggregation || 'sum',
               chart_type: currentChart.chart_type,
               filters: filters.length > 0 ? filters : undefined,
               limit,
               group_others: groupOthers,
               sort_by: sortBy,
             });
-            setCurrentChart({ ...response, analysis: currentChart.analysis });
+            setCurrentChart(response);
             
             // Show appropriate success message
             if (filtersChanged && (limitChanged || groupOthersChanged || sortByChanged)) {
@@ -124,6 +126,36 @@ export default function Home() {
     } catch (error) {
       console.error(error);
       toast.error('Export failed', { id: toastId });
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!dataset || !currentChart) return;
+    if (!currentChart.x_axis_key || currentChart.y_axis_keys.length === 0) return;
+    if (currentChart.chart_type === 'empty') return;
+
+    setIsAnalyzing(true);
+    try {
+      const response = await aggregateData({
+        dataset_id: dataset.datasetId,
+        x_axis_key: currentChart.x_axis_key,
+        y_axis_keys: currentChart.y_axis_keys,
+        aggregation: currentChart.aggregation || 'sum',
+        chart_type: currentChart.chart_type,
+        filters: filters.length > 0 ? filters : undefined,
+        limit,
+        group_others: groupOthers,
+        sort_by: sortBy,
+        include_analysis: true,
+      });
+      setCurrentChart(response);
+      toast.success('Analysis added');
+    } catch (error) {
+      console.error('Analyze error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to analyze chart';
+      toast.error(message);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -219,6 +251,17 @@ export default function Home() {
                           <button onClick={() => setShowReasoning(!showReasoning)} className="rounded-full p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary" title="AI Analysis">
                             <Info className="h-4 w-4" />
                           </button>
+                        )}
+                        {!currentChart.analysis && currentChart.chart_type !== 'empty' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleAnalyze}
+                            disabled={isAnalyzing}
+                            title="Generate a 2-sentence insight for this view"
+                          >
+                            {isAnalyzing ? 'Analyzing...' : '✨ Analyze this view'}
+                          </Button>
                         )}
                         {currentChart.warnings?.length ? (
                           <span className="flex items-center gap-1 rounded-full bg-yellow-500/20 px-2 py-1 text-xs text-yellow-400">

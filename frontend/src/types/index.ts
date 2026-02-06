@@ -94,6 +94,7 @@ export interface AggregateRequest {
   limit?: number;
   sort_by?: 'value' | 'label';
   group_others?: boolean;
+  include_analysis?: boolean;
 }
 
 // Chart response with labels and applied filters
@@ -103,6 +104,7 @@ export interface ChartResponse {
   y_axis_keys: string[];
   chart_type: ChartType;
   title: string;
+  aggregation?: AggregationType;
   x_axis_label?: string;
   y_axis_label?: string;
   row_count: number;

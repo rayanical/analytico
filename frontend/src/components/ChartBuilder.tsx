@@ -26,12 +26,19 @@ const AGGREGATIONS: { type: AggregationType; label: string }[] = [
 ];
 
 export function ChartBuilder() {
-  const { dataset, numericColumns, filters, setCurrentChart, addToHistory, isQuerying, setIsQuerying, groupOthers, limit, sortBy } = useData();
+  const { dataset, numericColumns, filters, currentChart, setCurrentChart, addToHistory, isQuerying, setIsQuerying, groupOthers, limit, sortBy } = useData();
   
   const [chartType, setChartType] = useState<ChartType>('bar');
   const [xAxis, setXAxis] = useState<string>('');
   const [yAxes, setYAxes] = useState<string[]>([]);
   const [aggregation, setAggregation] = useState<AggregationType>('sum');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [lastPlotConfig, setLastPlotConfig] = useState<{
+    chartType: ChartType;
+    xAxis: string;
+    yAxes: string[];
+    aggregation: AggregationType;
+  } | null>(null);
 
   const allColumns = dataset?.columns ?? [];
 
@@ -62,9 +69,11 @@ export function ChartBuilder() {
         limit,
         sort_by: sortBy,
         group_others: groupOthers,
+        include_analysis: false,
       });
 
       setCurrentChart(response);
+      setLastPlotConfig({ chartType, xAxis, yAxes, aggregation });
       addToHistory(
         `${chartType} chart: ${yAxes.join(', ')} by ${xAxis}`,
         response,
@@ -77,6 +86,39 @@ export function ChartBuilder() {
       toast.error(message);
     } finally {
       setIsQuerying(false);
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!dataset || !lastPlotConfig) return;
+    setIsAnalyzing(true);
+    try {
+      const response = await aggregateData({
+        dataset_id: dataset.datasetId,
+        x_axis_key: lastPlotConfig.xAxis,
+        y_axis_keys: lastPlotConfig.yAxes,
+        aggregation: lastPlotConfig.aggregation,
+        chart_type: lastPlotConfig.chartType,
+        filters: filters.length > 0 ? filters : undefined,
+        limit,
+        sort_by: sortBy,
+        group_others: groupOthers,
+        include_analysis: true,
+      });
+
+      setCurrentChart(response);
+      addToHistory(
+        `Analysis: ${lastPlotConfig.yAxes.join(', ')} by ${lastPlotConfig.xAxis}`,
+        response,
+        true
+      );
+      toast.success('Analysis added');
+    } catch (error) {
+      console.error('Analyze error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to analyze chart';
+      toast.error(message);
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -203,6 +245,21 @@ export function ChartBuilder() {
           </>
         )}
       </Button>
+
+      {currentChart && !currentChart.analysis && lastPlotConfig && (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleAnalyze}
+            disabled={isAnalyzing}
+            title="Generate a 2-sentence insight for this view"
+          >
+            {isAnalyzing && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isAnalyzing ? 'Analyzing...' : '✨ Analyze this view'}
+          </Button>
+        </div>
+      )}
     </motion.div>
   );
 }
