@@ -64,6 +64,8 @@ interface DataContextType {
   setGroupOthers: (group: boolean) => void;
   limit: number;
   setLimit: (limit: number) => void;
+  sortBy: 'value' | 'label';
+  setSortBy: (sort: 'value' | 'label') => void;
   // Clear
   clearData: () => void;
 }
@@ -86,6 +88,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [isDrillDownOpen, setIsDrillDownOpen] = useState(false);
   const [groupOthers, setGroupOthers] = useState(true);
   const [limit, setLimit] = useState(20);
+  const [sortBy, setSortBy] = useState<'value' | 'label'>('value');
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -165,7 +168,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       viewMode, setViewMode, builderMode, setBuilderMode, history, addToHistory, selectFromHistory, clearHistory,
       isUploading, setIsUploading, isQuerying, setIsQuerying, numericColumns, categoricalColumns, metricColumns, temporalColumns, clearData,
       drillDownData, setDrillDownData, isDrillDownOpen, setIsDrillDownOpen,
-      groupOthers, setGroupOthers, limit, setLimit,
+      groupOthers, setGroupOthers, limit, setLimit, sortBy, setSortBy,
     }}>
       {children}
     </DataContext.Provider>

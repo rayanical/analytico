@@ -346,10 +346,27 @@ async def aggregate_endpoint(request: AggregateRequest):
     # Aggregate
     result = aggregate_data(filtered, x_key, request.y_axis_keys, agg)
     
-    # Sorting
-    if request.sort_by == "value" and request.y_axis_keys:
+    # Smart sorting defaults based on semantic type
+    # If user specified sort_by, use it. Otherwise, apply smart default.
+    sort_by = request.sort_by
+    
+    if sort_by is None:
+        # Find the x_axis column to determine its semantic type
+        x_col_meta = next((c for c in ds.columns if c['name'] == request.x_axis_key), None)
+        if x_col_meta:
+            semantic_type = x_col_meta.get('semantic_type', 'categorical')
+            # Smart default: numeric/temporal → sort by label, categorical → sort by value
+            if semantic_type in ['metric', 'temporal']:
+                sort_by = 'label'
+            else:
+                sort_by = 'value'
+        else:
+            sort_by = 'value'  # Fallback default
+    
+    # Apply sorting
+    if sort_by == "value" and request.y_axis_keys:
         result = result.sort_values(request.y_axis_keys[0], ascending=False)
-    elif request.sort_by == "label":
+    elif sort_by == "label":
         result = result.sort_values(x_key, ascending=True)
     
     data = result.to_dict(orient='records')

@@ -106,6 +106,7 @@ class QueryRequest(BaseModel):
     user_prompt: str
     filters: Optional[list[FilterConfig]] = None
     limit: Optional[int] = None
+    sort_by: Optional[str] = None  # Will use smart defaults if None
     group_others: Optional[bool] = None
 
 

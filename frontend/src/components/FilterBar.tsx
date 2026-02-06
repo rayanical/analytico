@@ -15,7 +15,7 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
-  const { dataset, filters, setFilters, clearFilters, categoricalColumns, groupOthers, setGroupOthers, limit, setLimit } = useData();
+  const { dataset, filters, setFilters, clearFilters, categoricalColumns, groupOthers, setGroupOthers, limit, setLimit, sortBy, setSortBy } = useData();
   const [expandedColumn, setExpandedColumn] = useState<string | null>(null);
   const [pendingFilters, setPendingFilters] = useState<FilterConfig[]>([]);
   const [showSettings, setShowSettings] = useState(false);
@@ -23,6 +23,7 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
   // Local settings state (for batching)
   const [localLimit, setLocalLimit] = useState(limit);
   const [localGroupOthers, setLocalGroupOthers] = useState(groupOthers);
+  const [localSortBy, setLocalSortBy] = useState(sortBy);
   const [showAll, setShowAll] = useState(limit === 0);
   
   const containerRef = useRef<HTMLDivElement>(null);
@@ -38,12 +39,13 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
     setLocalLimit(limit === 0 ? 20 : limit);
     setShowAll(limit === 0);
     setLocalGroupOthers(groupOthers);
-  }, [limit, groupOthers]);
+    setLocalSortBy(sortBy);
+  }, [limit, groupOthers, sortBy]);
 
   // Compute dirty state (pending !== applied OR settings differ)
   const filtersDirty = JSON.stringify(pendingFilters) !== JSON.stringify(filters);
   const effectiveLimit = showAll ? 0 : localLimit;
-  const settingsDirty = effectiveLimit !== limit || localGroupOthers !== groupOthers;
+  const settingsDirty = effectiveLimit !== limit || localGroupOthers !== groupOthers || localSortBy !== sortBy;
   const isDirty = filtersDirty || settingsDirty;
 
   // Sync with external control
@@ -121,6 +123,7 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
     // Apply settings
     setLimit(showAll ? 0 : localLimit);
     setGroupOthers(localGroupOthers);
+    setSortBy(localSortBy);
   };
   
   const handleCancel = () => {
@@ -130,6 +133,7 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
     setLocalLimit(limit === 0 ? 20 : limit);
     setShowAll(limit === 0);
     setLocalGroupOthers(groupOthers);
+    setLocalSortBy(sortBy);
   };
 
   const handleClearAll = () => {
@@ -261,6 +265,33 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
                       >
                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localGroupOthers ? 'translate-x-6' : 'translate-x-1'}`} />
                       </button>
+                    </div>
+                    
+                    {/* Sort By Segmented Control */}
+                    <div>
+                      <label className="mb-2 block text-sm font-medium">Sort By</label>
+                      <div className="flex gap-1 rounded-lg bg-muted p-1">
+                        <button
+                          onClick={() => setLocalSortBy('value')}
+                          className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                            localSortBy === 'value'
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Value (High to Low)
+                        </button>
+                        <button
+                          onClick={() => setLocalSortBy('label')}
+                          className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                            localSortBy === 'label'
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Label (A-Z / 1-9)
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </motion.div>

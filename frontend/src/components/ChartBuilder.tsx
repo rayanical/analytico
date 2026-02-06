@@ -26,13 +26,12 @@ const AGGREGATIONS: { type: AggregationType; label: string }[] = [
 ];
 
 export function ChartBuilder() {
-  const { dataset, numericColumns, filters, setCurrentChart, addToHistory, isQuerying, setIsQuerying, groupOthers, setGroupOthers, limit, setLimit } = useData();
+  const { dataset, numericColumns, filters, setCurrentChart, addToHistory, isQuerying, setIsQuerying, groupOthers, limit, sortBy } = useData();
   
   const [chartType, setChartType] = useState<ChartType>('bar');
   const [xAxis, setXAxis] = useState<string>('');
   const [yAxes, setYAxes] = useState<string[]>([]);
   const [aggregation, setAggregation] = useState<AggregationType>('sum');
-  const [sortBy, setSortBy] = useState<'value' | 'label'>('value');
 
   const allColumns = dataset?.columns ?? [];
 
@@ -184,24 +183,6 @@ export function ChartBuilder() {
         </div>
       </div>
 
-      {/* Advanced Controls */}
-      <div>
-        <label className="mb-2 block text-sm font-medium text-muted-foreground">Sort By</label>
-        <div className="flex rounded-lg bg-white/5 p-1">
-          <button
-            onClick={() => setSortBy('value')}
-            className={`flex-1 rounded py-2 text-sm font-medium transition-all ${sortBy === 'value' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            Value
-          </button>
-          <button
-            onClick={() => setSortBy('label')}
-            className={`flex-1 rounded py-2 text-sm font-medium transition-all ${sortBy === 'label' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            Label (A-Z)
-          </button>
-        </div>
-      </div>
 
       {/* Plot Button */}
       <Button

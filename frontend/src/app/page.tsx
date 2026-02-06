@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 export default function Home() {
   const {
     dataset, currentChart, isQuerying, viewMode, setViewMode, builderMode, setBuilderMode,
-    filters, setCurrentChart, limit, groupOthers, setIsQuerying,
+    filters, setCurrentChart, limit, groupOthers, sortBy, setIsQuerying,
   } = useData();
 
   const [showReasoning, setShowReasoning] = useState(false);
@@ -31,6 +31,7 @@ export default function Home() {
   const prevFiltersRef = useRef(JSON.stringify(filters));
   const prevLimitRef = useRef(limit);
   const prevGroupOthersRef = useRef(groupOthers);
+  const prevSortByRef = useRef(sortBy);
   const isInitialMount = useRef(true);
   
   // Auto-refresh chart when filters or settings change
@@ -41,6 +42,7 @@ export default function Home() {
       prevFiltersRef.current = JSON.stringify(filters);
       prevLimitRef.current = limit;
       prevGroupOthersRef.current = groupOthers;
+      prevSortByRef.current = sortBy;
       return;
     }
     
@@ -48,12 +50,14 @@ export default function Home() {
     const filtersChanged = prevFiltersRef.current !== currentFiltersStr;
     const limitChanged = prevLimitRef.current !== limit;
     const groupOthersChanged = prevGroupOthersRef.current !== groupOthers;
+    const sortByChanged = prevSortByRef.current !== sortBy;
     
     // Only refresh if something actually changed and we have an active chart
-    if ((filtersChanged || limitChanged || groupOthersChanged) && currentChart && dataset) {
+    if ((filtersChanged || limitChanged || groupOthersChanged || sortByChanged) && currentChart && dataset) {
       prevFiltersRef.current = currentFiltersStr;
       prevLimitRef.current = limit;
       prevGroupOthersRef.current = groupOthers;
+      prevSortByRef.current = sortBy;
       
       // Only auto-refresh if we have a valid chart config (not empty/text-only response)
       if (currentChart.x_axis_key && currentChart.y_axis_keys.length > 0 && currentChart.chart_type !== 'empty') {
@@ -69,11 +73,12 @@ export default function Home() {
               filters: filters.length > 0 ? filters : undefined,
               limit,
               group_others: groupOthers,
+              sort_by: sortBy,
             });
             setCurrentChart({ ...response, reasoning: currentChart.reasoning });
             
             // Show appropriate success message
-            if (filtersChanged && (limitChanged || groupOthersChanged)) {
+            if (filtersChanged && (limitChanged || groupOthersChanged || sortByChanged)) {
               toast.success('Chart updated with filters and settings');
             } else if (filtersChanged) {
               toast.success('Chart updated with filters');
@@ -90,7 +95,7 @@ export default function Home() {
         refreshChart();
       }
     }
-  }, [filters, currentChart, dataset, limit, groupOthers, setCurrentChart, setIsQuerying]);
+  }, [filters, currentChart, dataset, limit, groupOthers, sortBy, setCurrentChart, setIsQuerying]);
 
   const downloadChart = async (format: 'png' | 'svg') => {
     const node = document.getElementById('chart-export-container');
