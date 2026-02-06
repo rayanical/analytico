@@ -75,7 +75,7 @@ export default function Home() {
               group_others: groupOthers,
               sort_by: sortBy,
             });
-            setCurrentChart({ ...response, reasoning: currentChart.reasoning });
+            setCurrentChart({ ...response, analysis: currentChart.analysis });
             
             // Show appropriate success message
             if (filtersChanged && (limitChanged || groupOthersChanged || sortByChanged)) {
@@ -215,8 +215,8 @@ export default function Home() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <h3 className="text-xl font-semibold">{currentChart.title}</h3>
-                        {currentChart.reasoning && (
-                          <button onClick={() => setShowReasoning(!showReasoning)} className="rounded-full p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary" title="Reasoning">
+                        {currentChart.analysis && (
+                          <button onClick={() => setShowReasoning(!showReasoning)} className="rounded-full p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary" title="AI Analysis">
                             <Info className="h-4 w-4" />
                           </button>
                         )}
@@ -253,15 +253,15 @@ export default function Home() {
                       </div>
                     ) : null}
                     
-                    {/* Reasoning Panel */}
+                    {/* Analysis Panel - Toggleable */}
                     <AnimatePresence>
-                      {showReasoning && currentChart.reasoning && (
+                      {showReasoning && currentChart.analysis && (
                         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-3 overflow-hidden">
                           <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
                             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                             <div className="flex-1">
-                              <p className="text-sm font-medium text-primary">AI Reasoning</p>
-                              <p className="mt-1 text-sm text-muted-foreground">{currentChart.reasoning}</p>
+                              <p className="text-sm font-medium text-primary">AI Analysis</p>
+                              <p className="mt-1 text-sm text-muted-foreground">{currentChart.analysis}</p>
                               {currentChart.warnings?.map((w, i) => (
                                 <p key={i} className="mt-1 flex items-center gap-1.5 text-xs text-yellow-400">
                                   <AlertTriangle className="h-3 w-3" />{w}

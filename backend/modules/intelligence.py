@@ -67,7 +67,7 @@ def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Op
             "chart_type": "line",
             "aggregation": "sum",
             "title": f"{', '.join(metric_cols[:2])} Over Time".replace('_', ' ').title(),
-            "reasoning": f"Time series visualization using {temporal_cols[0]} as the timeline."
+            "analysis": f"Tracking {metric_cols[0]} over time reveals historical trends and seasonality. This data helps identify growth patterns and potential cyclical behavior impacting {temporal_cols[0]}."
         }
     
     # Second best: categorical x-axis with metric y-axis
@@ -80,7 +80,7 @@ def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Op
             "chart_type": "bar",
             "aggregation": "sum",
             "title": f"{', '.join(metric_cols[:2])} by {best_cat}".replace('_', ' ').title(),
-            "reasoning": f"Comparing {metric_cols[0]} across different {best_cat} categories."
+            "analysis": f"Comparing {metric_cols[0]} across {best_cat} segments highlights performance variances. This breakdown identifies which {best_cat} categories are driving the most value."
         }
     
     # Fallback: first two metrics as composed chart
@@ -91,7 +91,7 @@ def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Op
             "chart_type": "composed",
             "aggregation": "sum",
             "title": f"Correlation: {metric_cols[0]} vs {metric_cols[1]}".replace('_', ' ').title(),
-            "reasoning": "Showing relationship between two numeric metrics."
+            "analysis": f"Analyzing the relationship between {metric_cols[0]} and {metric_cols[1]}. This correlation view helps determine if an increase in one metric drives changes in the other."
         }
     
     return None

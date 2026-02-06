@@ -46,7 +46,7 @@ export interface DefaultChart {
   chart_type: ChartType;
   aggregation: AggregationType;
   title: string;
-  reasoning: string;
+  analysis: string; // Renamed from reasoning
 }
 
 // Column metadata
@@ -106,7 +106,7 @@ export interface ChartResponse {
   x_axis_label?: string;
   y_axis_label?: string;
   row_count: number;
-  reasoning?: string;
+  analysis?: string; // 2-sentence business insight (renamed from reasoning)
   warnings?: string[];
   applied_filters?: string[];
   answer?: string;

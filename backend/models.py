@@ -40,7 +40,7 @@ class DefaultChart(BaseModel):
     chart_type: str
     aggregation: str
     title: str
-    reasoning: str
+    analysis: str  # Renamed from reasoning
 
 
 class ColumnSummary(BaseModel):
@@ -95,7 +95,7 @@ class ChartResponse(BaseModel):
     x_axis_label: Optional[str] = None
     y_axis_label: Optional[str] = None
     row_count: int
-    reasoning: Optional[str] = None
+    analysis: Optional[str] = None  # 2-sentence business insight (renamed from reasoning)
     warnings: Optional[list[str]] = None
     applied_filters: Optional[list[str]] = None
     answer: Optional[str] = None  # For scalar results from Python queries

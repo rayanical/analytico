@@ -158,21 +158,28 @@ def detect_column_format(series: pd.Series, col_name: str) -> str:
     """Detect the display format for a column"""
     col_lower = col_name.lower()
     
-    # Currency keywords
-    if any(kw in col_lower for kw in ['salary', 'price', 'cost', 'revenue', 'amount', 'income', 'wage', 'comp', 'pay']):
+    # Identifier columns (IDs, codes, serial numbers)
+    if any(kw in col_lower for kw in ['id', 'code', 'serial', 'key', 'number', 'ref']):
+        # But not if it contains currency keywords
+        if not any(kw in col_lower for kw in ['salary', 'price', 'cost', 'revenue', 'amount', 'income']):
+            return 'identifier'
+    
+    # Age, year, count - should not be currency
+    if any(kw in col_lower for kw in ['age', 'year', 'count', 'qty', 'quantity', 'weight', 'height', 'distance']):
+        return 'number'
+    
+    # Currency keywords - more specific
+    if any(kw in col_lower for kw in ['salary', 'price', 'cost', 'revenue', 'amount', 'income', 'wage', 'compensation', 'payment', 'fee', 'budget']):
         return 'currency'
     
     # Percentage keywords
     if any(kw in col_lower for kw in ['percent', 'pct', 'rate', 'ratio']):
         return 'percentage'
     
-    # Check data patterns
+    # Check data patterns (more conservative)
     if pd.api.types.is_numeric_dtype(series):
         sample = series.dropna().head(100)
         if len(sample) > 0:
-            # Large numbers often indicate currency
-            if sample.abs().mean() > 1000:
-                return 'currency'
             # Values between 0-1 might be percentages
             if sample.between(0, 1).all() and sample.max() < 1:
                 return 'percentage'

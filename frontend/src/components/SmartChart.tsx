@@ -100,7 +100,7 @@ export function SmartChart({ chartData }: SmartChartProps) {
   
   if (!data?.data.length && !data?.answer) return null;
 
-  const { data: records, x_axis_key, y_axis_keys, chart_type, y_axis_label, answer, reasoning } = data;
+  const { data: records, x_axis_key, y_axis_keys, chart_type, y_axis_label, answer, analysis } = data;
   
   // Text-Only Answer View
   if (chart_type === 'empty' || (answer && !records.length)) {
@@ -110,10 +110,10 @@ export function SmartChart({ chartData }: SmartChartProps) {
            <h3 className="mb-2 text-lg font-semibold text-primary">Insight</h3>
            <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">{answer}</div>
          </div>
-         {reasoning && (
+         {analysis && (
            <div className="rounded-lg border border-border/50 bg-card/30 p-4">
-             <h4 className="mb-2 text-sm font-medium text-muted-foreground">Reasoning</h4>
-             <p className="text-sm text-foreground/80">{reasoning}</p>
+             <h4 className="mb-2 text-sm font-medium text-muted-foreground">Analysis</h4>
+             <p className="text-sm text-foreground/80">{analysis}</p>
            </div>
          )}
       </div>

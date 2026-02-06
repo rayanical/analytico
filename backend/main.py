@@ -170,7 +170,7 @@ SYSTEM_PROMPT = """You are a data visualization assistant. Given a user question
 5. title: Chart title
 6. xAxisLabel: Human-readable X-axis label (e.g., "Department")
 7. yAxisLabel: Human-readable Y-axis label (e.g., "Total Revenue ($)")
-8. reasoning: 1-2 sentences explaining your choice
+8. analysis: A 2-sentence business insight. First sentence summarizes what is shown, second sentence highlights the key trend or outlier.
 9. calculated_field: Optional {name, expression} for derived metrics
 
 Rules:
@@ -477,7 +477,7 @@ Rows: {len(df)}"""
                         title=f"Analysis: {request.user_prompt[:50]}...",
                         row_count=len(data),
                         y_axis_label="",
-                        reasoning=explanation,
+                        analysis=explanation,
                         answer=None
                     )
                 elif isinstance(exec_result, pd.Series):
@@ -494,7 +494,7 @@ Rows: {len(df)}"""
                         title=f"Analysis: {request.user_prompt[:50]}...",
                         row_count=len(data),
                         y_axis_label="",
-                        reasoning=explanation,
+                        analysis=explanation,
                         answer=None
                     )
                 else:
@@ -508,7 +508,7 @@ Rows: {len(df)}"""
                         title="Analysis Result", 
                         row_count=0,
                         y_axis_label="",
-                        reasoning=final_answer,
+                        analysis=final_answer,
                         answer=str(exec_result)
                     )
 
@@ -534,7 +534,7 @@ Rows: {len(df)}"""
                 title="AI Response",
                 row_count=0,
                 y_axis_label="",
-                reasoning=content,  # Original content as reasoning
+                analysis=content,  # Original content as analysis
                 answer=content
             )
         
@@ -587,7 +587,7 @@ Rows: {len(df)}"""
             x_axis_label=config.get("xAxisLabel"),
             y_axis_label=final_y_label,
             row_count=len(data),
-            reasoning=config.get("reasoning", "AI-generated configuration."),
+            analysis=config.get("analysis", "AI-generated configuration."),
             warnings=warnings or None,
             applied_filters=applied or None
         )
