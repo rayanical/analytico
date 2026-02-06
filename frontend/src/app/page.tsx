@@ -176,8 +176,8 @@ export default function Home() {
           )}
 
           {/* Main Content */}
-          <div className="flex flex-1 gap-6">
-            <div className="flex-1">
+          <div className="flex flex-1 gap-6 min-w-0">
+            <div className="flex-1 min-w-0">
               {isQuerying ? (
                 <ChartSkeleton />
               ) : currentChart ? (
@@ -186,7 +186,7 @@ export default function Home() {
                   key={viewMode} 
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
-                  className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm"
+                  className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm min-w-0 overflow-hidden"
                 >
                   {/* Chart Header */}
                   <div className="mb-4">

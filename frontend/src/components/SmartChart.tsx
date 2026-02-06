@@ -205,7 +205,6 @@ export function SmartChart({ chartData }: SmartChartProps) {
               label={y_axis_label ? { value: y_axis_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined} 
             />
             <Tooltip content={tooltipContent} />
-            <Legend formatter={formatLegendName} />
             {y_axis_keys.map((k, i) => (
               <Line 
                 key={k} 
@@ -234,7 +233,6 @@ export function SmartChart({ chartData }: SmartChartProps) {
             <XAxis dataKey={x_axis_key} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={tickFormatter} />
             <Tooltip content={tooltipContent} />
-            <Legend formatter={formatLegendName} />
             {y_axis_keys.map((k, i) => (
               <Area 
                 key={k} 
@@ -281,7 +279,6 @@ export function SmartChart({ chartData }: SmartChartProps) {
             <XAxis dataKey={x_axis_key} tick={axisStyle} />
             <YAxis tick={axisStyle} tickFormatter={tickFormatter} />
             <Tooltip content={tooltipContent} />
-            <Legend formatter={formatLegendName} />
             {y_axis_keys.map((k, i) => i % 2 === 0
               ? <Bar key={k} dataKey={k} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} opacity={0.8} />
               : <Line key={k} type="monotone" dataKey={k} stroke={COLORS[i % COLORS.length]} strokeWidth={2} />
@@ -299,7 +296,6 @@ export function SmartChart({ chartData }: SmartChartProps) {
               label={y_axis_label ? { value: y_axis_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined}
             />
             <Tooltip content={tooltipContent} />
-            <Legend formatter={formatLegendName} />
             {y_axis_keys.map((k, i) => (
               <Bar 
                 key={k} 
@@ -317,27 +313,50 @@ export function SmartChart({ chartData }: SmartChartProps) {
 
   // Calculate dynamic width for scrolling - keep container fixed, scroll inside
   const minBarWidth = 50; // Minimum pixels per bar/point
-  const calculatedWidth = records.length * minBarWidth;
+  const calculatedWidth = Math.max(records.length * minBarWidth, 800);
   const shouldScroll = records.length > 12; // Enable scroll if more than 12 items
-  const innerWidth = shouldScroll ? Math.max(calculatedWidth, 800) : '100%';
 
   return (
-    <div 
-      className="relative h-[450px] w-full rounded-lg border border-border/50 bg-card/30 p-4"
-      style={{ maxWidth: '100%', display: 'block' }}
-    >
+    <div className="relative flex flex-col w-full min-w-0 min-h-[450px] rounded-lg border border-border/50 bg-card/30 p-4">
+      {/* Fixed Legend - stays in place during horizontal scroll */}
+      {chart_type !== 'pie' && y_axis_keys.length > 0 && (
+        <div className="flex flex-wrap gap-4 justify-center mb-4">
+          {y_axis_keys.map((key, i) => (
+            <div key={key} className="flex items-center gap-2">
+              <span 
+                className="h-3 w-3 rounded-full" 
+                style={{ backgroundColor: COLORS[i % COLORS.length] }} 
+              />
+              <span className="text-sm text-muted-foreground">
+                {formatLegendName(key)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Scrollable Chart Container */}
       <div 
-        className="h-full w-full"
-        style={{ 
-          overflowX: shouldScroll ? 'auto' : 'hidden', 
-          overflowY: 'hidden',
-          maxWidth: '100%'
-        }}
+        className="w-full max-w-full min-w-0 overflow-x-auto overflow-y-hidden" 
+        style={{ height: '380px' }}
       >
-        <div style={{ width: innerWidth, height: '100%', minHeight: '350px', minWidth: shouldScroll ? `${calculatedWidth}px` : undefined }}>
+        <div 
+          style={{ 
+            width: shouldScroll ? `${calculatedWidth}px` : '100%', 
+            height: '380px',
+            minWidth: shouldScroll ? `${calculatedWidth}px` : '100%'
+          }}
+        >
           <ResponsiveContainer width="100%" height="100%">{renderChart()}</ResponsiveContainer>
         </div>
       </div>
+
+      {/* Fixed X-Axis Label - stays in place during horizontal scroll */}
+      {x_axis_key && chart_type !== 'pie' && (
+        <div className="text-center font-medium text-muted-foreground mt-2 text-sm">
+          {formatLegendName(x_axis_key)}
+        </div>
+      )}
     </div>
   );
 }
