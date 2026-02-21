@@ -8,13 +8,18 @@ import { useData } from '@/context/DataContext';
 import { uploadCSV, aggregateData } from '@/lib/api';
 import { toast } from 'sonner';
 
-// Smart number formatter with proper K/M/B scaling and $ prefix
-function formatCompact(value: number): string {
+// Smart number formatter with proper K/M/B scaling
+function formatCompact(value: number, format: string = 'number'): string {
   const abs = Math.abs(value);
-  if (abs >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
-  if (abs >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `$${(value / 1e3).toFixed(1)}K`;
-  return `$${value.toFixed(0)}`;
+  const prefix = format === 'currency' ? '$' : '';
+  const suffix = format === 'percentage' ? '%' : '';
+  
+  if (abs >= 1e9) return `${prefix}${(value / 1e9).toFixed(1)}B${suffix}`;
+  if (abs >= 1e6) return `${prefix}${(value / 1e6).toFixed(1)}M${suffix}`;
+  if (abs >= 1e3) return `${prefix}${(value / 1e3).toFixed(1)}K${suffix}`;
+  
+  if (format === 'percentage') return `${(value * 100).toFixed(0)}%`;
+  return `${prefix}${value.toFixed(0)}${suffix}`;
 }
 
 // Format column name for display
@@ -61,7 +66,7 @@ export function FileUploader() {
             chart_type: response.default_chart.chart_type,
           });
           
-          chartData.reasoning = response.default_chart.reasoning;
+          chartData.analysis = response.default_chart.analysis;
           setCurrentChart(chartData);
           addToHistory('Auto-generated insight', chartData, true);
           
@@ -122,7 +127,7 @@ export function FileUploader() {
                       <div key={m.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <TrendingUp className="h-3 w-3 text-primary" />
                         <span className="font-medium">{formatName(m.name)}:</span>
-                        <span>{formatCompact(m.total)} total</span>
+                        <span>{formatCompact(m.total, dataset.columnFormats[m.name] || 'number')} total</span>
                       </div>
                     ))}
                     {profile.time_range && (

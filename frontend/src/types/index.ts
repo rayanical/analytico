@@ -46,7 +46,7 @@ export interface DefaultChart {
   chart_type: ChartType;
   aggregation: AggregationType;
   title: string;
-  reasoning: string;
+  analysis: string; // Renamed from reasoning
 }
 
 // Column metadata
@@ -72,6 +72,7 @@ export interface UploadResponse {
   profile: DataProfile;
   default_chart: DefaultChart | null;
   suggestions: string[];
+  summary?: string;
 }
 
 // Filter configuration
@@ -90,6 +91,10 @@ export interface AggregateRequest {
   aggregation: AggregationType;
   chart_type: ChartType;
   filters?: FilterConfig[];
+  limit?: number;
+  sort_by?: 'value' | 'label';
+  group_others?: boolean;
+  include_analysis?: boolean;
 }
 
 // Chart response with labels and applied filters
@@ -99,12 +104,21 @@ export interface ChartResponse {
   y_axis_keys: string[];
   chart_type: ChartType;
   title: string;
+  aggregation?: AggregationType;
   x_axis_label?: string;
   y_axis_label?: string;
   row_count: number;
-  reasoning?: string;
+  analysis?: string; // 2-sentence business insight (renamed from reasoning)
   warnings?: string[];
   applied_filters?: string[];
+  answer?: string;
+}
+
+// Drilldown request
+export interface DrillDownRequest {
+  dataset_id: string;
+  filters?: FilterConfig[];
+  limit?: number;
 }
 
 // Query request
@@ -112,10 +126,12 @@ export interface QueryRequest {
   dataset_id: string;
   user_prompt: string;
   filters?: FilterConfig[];
+  limit?: number;
+  group_others?: boolean;
 }
 
 // Chart types
-export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'composed';
+export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'composed' | 'empty';
 
 // Aggregation types
 export type AggregationType = 'sum' | 'mean' | 'count' | 'min' | 'max';
