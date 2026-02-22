@@ -86,72 +86,108 @@ def legacy_normalize_header(header: str) -> str:
     return clean
 
 
-def llm_clean_headers(headers: list[str], df: pd.DataFrame) -> list[str]:
-    """Smart header normalization using LLM with sample data context"""
-    # Quick fallback if no API key
+def _normalize_llm_format(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    fmt = str(value).strip().lower()
+    allowed = {"currency", "percentage", "number", "date"}
+    return fmt if fmt in allowed else None
+
+
+def _normalize_llm_semantic(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    sem = str(value).strip().lower()
+    allowed = {"metric", "identifier", "temporal", "categorical"}
+    return sem if sem in allowed else None
+
+
+def llm_enrich_columns(headers: list[str], df: pd.DataFrame) -> list[dict[str, Optional[str]]]:
+    """
+    Use one LLM pass to normalize header names and classify each column.
+    Returns rows with: original, clean, format, semantic_type.
+    """
+    fallback = [
+        {
+            "original": h,
+            "clean": legacy_normalize_header(h),
+            "format": None,
+            "semantic_type": None,
+        }
+        for h in headers
+    ]
+
     if not os.getenv("OPENAI_API_KEY"):
-        return [legacy_normalize_header(h) for h in headers]
-        
+        return fallback
+
     try:
         client = get_openai_client()
-        
-        # Build sample rows for context (much better than individual columns)
-        # Get up to 3 sample rows to show relationships between columns
-        sample_rows = df.head(3).to_dict('records')
-        # Convert all values to strings for JSON serialization
+        sample_rows = df.head(3).to_dict("records")
         sample_rows = [{k: str(v) for k, v in row.items()} for row in sample_rows]
-        
-        prompt = f"""Normalize these column headers to clean snake_case variable names.
-        
-        IMPORTANT: You are provided with sample rows showing ALL columns together.
-        Use this context to infer the meaning of abbreviated or unclear headers.
-        
-        For example:
-        - If you see headers ["emp_id", "nm", "dept", "sal"] with sample rows like:
-          {{"emp_id": "101", "nm": "John Doe", "dept": "Engineering", "sal": "75000"}}
-          You can infer: "nm" -> "name", "sal" -> "salary"
-        
-        - If you see "wt" alongside "product_name" and "price", it's likely "weight"
-        - If you see "wt" alongside "employee_name" and "department", it might be "work_type"
-        
-        Rules:
-        1. "How old are you?" -> "age"
-        2. "What is your annual salary?" -> "annual_salary"
-        3. "DoB" -> "date_of_birth"
-        4. Remove verbose prefixes: "what_is_your", "please_indicate", etc.
-        5. Use context from OTHER columns to disambiguate abbreviations
-        6. Keep names concise but descriptive (max 25 characters)
-        7. Return JSON: {{"mapping": {{"original": "clean", ...}}}}
 
-        Original headers:
-        {json.dumps(headers)}
-        
-        Sample rows for context:
-        {json.dumps(sample_rows, indent=2)}"""
+        prompt = f"""You are normalizing dataset columns for analytics.
+
+Return strict JSON with this shape only:
+{{
+  "columns": [
+    {{
+      "original": "original header",
+      "clean": "clean_snake_case_name",
+      "format": "currency|percentage|number|date",
+      "semantic_type": "metric|identifier|temporal|categorical"
+    }}
+  ]
+}}
+
+Rules:
+1. Keep "clean" concise snake_case, max 25 chars.
+2. Use context from all headers and sample rows.
+3. Resolve multilingual headers (e.g., Spanish/French) into meaningful English clean names.
+4. If uncertain, use format "number" and semantic_type "categorical".
+5. Every original header must appear exactly once in "columns".
+
+Original headers:
+{json.dumps(headers)}
+
+Sample rows:
+{json.dumps(sample_rows, indent=2)}"""
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content
-        mapping = json.loads(content).get("mapping", {})
-        
-        results = []
-        for h in headers:
-            # Prefer LLM result, fallback to legacy
-            cleaned = mapping.get(h)
-            if not cleaned:
-                cleaned = legacy_normalize_header(h)
-            # Ensure safe char set even if LLM is creative
-            cleaned = re.sub(r'[^\w]', '_', cleaned).lower()
-            results.append(cleaned)
-        return results
-            
+        parsed = json.loads(content)
+        raw_columns = parsed.get("columns", [])
+        by_original: dict[str, dict[str, Optional[str]]] = {}
+
+        for row in raw_columns:
+            if not isinstance(row, dict):
+                continue
+            original = str(row.get("original", "")).strip()
+            if not original:
+                continue
+            clean = str(row.get("clean", "")).strip()
+            clean = re.sub(r"[^\w]", "_", clean).lower() if clean else ""
+            by_original[original] = {
+                "original": original,
+                "clean": clean or legacy_normalize_header(original),
+                "format": _normalize_llm_format(row.get("format")),
+                "semantic_type": _normalize_llm_semantic(row.get("semantic_type")),
+            }
+
+        return [by_original.get(h, f) for h, f in zip(headers, fallback)]
     except Exception as e:
-        print(f"LLM Header Clean failed: {e}")
-        return [legacy_normalize_header(h) for h in headers]
+        print(f"LLM Column Enrichment failed: {e}")
+        return fallback
+
+
+def llm_clean_headers(headers: list[str], df: pd.DataFrame) -> list[str]:
+    """Smart header normalization using LLM with sample data context"""
+    enriched = llm_enrich_columns(headers, df)
+    return [re.sub(r"[^\w]", "_", str(row.get("clean", "") or "")).lower() for row in enriched]
 
 
 def detect_column_format(series: pd.Series, col_name: str) -> str:
@@ -226,18 +262,20 @@ def llm_fix_data_issues(df: pd.DataFrame, column_types: dict[str, str]) -> tuple
     return df, actions
 
 
-def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str, int], dict[str, str]]:
+def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str, int], dict[str, str], dict[str, str]]:
     """
     Clean DataFrame and extract metadata.
-    Returns: (cleaned_df, cleaning_actions, missing_counts, column_formats)
+    Returns: (cleaned_df, cleaning_actions, missing_counts, column_formats, semantic_types)
     """
     cleaning_actions = []
     missing_counts = {}
     column_formats = {}
+    semantic_types = {}
     
     # 1. Header Normalization (LLM Powered with Sample Data)
     original_cols = df.columns.tolist()
-    new_cols = llm_clean_headers(original_cols, df)
+    llm_columns = llm_enrich_columns(original_cols, df)
+    new_cols = [str(row.get("clean", "") or legacy_normalize_header(h)) for h, row in zip(original_cols, llm_columns)]
     
     # Handle duplicate column names by appending _2, _3, etc.
     seen = {}
@@ -255,6 +293,15 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
     if renamed:
         cleaning_actions.append(f"Normalized {len(renamed)} column headers")
     df.columns = new_cols
+
+    # Capture LLM-provided format + semantic_type on the final deduped names.
+    for final_col, row in zip(new_cols, llm_columns):
+        llm_fmt = _normalize_llm_format(row.get("format"))
+        llm_sem = _normalize_llm_semantic(row.get("semantic_type"))
+        if llm_fmt:
+            column_formats[final_col] = llm_fmt
+        if llm_sem:
+            semantic_types[final_col] = llm_sem
     
     # 2. Type Repair and Format Detection
     for col in df.columns:
@@ -319,4 +366,4 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             else:
                 df[col] = df[col].fillna(0)
     
-    return df, cleaning_actions, missing_counts, column_formats
+    return df, cleaning_actions, missing_counts, column_formats, semantic_types

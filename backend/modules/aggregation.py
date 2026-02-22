@@ -53,7 +53,7 @@ def smart_group_top_n(
     df_copy['_x_grouped'] = df_copy[x_col].apply(lambda x: x if str(x) in top_categories_str else 'Others')
     
     # Aggregate using the requested aggregation type
-    agg_map = {"sum": "sum", "mean": "mean", "count": "count", "min": "min", "max": "max"}
+    agg_map = {"sum": "sum", "mean": "mean", "median": "median", "count": "count", "min": "min", "max": "max"}
     grouped = df_copy.groupby('_x_grouped', as_index=False)[y_cols].agg(agg_map.get(agg, "sum"))
     grouped = grouped.rename(columns={'_x_grouped': x_col})
     
@@ -105,7 +105,7 @@ def smart_resample_dates(
         new_col = f"{date_col}_week"
     
     # Aggregate using the requested aggregation type
-    agg_map = {"sum": "sum", "mean": "mean", "count": "count", "min": "min", "max": "max"}
+    agg_map = {"sum": "sum", "mean": "mean", "median": "median", "count": "count", "min": "min", "max": "max"}
     grouped = df_copy.groupby('_period', as_index=False)[y_cols].agg(agg_map.get(agg, "sum"))
     grouped = grouped.rename(columns={'_period': new_col})
     
@@ -143,7 +143,7 @@ def enforce_semantic_rules(
 
 def aggregate_data(df: pd.DataFrame, x_key: str, y_keys: list[str], agg: str) -> pd.DataFrame:
     """Aggregate data by x_key, applying aggregation to y_keys"""
-    agg_map = {"sum": "sum", "mean": "mean", "count": "count", "min": "min", "max": "max"}
+    agg_map = {"sum": "sum", "mean": "mean", "median": "median", "count": "count", "min": "min", "max": "max"}
     grouped = df.groupby(x_key, as_index=False)[y_keys].agg(agg_map.get(agg, "sum"))
     # Convert x_key to string to avoid mixed type sorting issues
     grouped[x_key] = grouped[x_key].astype(str)

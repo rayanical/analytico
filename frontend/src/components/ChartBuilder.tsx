@@ -20,6 +20,7 @@ const CHART_TYPES: { type: ChartType; icon: React.ReactNode; label: string }[] =
 const AGGREGATIONS: { type: AggregationType; label: string }[] = [
   { type: 'sum', label: 'Sum' },
   { type: 'mean', label: 'Average' },
+  { type: 'median', label: 'Median' },
   { type: 'count', label: 'Count' },
   { type: 'min', label: 'Min' },
   { type: 'max', label: 'Max' },

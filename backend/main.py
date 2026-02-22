@@ -213,10 +213,13 @@ async def upload_csv(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="CSV is empty.")
         
         # Clean data using data_janitor module
-        df, cleaning_actions, missing_counts, col_formats = clean_dataframe(df)
+        df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df)
         
-        # Detect semantic types using intelligence module
-        col_types = {col: detect_semantic_type(df, col) for col in df.columns}
+        # Use LLM semantic types when available, fallback to heuristic detection per column.
+        col_types = {
+            col: llm_col_types.get(col) or detect_semantic_type(df, col)
+            for col in df.columns
+        }
         
         # Generate profile
         profile = auto_profile(df, col_types)

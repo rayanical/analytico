@@ -134,7 +134,7 @@ export interface QueryRequest {
 export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'composed' | 'empty';
 
 // Aggregation types
-export type AggregationType = 'sum' | 'mean' | 'count' | 'min' | 'max';
+export type AggregationType = 'sum' | 'mean' | 'median' | 'count' | 'min' | 'max';
 
 // History item
 export interface HistoryItem {
