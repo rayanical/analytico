@@ -5,7 +5,8 @@ import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileSpreadsheet, AlertCircle, Loader2, Database, Sparkles, AlertTriangle, TrendingUp } from 'lucide-react';
 import { useData } from '@/context/DataContext';
-import { uploadCSV, aggregateData } from '@/lib/api';
+import { uploadCSV, loadDemoDataset, aggregateData } from '@/lib/api';
+import { UploadResponse } from '@/types';
 import { toast } from 'sonner';
 
 // Smart number formatter with proper K/M/B scaling
@@ -32,6 +33,50 @@ function formatName(name: string): string {
 export function FileUploader() {
   const { dataset, setDataset, setCurrentChart, addToHistory, setIsUploading, isUploading, clearData } = useData();
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
+
+  const applyUploadResponse = useCallback(async (response: UploadResponse) => {
+    setDataset({
+      datasetId: response.dataset_id,
+      filename: response.filename,
+      rowCount: response.row_count,
+      columns: response.columns,
+      columnFormats: response.column_formats,
+      dataHealth: response.data_health,
+      profile: response.profile,
+      defaultChart: response.default_chart,
+      suggestions: response.suggestions,
+      summary: response.summary,
+    });
+
+    // Auto-render default chart if available
+    if (response.default_chart) {
+      try {
+        const chartData = await aggregateData({
+          dataset_id: response.dataset_id,
+          x_axis_key: response.default_chart.x_axis_key,
+          y_axis_keys: response.default_chart.y_axis_keys,
+          aggregation: response.default_chart.aggregation,
+          chart_type: response.default_chart.chart_type,
+        });
+        
+        chartData.analysis = response.default_chart.analysis;
+        setCurrentChart(chartData);
+        addToHistory('Auto-generated insight', chartData, true);
+        
+        toast.success('Data loaded with instant insight!', {
+          description: response.default_chart.title,
+        });
+      } catch (e) {
+        console.error('Default chart error:', e);
+        toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
+      }
+    } else if (response.data_health.cleaning_actions.length > 0) {
+      toast.success(`Data cleaned: ${response.data_health.cleaning_actions.length} improvements`);
+    } else {
+      toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
+    }
+  }, [setDataset, setCurrentChart, addToHistory]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -42,46 +87,7 @@ export function FileUploader() {
 
     try {
       const response = await uploadCSV(file);
-      
-      setDataset({
-        datasetId: response.dataset_id,
-        filename: response.filename,
-        rowCount: response.row_count,
-        columns: response.columns,
-        columnFormats: response.column_formats,
-        dataHealth: response.data_health,
-        profile: response.profile,
-        defaultChart: response.default_chart,
-        suggestions: response.suggestions,
-      });
-
-      // Auto-render default chart if available
-      if (response.default_chart) {
-        try {
-          const chartData = await aggregateData({
-            dataset_id: response.dataset_id,
-            x_axis_key: response.default_chart.x_axis_key,
-            y_axis_keys: response.default_chart.y_axis_keys,
-            aggregation: response.default_chart.aggregation,
-            chart_type: response.default_chart.chart_type,
-          });
-          
-          chartData.analysis = response.default_chart.analysis;
-          setCurrentChart(chartData);
-          addToHistory('Auto-generated insight', chartData, true);
-          
-          toast.success('Data loaded with instant insight!', {
-            description: response.default_chart.title,
-          });
-        } catch (e) {
-          console.error('Default chart error:', e);
-          toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
-        }
-      } else if (response.data_health.cleaning_actions.length > 0) {
-        toast.success(`Data cleaned: ${response.data_health.cleaning_actions.length} improvements`);
-      } else {
-        toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
-      }
+      await applyUploadResponse(response);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Upload failed';
       setUploadError(message);
@@ -89,10 +95,28 @@ export function FileUploader() {
     } finally {
       setIsUploading(false);
     }
-  }, [setDataset, setCurrentChart, addToHistory, setIsUploading]);
+  }, [setIsUploading, applyUploadResponse]);
+
+  const handleDemoLoad = useCallback(async () => {
+    setUploadError(null);
+    setIsDemoLoading(true);
+    setIsUploading(true);
+
+    try {
+      const response = await loadDemoDataset();
+      await applyUploadResponse(response);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Demo load failed';
+      setUploadError(message);
+      toast.error(message);
+    } finally {
+      setIsDemoLoading(false);
+      setIsUploading(false);
+    }
+  }, [setIsUploading, applyUploadResponse]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop, accept: { 'text/csv': ['.csv'] }, maxFiles: 1, disabled: isUploading,
+    onDrop, accept: { 'text/csv': ['.csv'] }, maxFiles: 1, disabled: isUploading || isDemoLoading,
   });
 
   if (dataset) {
@@ -183,6 +207,15 @@ export function FileUploader() {
           )}
         </AnimatePresence>
       </div>
+      <button
+        type="button"
+        onClick={handleDemoLoad}
+        disabled={isDemoLoading || isUploading}
+        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-gradient-to-r from-primary/15 via-primary/10 to-transparent px-4 py-3 text-sm font-medium text-primary transition-all hover:border-primary/60 hover:from-primary/20 hover:via-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {isDemoLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+        {isDemoLoading ? 'Loading demo dataset...' : '🚀 Try 1 Million Rows Demo (NYC Taxi)'}
+      </button>
     </motion.div>
   );
 }

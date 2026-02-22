@@ -10,6 +10,7 @@ import io
 import json
 import os
 import traceback
+from pathlib import Path
 from typing import Any, Optional
 
 import numpy as np
@@ -60,6 +61,7 @@ app.add_middleware(
 )
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+DEMO_DATASET_PATH = Path(__file__).resolve().parent / "datasets" / "2021_Green_Taxi_Trip_Data_20260221.csv"
 
 
 # ============================================================================
@@ -105,7 +107,8 @@ def apply_filters(df: pd.DataFrame, filters: Optional[list[FilterConfig]]) -> tu
         if f.column not in filtered.columns:
             continue
         if f.values:
-            filtered = filtered[filtered[f.column].isin(f.values)]
+            str_values = [str(v) for v in f.values]
+            filtered = filtered[filtered[f.column].astype(str).isin(str_values)]
             applied.append(f"{f.column}: {', '.join(str(v) for v in f.values[:3])}")
         if f.min_val is not None:
             filtered = filtered[filtered[f.column] >= f.min_val]
@@ -208,7 +211,7 @@ async def upload_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Please upload a CSV file.")
     
     try:
-        df = pd.read_csv(file.file)
+        df = pd.read_csv(file.file, low_memory=False)
         if df.empty:
             raise HTTPException(status_code=400, detail="CSV is empty.")
         
@@ -261,6 +264,107 @@ async def upload_csv(file: UploadFile = File(...)):
         ds_info = DatasetInfo(
             df=df, 
             filename=file.filename, 
+            cleaning_actions=cleaning_actions, 
+            missing_counts=missing_counts,
+            column_types=col_types,
+            column_formats=col_formats,
+            profile=profile,
+            default_chart=default_chart,
+            suggestions=suggestions,
+            summary=summary
+        )
+        store_dataset(ds_info)
+        
+        return UploadResponse(
+            dataset_id=ds_info.id,
+            filename=ds_info.filename,
+            row_count=len(df),
+            columns=[
+                get_column_summary(df, c, col_types.get(c, "unknown"), col_formats.get(c, "general"))
+                for c in df.columns
+            ],
+            column_formats=col_formats,
+            data_health=DataHealth(
+                missing_values=missing_counts,
+                cleaning_actions=cleaning_actions,
+                quality_score=round(quality, 1)
+            ),
+            profile=DataProfile(
+                top_metrics=[MetricSummary(**m) for m in profile['top_metrics']],
+                time_range=TimeRange(**profile['time_range']) if profile['time_range'] else None,
+                row_count=profile['row_count'],
+                column_count=profile['column_count']
+            ),
+            default_chart=DefaultChart(**default_chart) if default_chart else None,
+            suggestions=suggestions,
+            summary=summary
+        )
+    except pd.errors.EmptyDataError:
+        raise HTTPException(status_code=400, detail="Empty CSV.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/load-demo", response_model=UploadResponse)
+async def load_demo_dataset():
+    filename = "taxi_1m_rows.csv"
+    if not DEMO_DATASET_PATH.exists():
+        raise HTTPException(status_code=500, detail="Demo dataset file not found.")
+
+    try:
+        df = pd.read_csv(DEMO_DATASET_PATH, low_memory=False)
+        if df.empty:
+            raise HTTPException(status_code=400, detail="CSV is empty.")
+        
+        # Clean data using data_janitor module
+        df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df)
+        
+        # Use LLM semantic types when available, fallback to heuristic detection per column.
+        col_types = {
+            col: llm_col_types.get(col) or detect_semantic_type(df, col)
+            for col in df.columns
+        }
+        
+        # Generate profile
+        profile = auto_profile(df, col_types)
+        
+        # Quality score
+        total_cells = len(df) * len(df.columns)
+        missing_total = sum(missing_counts.values())
+        quality = max(0, 100 - (missing_total / max(total_cells, 1) * 100))
+        
+        # Generate Business Summary
+        summary = None
+        try:
+            summary_prompt = f"""Summarize this dataset in 1-2 business sentences. 
+            Filename: {filename}
+            Columns: {', '.join(df.columns[:20])}
+            Sample Data: {df.head(3).to_string()}
+            """
+            
+            summary_resp = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a data analyst. Be concise. No preamble."},
+                    {"role": "user", "content": summary_prompt}
+                ],
+                max_tokens=100,
+                temperature=0.3
+            )
+            summary = summary_resp.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"Summary generation failed: {e}")
+
+        # Generate Default Chart
+        default_chart = generate_default_chart(df, col_types)
+        
+        # Generate Suggestions
+        suggestions = generate_dynamic_suggestions(df, col_types, col_formats)
+        
+        # Store dataset
+        ds_info = DatasetInfo(
+            df=df, 
+            filename=filename, 
             cleaning_actions=cleaning_actions, 
             missing_counts=missing_counts,
             column_types=col_types,
