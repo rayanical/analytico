@@ -65,6 +65,7 @@ app.add_middleware(
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 DEMO_DATASET_PATH = Path(__file__).resolve().parent / "datasets" / "2021_Green_Taxi_Trip_Data_20260221.csv"
 ALLOWED_FILTER_OPERATORS = {"eq", "gt", "lt", "gte", "lte", "contains"}
+MAX_CHART_POINTS = 500
 
 
 # ============================================================================
@@ -174,6 +175,22 @@ def _apply_operator_filter(filtered: pd.DataFrame, f: FilterConfig, applied: lis
     if mask is None:
         return filtered
     return filtered[mask.fillna(False)]
+
+
+def _resolve_effective_limit(requested_limit: Optional[int], default_limit: int) -> tuple[int, Optional[str]]:
+    """Resolve limit with hard cap to avoid frontend rendering performance issues."""
+    raw_limit = requested_limit if requested_limit is not None else default_limit
+    if raw_limit == 0:
+        return MAX_CHART_POINTS, (
+            f"Result capped at {MAX_CHART_POINTS} points for performance. "
+            "Add filters to narrow the data."
+        )
+    if raw_limit > MAX_CHART_POINTS:
+        return MAX_CHART_POINTS, (
+            f"Requested {raw_limit} points, capped at {MAX_CHART_POINTS} for performance. "
+            "Add filters to narrow the data."
+        )
+    return raw_limit, None
 
 
 def apply_filters(df: pd.DataFrame, filters: Optional[list[FilterConfig]]) -> tuple[pd.DataFrame, list[str]]:
@@ -595,12 +612,11 @@ async def aggregate_endpoint(request: AggregateRequest):
     else:
         x_key = request.x_axis_key
     
-    # Smart grouping (Top N + Others) - limit=0 means "show all"
-    limit = request.limit if request.limit is not None else 50
+    # Smart grouping (Top N + Others) with hard cap for rendering performance
+    limit, cap_warning = _resolve_effective_limit(request.limit, default_limit=50)
     group_others = request.group_others if request.group_others is not None else True
 
-    # Skip grouping if limit=0 (show all mode)
-    if limit > 0 and request.x_axis_key in filtered.columns:
+    if request.x_axis_key in filtered.columns:
         unique_cnt = filtered[request.x_axis_key].nunique()
         if unique_cnt > limit:
             filtered = smart_group_top_n(
@@ -613,7 +629,7 @@ async def aggregate_endpoint(request: AggregateRequest):
             )
     
     # Aggregate
-    result = aggregate_data(filtered, x_key, request.y_axis_keys, agg)
+    result, was_capped = aggregate_data(filtered, x_key, request.y_axis_keys, agg, limit=limit)
     
     # Smart sorting defaults based on semantic type
     # If user specified sort_by, use it. Otherwise, apply smart default.
@@ -666,6 +682,10 @@ Data:
             if pd.isna(row[k]):
                 row[k] = 0
     
+    final_warnings = list(warnings or [])
+    if cap_warning and (was_capped or request.limit == 0 or (request.limit is not None and request.limit > MAX_CHART_POINTS)):
+        final_warnings.append(cap_warning)
+
     return ChartResponse(
         data=data,
         x_axis_key=x_key,
@@ -676,7 +696,7 @@ Data:
         y_axis_label=y_axis_label,
         row_count=len(data),
         analysis=analysis,
-        warnings=warnings or None,
+        warnings=final_warnings or None,
         applied_filters=applied_filters or None
     )
 
@@ -918,18 +938,17 @@ Do not rely on the JSON filters array in that path."""
         # Smart aggregation
         x_key = x_axis_candidate
         y_keys = y_axis_candidate
-        
+        limit, cap_warning = _resolve_effective_limit(request.limit, default_limit=20)
+
         if pd.api.types.is_datetime64_any_dtype(filtered.get(x_key)):
             filtered, x_key = smart_resample_dates(filtered, x_key, y_keys, agg)
         elif x_key in filtered.columns:
-            limit = request.limit if request.limit is not None else 20
             group_others = request.group_others if request.group_others is not None else True
             
-            # Skip grouping if limit=0 (show all mode)
-            if limit > 0 and filtered[x_key].nunique() > limit:
+            if filtered[x_key].nunique() > limit:
                 filtered = smart_group_top_n(filtered, x_key, y_keys, agg, n=limit, group_others=group_others)
         
-        result = aggregate_data(filtered, x_key, y_keys, agg)
+        result, was_capped = aggregate_data(filtered, x_key, y_keys, agg, limit=limit)
         
         data = result.to_dict(orient='records')
         for row in data:
@@ -939,6 +958,10 @@ Do not rely on the JSON filters array in that path."""
         
         final_y_label = auto_y_label or config.get("yAxisLabel")
         
+        final_warnings = list(warnings or [])
+        if cap_warning and (was_capped or request.limit == 0 or (request.limit is not None and request.limit > MAX_CHART_POINTS)):
+            final_warnings.append(cap_warning)
+
         return ChartResponse(
             data=data,
             x_axis_key=x_key,
@@ -950,7 +973,7 @@ Do not rely on the JSON filters array in that path."""
             y_axis_label=final_y_label,
             row_count=len(data),
             analysis=config.get("analysis", "AI-generated configuration."),
-            warnings=warnings or None,
+            warnings=final_warnings or None,
             applied_filters=applied or None,
             llm_filters=combined_filters or None
         )

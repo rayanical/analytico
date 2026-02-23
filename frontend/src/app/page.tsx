@@ -187,7 +187,7 @@ export default function Home() {
                      <Sparkles className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className="mb-1 text-sm font-semibold text-foreground">AI Business Summary</h3>
+                    <h3 className="mb-1 text-sm font-semibold text-foreground">Dataset Context</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">{dataset.summary}</p>
                   </div>
                 </div>

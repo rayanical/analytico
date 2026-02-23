@@ -141,10 +141,14 @@ def enforce_semantic_rules(
     return aggregation, warnings, y_axis_label
 
 
-def aggregate_data(df: pd.DataFrame, x_key: str, y_keys: list[str], agg: str) -> pd.DataFrame:
+def aggregate_data(df: pd.DataFrame, x_key: str, y_keys: list[str], agg: str, limit: int = 0) -> tuple[pd.DataFrame, bool]:
     """Aggregate data by x_key, applying aggregation to y_keys"""
     agg_map = {"sum": "sum", "mean": "mean", "median": "median", "count": "count", "min": "min", "max": "max"}
     grouped = df.groupby(x_key, as_index=False)[y_keys].agg(agg_map.get(agg, "sum"))
     # Convert x_key to string to avoid mixed type sorting issues
     grouped[x_key] = grouped[x_key].astype(str)
-    return grouped.sort_values(x_key).head(100)
+    grouped = grouped.sort_values(x_key)
+    if limit > 0:
+        was_capped = len(grouped) > limit
+        return grouped.head(limit), was_capped
+    return grouped, False

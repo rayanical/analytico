@@ -46,6 +46,9 @@ DATE_FORMAT_CANDIDATES = [
     "%Y%m%d",
 ]
 
+# Skip LLM schema mapping for very wide datasets to cap latency/cost.
+LLM_SCHEMA_MAX_COLUMNS = 120
+
 def get_openai_client() -> OpenAI:
     global _client
     if _client is None:
@@ -149,23 +152,31 @@ def llm_enrich_columns(headers: list[str], df: pd.DataFrame) -> list[dict[str, O
         for h in headers
     ]
 
-    if not os.getenv("OPENAI_API_KEY"):
+    if not os.getenv("OPENAI_API_KEY") or len(headers) > LLM_SCHEMA_MAX_COLUMNS:
         return fallback
 
     try:
         client = get_openai_client()
-        sample_rows = df.head(5).to_dict("records")
-        sample_rows = [{k: str(v) for k, v in row.items()} for row in sample_rows]
+        # Compact payload: per-column samples reduce tokens vs full row objects.
+        sample_values = {}
+        for col in headers:
+            if col not in df.columns:
+                sample_values[col] = []
+                continue
+            values = df[col].dropna().head(3).tolist()
+            sample_values[col] = [str(v) for v in values]
+
         system_prompt = (
             "Respond ONLY with a flat JSON object mapping original column names to semantic types. "
             "Do not include explanations, formatting, or markdown. "
-            "Valid semantic types: metric, identifier, temporal, categorical."
+            "Allowed semantic types: metric, identifier, temporal, categorical. "
+            "Return valid JSON only."
         )
         user_prompt = f"""Headers:
 {json.dumps(headers)}
 
-Sample rows (first 5):
-{json.dumps(sample_rows, indent=2)}"""
+Per-column sample values (up to 3 non-null each):
+{json.dumps(sample_values, separators=(",", ":"))}"""
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -185,11 +196,12 @@ Sample rows (first 5):
             original_key = str(original).strip()
             if not original_key:
                 continue
+            semantic_value = semantic.get("semantic_type") if isinstance(semantic, dict) else semantic
             by_original[original_key] = {
                 "original": original_key,
                 "clean": legacy_normalize_header(original_key),
                 "format": None,
-                "semantic_type": _normalize_llm_semantic(semantic),
+                "semantic_type": _normalize_llm_semantic(semantic_value),
             }
 
         # Backward-compatible parser for older structured payloads.
@@ -205,7 +217,7 @@ Sample rows (first 5):
             by_original[original] = {
                 "original": original,
                 "clean": clean or legacy_normalize_header(original),
-                "format": _normalize_llm_format(row.get("format")),
+                "format": None,
                 "semantic_type": _normalize_llm_semantic(row.get("semantic_type")),
             }
 
@@ -328,12 +340,9 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
         cleaning_actions.append(f"Normalized {len(renamed)} column headers")
     df.columns = new_cols
 
-    # Capture LLM-provided format + semantic_type on the final deduped names.
+    # Capture LLM-provided semantic_type on the final deduped names.
     for final_col, row in zip(new_cols, llm_columns):
-        llm_fmt = _normalize_llm_format(row.get("format"))
         llm_sem = _normalize_llm_semantic(row.get("semantic_type"))
-        if llm_fmt:
-            column_formats[final_col] = llm_fmt
         if llm_sem:
             semantic_types[final_col] = llm_sem
     
@@ -419,11 +428,10 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
     pandas_processing_end = perf_counter()
     print(f"Pandas Vectorization & Date Parsing Time: {pandas_processing_end - pandas_processing_start:.2f}s")
     
-    # Detect formats for remaining numeric columns
+    # Heuristic-first format detection (authoritative): always recompute for numeric columns.
     numeric_cols = df.select_dtypes(include=['number']).columns
     for col in numeric_cols:
-        if col not in column_formats:
-            column_formats[col] = detect_column_format(df[col], col)
+        column_formats[col] = detect_column_format(df[col], col)
     
     # 3. Record missing counts BEFORE filling
     for col in df.columns:
