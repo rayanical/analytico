@@ -99,6 +99,10 @@ def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Op
 
 def auto_profile(df: pd.DataFrame, column_types: dict[str, str]) -> dict:
     """Generate executive summary / auto-profile"""
+    # Sample frame reserved for heavy categorical profiling operations.
+    # Keep deterministic for stable outputs across runs.
+    sample_df = df.sample(n=min(100000, len(df)), random_state=42) if len(df) > 0 else df
+
     profile = {
         "top_metrics": [],
         "time_range": None,
@@ -133,13 +137,17 @@ def auto_profile(df: pd.DataFrame, column_types: dict[str, str]) -> dict:
                     "start": str(valid_dates.min()),
                     "end": str(valid_dates.max())
                 }
+
+    # Hook for future heavy categorical profile metrics: use sample_df for
+    # value_counts/nunique-style operations, while preserving current output shape.
+    _ = sample_df
     
     return profile
 
 
 def generate_dynamic_suggestions(df: pd.DataFrame, column_types: dict[str, str], column_formats: dict[str, str]) -> list[str]:
-    """Generate 3 contextual suggestions based on actual column names"""
-    suggestions = []
+    """Generate concise, intent-diverse, dataset-aware example prompts."""
+    suggestions: list[str] = []
     
     metric_cols = [c for c, t in column_types.items() if t == SemanticType.METRIC]
     categorical_cols = [c for c, t in column_types.items() if t == SemanticType.CATEGORICAL]
@@ -147,28 +155,54 @@ def generate_dynamic_suggestions(df: pd.DataFrame, column_types: dict[str, str],
     
     def fmt(col: str) -> str:
         return col.replace('_', ' ')
-    
-    # Suggestion 1: Breakdown by category
+
+    def normalize_prompt(text: str, max_len: int = 72) -> str:
+        compact = " ".join(text.split())
+        if len(compact) <= max_len:
+            return compact
+        return compact[: max_len - 1].rstrip() + "…"
+
+    # 1) Breakdown intent
     if categorical_cols and metric_cols:
-        suggestions.append(f"Show {fmt(metric_cols[0])} by {fmt(categorical_cols[0])}")
-    
-    # Suggestion 2: Time trend
+        suggestions.append(
+            f"Show {fmt(metric_cols[0])} by categories in {fmt(categorical_cols[0])}"
+        )
+
+    # 2) Trend intent
     if temporal_cols and metric_cols:
-        suggestions.append(f"How has {fmt(metric_cols[0])} changed over time?")
-    
-    # Suggestion 3: Top N analysis
+        suggestions.append(
+            f"How does {fmt(metric_cols[0])} trend over {fmt(temporal_cols[0])}?"
+        )
+
+    # 3) Distribution/extreme intent
     if categorical_cols and metric_cols:
-        suggestions.append(f"What are the top 10 {fmt(categorical_cols[0])}s by {fmt(metric_cols[0])}?")
-    
-    # Fallback suggestions
+        suggestions.append(
+            f"Which {fmt(categorical_cols[0])} categories have the highest {fmt(metric_cols[0])}?"
+        )
+    elif metric_cols:
+        suggestions.append(f"What is the distribution of {fmt(metric_cols[0])}?")
+
+    # Fallbacks to ensure useful and diverse prompts
     if len(metric_cols) >= 2:
-        suggestions.append(f"Compare {fmt(metric_cols[0])} and {fmt(metric_cols[1])}")
-    
-    if len(suggestions) < 3 and metric_cols:
-        suggestions.append(f"What's the average {fmt(metric_cols[0])}?")
-    
-    # Ensure we have 3
-    while len(suggestions) < 3:
-        suggestions.append("Show me a summary of the data")
-    
-    return suggestions[:3]
+        suggestions.append(f"Compare {fmt(metric_cols[0])} vs {fmt(metric_cols[1])}")
+    if metric_cols:
+        suggestions.append(f"What is the average {fmt(metric_cols[0])}?")
+    suggestions.append("Give me a quick summary of this dataset")
+
+    # Deduplicate while preserving order, then length-guard for UI.
+    deduped: list[str] = []
+    seen = set()
+    for prompt in suggestions:
+        normalized = normalize_prompt(prompt)
+        key = normalized.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(normalized)
+        if len(deduped) == 3:
+            break
+
+    while len(deduped) < 3:
+        deduped.append("Show top insights from this data")
+
+    return deduped[:3]

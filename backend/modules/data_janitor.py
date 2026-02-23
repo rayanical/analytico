@@ -6,6 +6,8 @@ Smart ingestion, header normalization, type repair, and data cleaning
 import json
 import os
 import re
+import warnings
+from time import perf_counter
 from typing import Optional
 
 import pandas as pd
@@ -13,6 +15,39 @@ from openai import OpenAI
 
 # Client initialized lazily to avoid import-time side effects
 _client: Optional[OpenAI] = None
+
+# Master list of candidate date formats for fast C-vectorized parsing.
+# Order matters: most common/high-signal formats are first.
+DATE_FORMAT_CANDIDATES = [
+    "ISO8601",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d %H:%M",
+    "%Y-%m-%d",
+    "%Y/%m/%d %H:%M:%S",
+    "%Y/%m/%d",
+    "%m/%d/%Y %H:%M:%S",
+    "%m/%d/%Y %I:%M:%S %p",
+    "%m/%d/%Y",
+    "%d/%m/%Y %H:%M:%S",
+    "%d/%m/%Y",
+    "%d-%m-%Y %H:%M:%S",
+    "%d-%m-%Y",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S.%f",
+    "%Y-%m-%dT%H:%M:%S%z",
+    "%Y-%m-%dT%H:%M:%S.%f%z",
+    "%Y-%m-%d %H:%M:%S%z",
+    "%Y-%m-%d %H:%M:%S.%f%z",
+    "%Y %b %d %I:%M:%S %p",
+    "%d %b %Y %H:%M:%S",
+    "%d %b %Y",
+    "%b %d, %Y",
+    "%b %d %Y %H:%M:%S",
+    "%Y%m%d",
+]
+
+# Skip LLM schema mapping for very wide datasets to cap latency/cost.
+LLM_SCHEMA_MAX_COLUMNS = 120
 
 def get_openai_client() -> OpenAI:
     global _client
@@ -86,72 +121,116 @@ def legacy_normalize_header(header: str) -> str:
     return clean
 
 
-def llm_clean_headers(headers: list[str], df: pd.DataFrame) -> list[str]:
-    """Smart header normalization using LLM with sample data context"""
-    # Quick fallback if no API key
-    if not os.getenv("OPENAI_API_KEY"):
-        return [legacy_normalize_header(h) for h in headers]
-        
+def _normalize_llm_format(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    fmt = str(value).strip().lower()
+    allowed = {"currency", "percentage", "number", "date"}
+    return fmt if fmt in allowed else None
+
+
+def _normalize_llm_semantic(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    sem = str(value).strip().lower()
+    allowed = {"metric", "identifier", "temporal", "categorical"}
+    return sem if sem in allowed else None
+
+
+def llm_enrich_columns(headers: list[str], df: pd.DataFrame) -> list[dict[str, Optional[str]]]:
+    """
+    Use one LLM pass to normalize header names and classify each column.
+    Returns rows with: original, clean, format, semantic_type.
+    """
+    fallback = [
+        {
+            "original": h,
+            "clean": legacy_normalize_header(h),
+            "format": None,
+            "semantic_type": None,
+        }
+        for h in headers
+    ]
+
+    if not os.getenv("OPENAI_API_KEY") or len(headers) > LLM_SCHEMA_MAX_COLUMNS:
+        return fallback
+
     try:
         client = get_openai_client()
-        
-        # Build sample rows for context (much better than individual columns)
-        # Get up to 3 sample rows to show relationships between columns
-        sample_rows = df.head(3).to_dict('records')
-        # Convert all values to strings for JSON serialization
-        sample_rows = [{k: str(v) for k, v in row.items()} for row in sample_rows]
-        
-        prompt = f"""Normalize these column headers to clean snake_case variable names.
-        
-        IMPORTANT: You are provided with sample rows showing ALL columns together.
-        Use this context to infer the meaning of abbreviated or unclear headers.
-        
-        For example:
-        - If you see headers ["emp_id", "nm", "dept", "sal"] with sample rows like:
-          {{"emp_id": "101", "nm": "John Doe", "dept": "Engineering", "sal": "75000"}}
-          You can infer: "nm" -> "name", "sal" -> "salary"
-        
-        - If you see "wt" alongside "product_name" and "price", it's likely "weight"
-        - If you see "wt" alongside "employee_name" and "department", it might be "work_type"
-        
-        Rules:
-        1. "How old are you?" -> "age"
-        2. "What is your annual salary?" -> "annual_salary"
-        3. "DoB" -> "date_of_birth"
-        4. Remove verbose prefixes: "what_is_your", "please_indicate", etc.
-        5. Use context from OTHER columns to disambiguate abbreviations
-        6. Keep names concise but descriptive (max 25 characters)
-        7. Return JSON: {{"mapping": {{"original": "clean", ...}}}}
+        # Compact payload: per-column samples reduce tokens vs full row objects.
+        sample_values = {}
+        for col in headers:
+            if col not in df.columns:
+                sample_values[col] = []
+                continue
+            values = df[col].dropna().head(3).tolist()
+            sample_values[col] = [str(v) for v in values]
 
-        Original headers:
-        {json.dumps(headers)}
-        
-        Sample rows for context:
-        {json.dumps(sample_rows, indent=2)}"""
+        system_prompt = (
+            "Respond ONLY with a flat JSON object mapping original column names to semantic types. "
+            "Do not include explanations, formatting, or markdown. "
+            "Allowed semantic types: metric, identifier, temporal, categorical. "
+            "Return valid JSON only."
+        )
+        user_prompt = f"""Headers:
+{json.dumps(headers)}
+
+Per-column sample values (up to 3 non-null each):
+{json.dumps(sample_values, separators=(",", ":"))}"""
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
             temperature=0,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content
-        mapping = json.loads(content).get("mapping", {})
-        
-        results = []
-        for h in headers:
-            # Prefer LLM result, fallback to legacy
-            cleaned = mapping.get(h)
-            if not cleaned:
-                cleaned = legacy_normalize_header(h)
-            # Ensure safe char set even if LLM is creative
-            cleaned = re.sub(r'[^\w]', '_', cleaned).lower()
-            results.append(cleaned)
-        return results
-            
+        parsed = json.loads(content)
+        by_original: dict[str, dict[str, Optional[str]]] = {}
+
+        # Fast path: flat object mapping "original_header" -> "semantic_type"
+        for original, semantic in parsed.items():
+            original_key = str(original).strip()
+            if not original_key:
+                continue
+            semantic_value = semantic.get("semantic_type") if isinstance(semantic, dict) else semantic
+            by_original[original_key] = {
+                "original": original_key,
+                "clean": legacy_normalize_header(original_key),
+                "format": None,
+                "semantic_type": _normalize_llm_semantic(semantic_value),
+            }
+
+        # Backward-compatible parser for older structured payloads.
+        raw_columns = parsed.get("columns", []) if isinstance(parsed, dict) else []
+        for row in raw_columns:
+            if not isinstance(row, dict):
+                continue
+            original = str(row.get("original", "")).strip()
+            if not original:
+                continue
+            clean = str(row.get("clean", "")).strip()
+            clean = re.sub(r"[^\w]", "_", clean).lower() if clean else ""
+            by_original[original] = {
+                "original": original,
+                "clean": clean or legacy_normalize_header(original),
+                "format": None,
+                "semantic_type": _normalize_llm_semantic(row.get("semantic_type")),
+            }
+
+        return [by_original.get(h, f) for h, f in zip(headers, fallback)]
     except Exception as e:
-        print(f"LLM Header Clean failed: {e}")
-        return [legacy_normalize_header(h) for h in headers]
+        print(f"LLM Column Enrichment failed: {e}")
+        return fallback
+
+
+def llm_clean_headers(headers: list[str], df: pd.DataFrame) -> list[str]:
+    """Smart header normalization using LLM with sample data context"""
+    enriched = llm_enrich_columns(headers, df)
+    return [re.sub(r"[^\w]", "_", str(row.get("clean", "") or "")).lower() for row in enriched]
 
 
 def detect_column_format(series: pd.Series, col_name: str) -> str:
@@ -226,18 +305,23 @@ def llm_fix_data_issues(df: pd.DataFrame, column_types: dict[str, str]) -> tuple
     return df, actions
 
 
-def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str, int], dict[str, str]]:
+def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str, int], dict[str, str], dict[str, str]]:
     """
     Clean DataFrame and extract metadata.
-    Returns: (cleaned_df, cleaning_actions, missing_counts, column_formats)
+    Returns: (cleaned_df, cleaning_actions, missing_counts, column_formats, semantic_types)
     """
     cleaning_actions = []
     missing_counts = {}
     column_formats = {}
+    semantic_types = {}
     
     # 1. Header Normalization (LLM Powered with Sample Data)
     original_cols = df.columns.tolist()
-    new_cols = llm_clean_headers(original_cols, df)
+    llm_start = perf_counter()
+    llm_columns = llm_enrich_columns(original_cols, df)
+    llm_end = perf_counter()
+    print(f"LLM Schema Mapping Time: {llm_end - llm_start:.2f}s")
+    new_cols = [str(row.get("clean", "") or legacy_normalize_header(h)) for h, row in zip(original_cols, llm_columns)]
     
     # Handle duplicate column names by appending _2, _3, etc.
     seen = {}
@@ -255,8 +339,15 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
     if renamed:
         cleaning_actions.append(f"Normalized {len(renamed)} column headers")
     df.columns = new_cols
+
+    # Capture LLM-provided semantic_type on the final deduped names.
+    for final_col, row in zip(new_cols, llm_columns):
+        llm_sem = _normalize_llm_semantic(row.get("semantic_type"))
+        if llm_sem:
+            semantic_types[final_col] = llm_sem
     
     # 2. Type Repair and Format Detection
+    pandas_processing_start = perf_counter()
     for col in df.columns:
         if df[col].dtype == 'object':
             sample = df[col].dropna().head(100).astype(str)
@@ -289,19 +380,58 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             
             # Try date parsing
             try:
-                parsed = pd.to_datetime(df[col], errors='coerce', format='mixed')
-                if parsed.notna().sum() > len(df) * 0.7:
-                    df[col] = parsed
-                    column_formats[col] = 'date'
-                    cleaning_actions.append(f"Parsed '{col}' as date")
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    sample_parsed = pd.to_datetime(sample, errors='coerce')
+                if sample_parsed.notna().sum() > len(sample) * 0.7:
+                    sample_threshold = len(sample) * 0.7
+                    full_threshold = len(df) * 0.7
+                    parsed = None
+                    success = False
+                    winning_format = None
+
+                    # Infer the fastest viable format on the sample first.
+                    for fmt in DATE_FORMAT_CANDIDATES:
+                        try:
+                            sample_fmt_parsed = pd.to_datetime(sample, format=fmt, errors='coerce')
+                            if sample_fmt_parsed.notna().sum() > sample_threshold:
+                                winning_format = fmt
+                                break
+                        except Exception:
+                            continue
+
+                    # Apply winning format to full column for fast vectorized parsing.
+                    if winning_format:
+                        try:
+                            parsed_candidate = pd.to_datetime(df[col], format=winning_format, errors='coerce')
+                            if parsed_candidate.notna().sum() > full_threshold:
+                                parsed = parsed_candidate
+                                success = True
+                        except Exception:
+                            pass
+
+                    # Final fallback for obscure/mixed formats.
+                    if not success:
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", UserWarning)
+                            parsed_fallback = pd.to_datetime(df[col], errors='coerce')
+                        if parsed_fallback.notna().sum() > full_threshold:
+                            parsed = parsed_fallback
+                            success = True
+
+                    if success and parsed is not None:
+                        df[col] = parsed
+                        column_formats[col] = 'date'
+                        cleaning_actions.append(f"Parsed '{col}' as date")
             except Exception:
                 pass
+    pandas_processing_end = perf_counter()
+    print(f"Pandas Vectorization & Date Parsing Time: {pandas_processing_end - pandas_processing_start:.2f}s")
     
-    # Detect formats for remaining numeric columns
+    # Heuristic-first format detection (authoritative): always recompute for numeric columns.
     numeric_cols = df.select_dtypes(include=['number']).columns
     for col in numeric_cols:
-        if col not in column_formats:
-            column_formats[col] = detect_column_format(df[col], col)
+        column_formats[col] = detect_column_format(df[col], col)
     
     # 3. Record missing counts BEFORE filling
     for col in df.columns:
@@ -319,4 +449,4 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             else:
                 df[col] = df[col].fillna(0)
     
-    return df, cleaning_actions, missing_counts, column_formats
+    return df, cleaning_actions, missing_counts, column_formats, semantic_types

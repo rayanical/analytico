@@ -103,7 +103,7 @@ export function SmartChart({ chartData }: SmartChartProps) {
   
   if (!data?.data.length && !data?.answer) return null;
 
-  const { data: records, x_axis_key, y_axis_keys, chart_type, y_axis_label, answer, analysis, aggregation } = data;
+  const { data: records, x_axis_key, y_axis_keys, chart_type, y_axis_label, answer, analysis, aggregation, llm_filters } = data;
   
   // Text-Only Answer View
   if (chart_type === 'empty' || (answer && !records.length)) {
@@ -168,8 +168,12 @@ export function SmartChart({ chartData }: SmartChartProps) {
     const toastId = toast.loading(`Loading details for ${xVal}...`);
     
     try {
-      const drillFilters = [
+      const combinedFilters = [
         ...filters,
+        ...(llm_filters ?? []),
+      ];
+      const drillFilters = [
+        ...combinedFilters,
         { column: x_axis_key, values: [xVal] }
       ];
       
@@ -243,7 +247,11 @@ export function SmartChart({ chartData }: SmartChartProps) {
                 stroke={COLORS[i % COLORS.length]} 
                 strokeWidth={2} 
                 dot={{ fill: COLORS[i % COLORS.length], r: 4 }}
-                activeDot={{ r: 6, onClick: (e: any) => handleDrillDown(e.payload) }}
+                activeDot={{
+                  r: 8,
+                  cursor: 'pointer',
+                  onClick: (event: any, payload: any) => handleDrillDown(payload?.payload),
+                }}
               />
             ))}
           </LineChart>
@@ -270,8 +278,11 @@ export function SmartChart({ chartData }: SmartChartProps) {
                 dataKey={k} 
                 stroke={COLORS[i % COLORS.length]} 
                 fill={`url(#grad-${k})`} 
-                onClick={(e: any) => handleDrillDown(e.payload)}
-                cursor="pointer"
+                activeDot={{
+                  r: 8,
+                  cursor: 'pointer',
+                  onClick: (event: any, payload: any) => handleDrillDown(payload?.payload),
+                }}
               />
             ))}
           </AreaChart>

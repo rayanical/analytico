@@ -10,7 +10,9 @@ import io
 import json
 import os
 import traceback
-from typing import Any, Optional
+from pathlib import Path
+from time import perf_counter
+from typing import Any, Optional, TextIO
 
 import numpy as np
 import pandas as pd
@@ -18,6 +20,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
+from pydantic import ValidationError
 
 # Import models
 from models import (
@@ -60,6 +63,9 @@ app.add_middleware(
 )
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+DEMO_DATASET_PATH = Path(__file__).resolve().parent / "datasets" / "2021_Green_Taxi_Trip_Data_20260221.csv"
+ALLOWED_FILTER_OPERATORS = {"eq", "gt", "lt", "gte", "lte", "contains"}
+MAX_CHART_POINTS = 500
 
 
 # ============================================================================
@@ -93,6 +99,100 @@ def validate_columns(df: pd.DataFrame, cols: list[str]) -> tuple[bool, list[str]
     return False, missing, suggestions
 
 
+def _safe_empty_chart_response(message: str, title: str = "Clarification Needed") -> ChartResponse:
+    return ChartResponse(
+        data=[],
+        x_axis_key="",
+        y_axis_keys=[],
+        chart_type="empty",
+        title=title,
+        aggregation=None,
+        row_count=0,
+        y_axis_label="",
+        analysis=message,
+        answer=None
+    )
+
+
+def _apply_operator_filter(filtered: pd.DataFrame, f: FilterConfig, applied: list[str]) -> pd.DataFrame:
+    """Apply a single operator-style filter safely without mutating column dtypes."""
+    if not f.operator or f.value is None:
+        return filtered
+
+    op = f.operator.lower()
+    if op not in ALLOWED_FILTER_OPERATORS:
+        applied.append(f"{f.column}: skipped invalid operator '{f.operator}'")
+        return filtered
+
+    col = filtered[f.column]
+    mask = None
+
+    if op == "eq":
+        mask = col.astype(str) == str(f.value)
+        applied.append(f"{f.column} == {f.value}")
+    elif op == "contains":
+        mask = col.astype(str).str.contains(str(f.value), case=False, na=False, regex=False)
+        applied.append(f"{f.column} contains '{f.value}'")
+    elif op in {"gt", "lt", "gte", "lte"}:
+        # Datetime-aware comparisons for NLP date filters.
+        if pd.api.types.is_datetime64_any_dtype(col):
+            cmp_value = pd.to_datetime(f.value, errors="coerce")
+            if pd.isna(cmp_value):
+                applied.append(f"{f.column}: skipped invalid datetime value '{f.value}'")
+                return filtered
+            if op == "gt":
+                mask = col > cmp_value
+                applied.append(f"{f.column} > {f.value}")
+            elif op == "lt":
+                mask = col < cmp_value
+                applied.append(f"{f.column} < {f.value}")
+            elif op == "gte":
+                mask = col >= cmp_value
+                applied.append(f"{f.column} >= {f.value}")
+            elif op == "lte":
+                mask = col <= cmp_value
+                applied.append(f"{f.column} <= {f.value}")
+        else:
+            try:
+                num_value = float(f.value)
+            except (TypeError, ValueError):
+                applied.append(f"{f.column}: skipped invalid numeric value '{f.value}'")
+                return filtered
+            num_col = pd.to_numeric(col, errors="coerce")
+            if op == "gt":
+                mask = num_col > num_value
+                applied.append(f"{f.column} > {f.value}")
+            elif op == "lt":
+                mask = num_col < num_value
+                applied.append(f"{f.column} < {f.value}")
+            elif op == "gte":
+                mask = num_col >= num_value
+                applied.append(f"{f.column} >= {f.value}")
+            elif op == "lte":
+                mask = num_col <= num_value
+                applied.append(f"{f.column} <= {f.value}")
+
+    if mask is None:
+        return filtered
+    return filtered[mask.fillna(False)]
+
+
+def _resolve_effective_limit(requested_limit: Optional[int], default_limit: int) -> tuple[int, Optional[str]]:
+    """Resolve limit with hard cap to avoid frontend rendering performance issues."""
+    raw_limit = requested_limit if requested_limit is not None else default_limit
+    if raw_limit == 0:
+        return MAX_CHART_POINTS, (
+            f"Result capped at {MAX_CHART_POINTS} points for performance. "
+            "Add filters to narrow the data."
+        )
+    if raw_limit > MAX_CHART_POINTS:
+        return MAX_CHART_POINTS, (
+            f"Requested {raw_limit} points, capped at {MAX_CHART_POINTS} for performance. "
+            "Add filters to narrow the data."
+        )
+    return raw_limit, None
+
+
 def apply_filters(df: pd.DataFrame, filters: Optional[list[FilterConfig]]) -> tuple[pd.DataFrame, list[str]]:
     """Apply filter configurations to dataframe"""
     if not filters:
@@ -104,15 +204,28 @@ def apply_filters(df: pd.DataFrame, filters: Optional[list[FilterConfig]]) -> tu
     for f in filters:
         if f.column not in filtered.columns:
             continue
+
+        filtered = _apply_operator_filter(filtered, f, applied)
+
+        # Legacy compatibility: values behaves like IN-list equality filter.
         if f.values:
-            filtered = filtered[filtered[f.column].isin(f.values)]
+            str_values = [str(v) for v in f.values]
+            filtered = filtered[filtered[f.column].astype(str).isin(str_values)]
             applied.append(f"{f.column}: {', '.join(str(v) for v in f.values[:3])}")
+
+        # Legacy compatibility: min/max map to gte/lte semantics.
         if f.min_val is not None:
-            filtered = filtered[filtered[f.column] >= f.min_val]
-            applied.append(f"{f.column} >= {f.min_val}")
+            filtered = _apply_operator_filter(
+                filtered,
+                FilterConfig(column=f.column, operator="gte", value=f.min_val),
+                applied
+            )
         if f.max_val is not None:
-            filtered = filtered[filtered[f.column] <= f.max_val]
-            applied.append(f"{f.column} <= {f.max_val}")
+            filtered = _apply_operator_filter(
+                filtered,
+                FilterConfig(column=f.column, operator="lte", value=f.max_val),
+                applied
+            )
     
     return filtered, applied
 
@@ -124,6 +237,17 @@ def df_to_markdown(df: pd.DataFrame, n: int = 5) -> str:
     sep = "| " + " | ".join("---" for _ in sample.columns) + " |"
     rows = ["| " + " | ".join(str(v)[:25] for v in row) + " |" for _, row in sample.iterrows()]
     return "\n".join([header, sep] + rows)
+
+
+def read_csv_fast(source: str | Path | TextIO) -> pd.DataFrame:
+    """Read CSV using pyarrow when available, with safe fallback."""
+    try:
+        return pd.read_csv(source, engine="pyarrow")
+    except Exception:
+        if hasattr(source, "seek"):
+            source.seek(0)
+            return pd.read_csv(source, low_memory=False)
+        return pd.read_csv(source, low_memory=False)
 
 
 def secure_exec(code: str, df: pd.DataFrame) -> Any:
@@ -157,6 +281,17 @@ def secure_exec(code: str, df: pd.DataFrame) -> Any:
     return output or "No output."
 
 
+def print_pipeline_timing(endpoint: str, durations: dict[str, float]) -> None:
+    """Print formatted execution timings for ingestion pipeline phases."""
+    print(f"\n=== {endpoint} Pipeline Timing ===")
+    print(f"CSV Ingestion: {durations['csv_ingestion']:.2f}s")
+    print(f"Data Cleaning: {durations['data_cleaning']:.2f}s")
+    print(f"Data Profiling: {durations['data_profiling']:.2f}s")
+    print(f"LLM Summary Generation: {durations['llm_summary']:.2f}s")
+    print(f"Total Pipeline: {durations['total']:.2f}s")
+    print("=" * (len(endpoint) + 20))
+
+
 # ============================================================================
 # System Prompt for LLM
 # ============================================================================
@@ -177,6 +312,12 @@ Rules:
 - IDENTIFIER columns: use COUNT only
 - TEMPORAL columns: prefer as X-axis
 - Format labels based on column format (currency → include $)
+
+ROUTING DECISION:
+- Primary goal: produce a JSON chart configuration that visualizes the answer.
+- If the user asks for basic aggregations (sum, average/mean, min, max, count), grouped by category or time, you MUST return JSON config and MUST NOT use the Python tool.
+- Infer the best chart type even if the user asks for a single number; default to a chartable aggregation JSON response whenever possible.
+- Use the Python tool only as a fallback for advanced statistics or multi-step transformations that cannot be represented as a standard aggregated chart.
 
 Return ONLY raw JSON, no markdown."""
 
@@ -208,18 +349,28 @@ async def upload_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Please upload a CSV file.")
     
     try:
-        df = pd.read_csv(file.file)
+        endpoint_start = perf_counter()
+        t0 = perf_counter()
+        df = read_csv_fast(file.file)
+        t1 = perf_counter()
         if df.empty:
             raise HTTPException(status_code=400, detail="CSV is empty.")
         
         # Clean data using data_janitor module
-        df, cleaning_actions, missing_counts, col_formats = clean_dataframe(df)
+        t2 = perf_counter()
+        df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df)
+        t3 = perf_counter()
         
-        # Detect semantic types using intelligence module
-        col_types = {col: detect_semantic_type(df, col) for col in df.columns}
+        # Use LLM semantic types when available, fallback to heuristic detection per column.
+        col_types = {
+            col: llm_col_types.get(col) or detect_semantic_type(df, col)
+            for col in df.columns
+        }
         
         # Generate profile
+        t4 = perf_counter()
         profile = auto_profile(df, col_types)
+        t5 = perf_counter()
         
         # Quality score
         total_cells = len(df) * len(df.columns)
@@ -228,6 +379,7 @@ async def upload_csv(file: UploadFile = File(...)):
         
         # Generate Business Summary
         summary = None
+        t6 = perf_counter()
         try:
             summary_prompt = f"""Summarize this dataset in 1-2 business sentences. 
             Filename: {file.filename}
@@ -247,6 +399,7 @@ async def upload_csv(file: UploadFile = File(...)):
             summary = summary_resp.choices[0].message.content.strip()
         except Exception as e:
             print(f"Summary generation failed: {e}")
+        t7 = perf_counter()
 
         # Generate Default Chart
         default_chart = generate_default_chart(df, col_types)
@@ -268,7 +421,137 @@ async def upload_csv(file: UploadFile = File(...)):
             summary=summary
         )
         store_dataset(ds_info)
+
+        t8 = perf_counter()
+        durations = {
+            "csv_ingestion": t1 - t0,
+            "data_cleaning": t3 - t2,
+            "data_profiling": t5 - t4,
+            "llm_summary": t7 - t6,
+            "total": t8 - endpoint_start,
+        }
+        print_pipeline_timing("/upload", durations)
+
+        return UploadResponse(
+            dataset_id=ds_info.id,
+            filename=ds_info.filename,
+            row_count=len(df),
+            columns=[
+                get_column_summary(df, c, col_types.get(c, "unknown"), col_formats.get(c, "general"))
+                for c in df.columns
+            ],
+            column_formats=col_formats,
+            data_health=DataHealth(
+                missing_values=missing_counts,
+                cleaning_actions=cleaning_actions,
+                quality_score=round(quality, 1)
+            ),
+            profile=DataProfile(
+                top_metrics=[MetricSummary(**m) for m in profile['top_metrics']],
+                time_range=TimeRange(**profile['time_range']) if profile['time_range'] else None,
+                row_count=profile['row_count'],
+                column_count=profile['column_count']
+            ),
+            default_chart=DefaultChart(**default_chart) if default_chart else None,
+            suggestions=suggestions,
+            summary=summary
+        )
+    except pd.errors.EmptyDataError:
+        raise HTTPException(status_code=400, detail="Empty CSV.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/load-demo", response_model=UploadResponse)
+async def load_demo_dataset():
+    filename = "taxi_1m_rows.csv"
+    if not DEMO_DATASET_PATH.exists():
+        raise HTTPException(status_code=500, detail="Demo dataset file not found.")
+
+    try:
+        endpoint_start = perf_counter()
+        t0 = perf_counter()
+        df = read_csv_fast(DEMO_DATASET_PATH)
+        t1 = perf_counter()
+        if df.empty:
+            raise HTTPException(status_code=400, detail="CSV is empty.")
         
+        # Clean data using data_janitor module
+        t2 = perf_counter()
+        df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df)
+        t3 = perf_counter()
+        
+        # Use LLM semantic types when available, fallback to heuristic detection per column.
+        col_types = {
+            col: llm_col_types.get(col) or detect_semantic_type(df, col)
+            for col in df.columns
+        }
+        
+        # Generate profile
+        t4 = perf_counter()
+        profile = auto_profile(df, col_types)
+        t5 = perf_counter()
+        
+        # Quality score
+        total_cells = len(df) * len(df.columns)
+        missing_total = sum(missing_counts.values())
+        quality = max(0, 100 - (missing_total / max(total_cells, 1) * 100))
+        
+        # Generate Business Summary
+        summary = None
+        t6 = perf_counter()
+        try:
+            summary_prompt = f"""Summarize this dataset in 1-2 business sentences. 
+            Filename: {filename}
+            Columns: {', '.join(df.columns[:20])}
+            Sample Data: {df.head(3).to_string()}
+            """
+            
+            summary_resp = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a data analyst. Be concise. No preamble."},
+                    {"role": "user", "content": summary_prompt}
+                ],
+                max_tokens=100,
+                temperature=0.3
+            )
+            summary = summary_resp.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"Summary generation failed: {e}")
+        t7 = perf_counter()
+
+        # Generate Default Chart
+        default_chart = generate_default_chart(df, col_types)
+        
+        # Generate Suggestions
+        suggestions = generate_dynamic_suggestions(df, col_types, col_formats)
+        
+        # Store dataset
+        ds_info = DatasetInfo(
+            df=df, 
+            filename=filename, 
+            cleaning_actions=cleaning_actions, 
+            missing_counts=missing_counts,
+            column_types=col_types,
+            column_formats=col_formats,
+            profile=profile,
+            default_chart=default_chart,
+            suggestions=suggestions,
+            summary=summary
+        )
+        store_dataset(ds_info)
+
+        t8 = perf_counter()
+        durations = {
+            "csv_ingestion": t1 - t0,
+            "data_cleaning": t3 - t2,
+            "data_profiling": t5 - t4,
+            "llm_summary": t7 - t6,
+            "total": t8 - endpoint_start,
+        }
+        print_pipeline_timing("/load-demo", durations)
+
         return UploadResponse(
             dataset_id=ds_info.id,
             filename=ds_info.filename,
@@ -329,12 +612,11 @@ async def aggregate_endpoint(request: AggregateRequest):
     else:
         x_key = request.x_axis_key
     
-    # Smart grouping (Top N + Others) - limit=0 means "show all"
-    limit = request.limit if request.limit is not None else 50
+    # Smart grouping (Top N + Others) with hard cap for rendering performance
+    limit, cap_warning = _resolve_effective_limit(request.limit, default_limit=50)
     group_others = request.group_others if request.group_others is not None else True
 
-    # Skip grouping if limit=0 (show all mode)
-    if limit > 0 and request.x_axis_key in filtered.columns:
+    if request.x_axis_key in filtered.columns:
         unique_cnt = filtered[request.x_axis_key].nunique()
         if unique_cnt > limit:
             filtered = smart_group_top_n(
@@ -347,7 +629,7 @@ async def aggregate_endpoint(request: AggregateRequest):
             )
     
     # Aggregate
-    result = aggregate_data(filtered, x_key, request.y_axis_keys, agg)
+    result, was_capped = aggregate_data(filtered, x_key, request.y_axis_keys, agg, limit=limit)
     
     # Smart sorting defaults based on semantic type
     # If user specified sort_by, use it. Otherwise, apply smart default.
@@ -400,6 +682,10 @@ Data:
             if pd.isna(row[k]):
                 row[k] = 0
     
+    final_warnings = list(warnings or [])
+    if cap_warning and (was_capped or request.limit == 0 or (request.limit is not None and request.limit > MAX_CHART_POINTS)):
+        final_warnings.append(cap_warning)
+
     return ChartResponse(
         data=data,
         x_axis_key=x_key,
@@ -410,7 +696,7 @@ Data:
         y_axis_label=y_axis_label,
         row_count=len(data),
         analysis=analysis,
-        warnings=warnings or None,
+        warnings=final_warnings or None,
         applied_filters=applied_filters or None
     )
 
@@ -422,6 +708,9 @@ async def query_endpoint(request: QueryRequest):
     
     ds = get_dataset(request.dataset_id)
     df = ds.df
+    valid_columns = df.columns.tolist()
+    preferred_metric_columns = [c for c, t in ds.column_types.items() if t == SemanticType.METRIC][:8]
+    preferred_temporal_columns = [c for c, t in ds.column_types.items() if t == SemanticType.TEMPORAL][:5]
     
     # Build context
     cols_info = [f"- {c} ({ds.column_types.get(c, '?').upper()}, format: {ds.column_formats.get(c, 'number')})" for c in df.columns]
@@ -436,7 +725,27 @@ Columns:
 Sample:
 {sample}
 
-Rows: {len(df)}"""
+Rows: {len(df)}
+
+STRICT COLUMN RULE:
+You may ONLY use these exact column names for xAxisKey, yAxisKeys, and filters:
+{json.dumps(valid_columns)}
+
+FILTER SCHEMA RULE:
+filters MUST be an array of objects with:
+- column: one of the exact valid column names
+- operator: one of eq, gt, lt, gte, lte, contains
+- value: a primitive value
+
+COLUMN PREFERENCE RULE:
+Prefer these metric columns for yAxisKeys when relevant:
+{json.dumps(preferred_metric_columns)}
+Prefer these temporal columns for xAxisKey when trend/time intent is asked:
+{json.dumps(preferred_temporal_columns)}
+
+PYTHON TOOL RULE:
+If you choose to use generate_python_analysis, you must apply all requested filtering directly in your pandas code.
+Do not rely on the JSON filters array in that path."""
 
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -450,7 +759,7 @@ Rows: {len(df)}"""
                 "type": "function",
                 "function": {
                     "name": "generate_python_analysis",
-                    "description": "Write a Python script to answer complex questions or perform advanced calculations. df is available.",
+                    "description": "Only use this fallback tool if the user's request requires advanced statistics (e.g., correlation, standard deviation, forecasting) or multi-step DataFrame transformations that cannot be represented by a standard aggregated chart. Do NOT use this tool for simple averages, sums, or counts.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -476,6 +785,14 @@ Rows: {len(df)}"""
             call = tool_calls[0]
             args = json.loads(call.function.arguments)
             code = args['code']
+            code = code.strip()
+            if code.startswith("```"):
+                code_lines = code.splitlines()
+                if code_lines:
+                    code_lines = code_lines[1:]
+                if code_lines and code_lines[-1].strip().startswith("```"):
+                    code_lines = code_lines[:-1]
+                code = "\n".join(code_lines).strip()
             explanation = args.get('explanation', '')
             
             try:
@@ -568,38 +885,87 @@ Rows: {len(df)}"""
                 analysis=content,  # Original content as analysis
                 answer=content
             )
+        if not isinstance(config, dict):
+            return _safe_empty_chart_response("I couldn't find that specific column in the data.")
         
-        # Validate
-        all_cols = [config["xAxisKey"]] + config["yAxisKeys"]
+        x_axis_candidate = config.get("xAxisKey")
+        y_axis_candidate = config.get("yAxisKeys", [])
+        guidance = (
+            "I need one grouping column and at least one metric to build this chart. "
+            "Try: 'Show average fare_amount by payment_type', "
+            "'Trend total trips by pickup_datetime', or "
+            "'Top categories in payment_type by total_amount'."
+        )
+        if not isinstance(x_axis_candidate, str) or not x_axis_candidate:
+            return _safe_empty_chart_response(guidance)
+        if not isinstance(y_axis_candidate, list) or not all(isinstance(c, str) for c in y_axis_candidate):
+            return _safe_empty_chart_response(guidance)
+        if len(y_axis_candidate) == 0:
+            return _safe_empty_chart_response(guidance)
+
+        # Validate axis columns and gracefully degrade if hallucinated.
+        all_cols = [x_axis_candidate] + y_axis_candidate
         valid, missing, sugg = validate_columns(df, all_cols)
         if not valid:
-            msg = "; ".join(f"'{c}' not found, try: {sugg.get(c, [])}'" for c in missing)
-            raise HTTPException(status_code=400, detail=msg)
+            suggestions = []
+            for c in missing:
+                for s in sugg.get(c, []):
+                    if s not in suggestions:
+                        suggestions.append(s)
+            msg = "I couldn't find one or more requested columns in this dataset."
+            if suggestions:
+                msg += f" Did you mean: {', '.join(suggestions[:5])}?"
+            return _safe_empty_chart_response(msg)
+
+        # Parse and validate LLM filters, then merge with UI filters.
+        llm_raw_filters = config.get("filters", [])
+        llm_filters: list[FilterConfig] = []
+        if isinstance(llm_raw_filters, list):
+            for raw_filter in llm_raw_filters:
+                if not isinstance(raw_filter, dict):
+                    continue
+                try:
+                    parsed_filter = FilterConfig(**raw_filter)
+                    if isinstance(parsed_filter.value, (dict, list, tuple, set)):
+                        continue
+                    llm_filters.append(parsed_filter)
+                except (ValidationError, TypeError):
+                    continue
+
+        for f in llm_filters:
+            if f.column not in valid_columns:
+                return _safe_empty_chart_response("I couldn't find that specific column in the data.")
+            if f.operator and f.operator.lower() not in ALLOWED_FILTER_OPERATORS:
+                return _safe_empty_chart_response("I couldn't find that specific column in the data.")
+
+        combined_filters = (request.filters or []) + llm_filters
         
         # Apply filters
-        filtered, applied = apply_filters(df, request.filters)
+        filtered, applied = apply_filters(df, combined_filters)
         if filtered.empty:
-            raise HTTPException(status_code=400, detail="No data after filters.")
+            return _safe_empty_chart_response(
+                "No rows match the active filters. Try relaxing filters or broadening the date/category selection.",
+                title="No Data After Filters"
+            )
         
         # Enforce semantic rules
         agg = config.get("aggregation", "sum")
-        agg, warnings, auto_y_label = enforce_semantic_rules(agg, config["yAxisKeys"], ds.column_types)
+        agg, warnings, auto_y_label = enforce_semantic_rules(agg, y_axis_candidate, ds.column_types)
         
         # Smart aggregation
-        x_key = config["xAxisKey"]
-        y_keys = config["yAxisKeys"]
-        
+        x_key = x_axis_candidate
+        y_keys = y_axis_candidate
+        limit, cap_warning = _resolve_effective_limit(request.limit, default_limit=20)
+
         if pd.api.types.is_datetime64_any_dtype(filtered.get(x_key)):
             filtered, x_key = smart_resample_dates(filtered, x_key, y_keys, agg)
         elif x_key in filtered.columns:
-            limit = request.limit if request.limit is not None else 20
             group_others = request.group_others if request.group_others is not None else True
             
-            # Skip grouping if limit=0 (show all mode)
-            if limit > 0 and filtered[x_key].nunique() > limit:
+            if filtered[x_key].nunique() > limit:
                 filtered = smart_group_top_n(filtered, x_key, y_keys, agg, n=limit, group_others=group_others)
         
-        result = aggregate_data(filtered, x_key, y_keys, agg)
+        result, was_capped = aggregate_data(filtered, x_key, y_keys, agg, limit=limit)
         
         data = result.to_dict(orient='records')
         for row in data:
@@ -609,6 +975,10 @@ Rows: {len(df)}"""
         
         final_y_label = auto_y_label or config.get("yAxisLabel")
         
+        final_warnings = list(warnings or [])
+        if cap_warning and (was_capped or request.limit == 0 or (request.limit is not None and request.limit > MAX_CHART_POINTS)):
+            final_warnings.append(cap_warning)
+
         return ChartResponse(
             data=data,
             x_axis_key=x_key,
@@ -620,8 +990,9 @@ Rows: {len(df)}"""
             y_axis_label=final_y_label,
             row_count=len(data),
             analysis=config.get("analysis", "AI-generated configuration."),
-            warnings=warnings or None,
-            applied_filters=applied or None
+            warnings=final_warnings or None,
+            applied_filters=applied or None,
+            llm_filters=combined_filters or None
         )
     except HTTPException:
         raise

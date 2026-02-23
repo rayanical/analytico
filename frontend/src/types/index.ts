@@ -78,6 +78,8 @@ export interface UploadResponse {
 // Filter configuration
 export interface FilterConfig {
   column: string;
+  operator?: 'eq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains';
+  value?: unknown;
   values?: unknown[];
   min_val?: unknown;
   max_val?: unknown;
@@ -111,6 +113,7 @@ export interface ChartResponse {
   analysis?: string; // 2-sentence business insight (renamed from reasoning)
   warnings?: string[];
   applied_filters?: string[];
+  llm_filters?: FilterConfig[];
   answer?: string;
 }
 
@@ -134,7 +137,7 @@ export interface QueryRequest {
 export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'composed' | 'empty';
 
 // Aggregation types
-export type AggregationType = 'sum' | 'mean' | 'count' | 'min' | 'max';
+export type AggregationType = 'sum' | 'mean' | 'median' | 'count' | 'min' | 'max';
 
 // History item
 export interface HistoryItem {

@@ -57,6 +57,18 @@ export async function uploadCSV(file: File): Promise<UploadResponse> {
 }
 
 /**
+ * Load the built-in demo dataset from backend storage
+ */
+export async function loadDemoDataset(): Promise<UploadResponse> {
+  try {
+    const response = await api.post<UploadResponse>('/load-demo');
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/**
  * Query the AI to generate a chart configuration and get aggregated data
  */
 export async function queryChart(request: QueryRequest): Promise<ChartResponse> {

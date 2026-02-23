@@ -3,10 +3,12 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileSpreadsheet, AlertCircle, Loader2, Database, Sparkles, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, Loader2, Database, Sparkles, AlertTriangle, TrendingUp, Info } from 'lucide-react';
 import { useData } from '@/context/DataContext';
-import { uploadCSV, aggregateData } from '@/lib/api';
+import { uploadCSV, loadDemoDataset, aggregateData } from '@/lib/api';
+import { UploadResponse } from '@/types';
 import { toast } from 'sonner';
+import { CleaningReportDrawer } from '@/components/CleaningReportDrawer';
 
 // Smart number formatter with proper K/M/B scaling
 function formatCompact(value: number, format: string = 'number'): string {
@@ -32,6 +34,52 @@ function formatName(name: string): string {
 export function FileUploader() {
   const { dataset, setDataset, setCurrentChart, addToHistory, setIsUploading, isUploading, clearData } = useData();
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
+  const [isCleaningReportOpen, setIsCleaningReportOpen] = useState(false);
+  const [isQualityInfoOpen, setIsQualityInfoOpen] = useState(false);
+
+  const applyUploadResponse = useCallback(async (response: UploadResponse) => {
+    setDataset({
+      datasetId: response.dataset_id,
+      filename: response.filename,
+      rowCount: response.row_count,
+      columns: response.columns,
+      columnFormats: response.column_formats,
+      dataHealth: response.data_health,
+      profile: response.profile,
+      defaultChart: response.default_chart,
+      suggestions: response.suggestions,
+      summary: response.summary,
+    });
+
+    // Auto-render default chart if available
+    if (response.default_chart) {
+      try {
+        const chartData = await aggregateData({
+          dataset_id: response.dataset_id,
+          x_axis_key: response.default_chart.x_axis_key,
+          y_axis_keys: response.default_chart.y_axis_keys,
+          aggregation: response.default_chart.aggregation,
+          chart_type: response.default_chart.chart_type,
+        });
+        
+        chartData.analysis = response.default_chart.analysis;
+        setCurrentChart(chartData);
+        addToHistory('Auto-generated insight', chartData, false);
+        
+        toast.success('Data loaded with instant insight!', {
+          description: response.default_chart.title,
+        });
+      } catch (e) {
+        console.error('Default chart error:', e);
+        toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
+      }
+    } else if (response.data_health.cleaning_actions.length > 0) {
+      toast.success(`Data cleaned: ${response.data_health.cleaning_actions.length} improvements`);
+    } else {
+      toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
+    }
+  }, [setDataset, setCurrentChart, addToHistory]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -42,46 +90,7 @@ export function FileUploader() {
 
     try {
       const response = await uploadCSV(file);
-      
-      setDataset({
-        datasetId: response.dataset_id,
-        filename: response.filename,
-        rowCount: response.row_count,
-        columns: response.columns,
-        columnFormats: response.column_formats,
-        dataHealth: response.data_health,
-        profile: response.profile,
-        defaultChart: response.default_chart,
-        suggestions: response.suggestions,
-      });
-
-      // Auto-render default chart if available
-      if (response.default_chart) {
-        try {
-          const chartData = await aggregateData({
-            dataset_id: response.dataset_id,
-            x_axis_key: response.default_chart.x_axis_key,
-            y_axis_keys: response.default_chart.y_axis_keys,
-            aggregation: response.default_chart.aggregation,
-            chart_type: response.default_chart.chart_type,
-          });
-          
-          chartData.analysis = response.default_chart.analysis;
-          setCurrentChart(chartData);
-          addToHistory('Auto-generated insight', chartData, true);
-          
-          toast.success('Data loaded with instant insight!', {
-            description: response.default_chart.title,
-          });
-        } catch (e) {
-          console.error('Default chart error:', e);
-          toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
-        }
-      } else if (response.data_health.cleaning_actions.length > 0) {
-        toast.success(`Data cleaned: ${response.data_health.cleaning_actions.length} improvements`);
-      } else {
-        toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
-      }
+      await applyUploadResponse(response);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Upload failed';
       setUploadError(message);
@@ -89,16 +98,36 @@ export function FileUploader() {
     } finally {
       setIsUploading(false);
     }
-  }, [setDataset, setCurrentChart, addToHistory, setIsUploading]);
+  }, [setIsUploading, applyUploadResponse]);
+
+  const handleDemoLoad = useCallback(async () => {
+    setUploadError(null);
+    setIsDemoLoading(true);
+    setIsUploading(true);
+
+    try {
+      const response = await loadDemoDataset();
+      await applyUploadResponse(response);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Demo load failed';
+      setUploadError(message);
+      toast.error(message);
+    } finally {
+      setIsDemoLoading(false);
+      setIsUploading(false);
+    }
+  }, [setIsUploading, applyUploadResponse]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop, accept: { 'text/csv': ['.csv'] }, maxFiles: 1, disabled: isUploading,
+    onDrop, accept: { 'text/csv': ['.csv'] }, maxFiles: 1, disabled: isUploading || isDemoLoading,
   });
 
   if (dataset) {
     const { dataHealth, profile } = dataset;
     const hasCleaning = dataHealth.cleaning_actions.length > 0;
     const hasWarning = dataHealth.quality_score < 90;
+    const missingCells = Object.values(dataHealth.missing_values).reduce((sum, count) => sum + count, 0);
+    const totalCells = dataset.rowCount * dataset.columns.length;
     
     return (
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full">
@@ -116,10 +145,34 @@ export function FileUploader() {
                       <Sparkles className="h-3 w-3" />Data Cleaned
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setIsCleaningReportOpen(true)}
+                    className="rounded-md border border-border/60 bg-card/40 px-2 py-0.5 text-xs font-medium text-foreground hover:border-primary/40 hover:bg-primary/10"
+                  >
+                    View Cleaning Report
+                  </button>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {dataset.rowCount.toLocaleString()} rows • {dataset.columns.length} cols • {dataHealth.quality_score.toFixed(0)}% quality
+                  <button
+                    type="button"
+                    onClick={() => setIsQualityInfoOpen((open) => !open)}
+                    className="ml-2 inline-flex align-middle text-muted-foreground/80 hover:text-foreground"
+                    aria-label="Show quality score details"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
                 </p>
+                {isQualityInfoOpen && (
+                  <div className="mt-2 rounded-md border border-border/50 bg-card/40 p-2 text-xs text-muted-foreground">
+                    <p>Quality = 100 - (missing cells / total cells), measured before imputations.</p>
+                    <p className="mt-1">Missing cells: {missingCells.toLocaleString()} / {totalCells.toLocaleString()}</p>
+                    <p className="mt-1 text-muted-foreground/80">
+                      This score currently reflects completeness, not outliers or duplicates.
+                    </p>
+                  </div>
+                )}
                 {/* Executive Summary with smart formatting */}
                 {profile.top_metrics.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-3">
@@ -144,6 +197,13 @@ export function FileUploader() {
             </button>
           </div>
         </div>
+        <CleaningReportDrawer
+          open={isCleaningReportOpen}
+          onClose={() => setIsCleaningReportOpen(false)}
+          dataHealth={dataHealth}
+          rowCount={dataset.rowCount}
+          columnCount={dataset.columns.length}
+        />
       </motion.div>
     );
   }
@@ -158,7 +218,8 @@ export function FileUploader() {
           {isUploading ? (
             <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="font-medium">Analyzing & cleaning data...</p>
+              <p className="font-medium">Processing dataset...</p>
+              <p className="text-xs text-muted-foreground animate-pulse">Please wait, preparing your dashboard...</p>
             </motion.div>
           ) : uploadError ? (
             <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
@@ -183,6 +244,15 @@ export function FileUploader() {
           )}
         </AnimatePresence>
       </div>
+      <button
+        type="button"
+        onClick={handleDemoLoad}
+        disabled={isDemoLoading || isUploading}
+        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-gradient-to-r from-primary/15 via-primary/10 to-transparent px-4 py-3 text-sm font-medium text-primary transition-all hover:border-primary/60 hover:from-primary/20 hover:via-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {isDemoLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+        {isDemoLoading ? 'Loading demo dataset...' : '🚀 Try 1 Million Rows Demo (NYC Taxi)'}
+      </button>
     </motion.div>
   );
 }

@@ -42,6 +42,7 @@ interface DataContextType {
   builderMode: BuilderMode;
   setBuilderMode: (mode: BuilderMode) => void;
   history: HistoryItem[];
+  currentHistoryId: string | null;
   addToHistory: (query: string, response: ChartResponse, isManual: boolean) => void;
   selectFromHistory: (item: HistoryItem) => void;
   clearHistory: () => void;
@@ -82,6 +83,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [viewMode, setViewMode] = useState<ViewMode>('chart');
   const [builderMode, setBuilderMode] = useState<BuilderMode>('ai');
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isQuerying, setIsQuerying] = useState(false);
   const [drillDownData, setDrillDownData] = useState<any[] | null>(null);
@@ -126,6 +128,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const setDataset = useCallback((state: DatasetState | null) => {
     setDatasetInternal(state);
     setCurrentChart(null);
+    setCurrentHistoryId(null);
     setFiltersInternal([]);
     if (typeof window !== 'undefined') {
       if (state) localStorage.setItem(DATASET_KEY, JSON.stringify(state));
@@ -151,11 +154,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const clearFilters = useCallback(() => setFiltersInternal([]), []);
 
   const addToHistory = useCallback((query: string, response: ChartResponse, isManual: boolean) => {
-    setHistory(prev => [{ id: crypto.randomUUID(), query, chartResponse: response, timestamp: new Date(), isManual }, ...prev].slice(0, 20));
+    const entry: HistoryItem = {
+      id: crypto.randomUUID(),
+      query,
+      chartResponse: response,
+      timestamp: new Date(),
+      isManual,
+    };
+    setHistory(prev => [entry, ...prev].slice(0, 30));
+    setCurrentHistoryId(entry.id);
   }, []);
-  const selectFromHistory = useCallback((item: HistoryItem) => { setCurrentChart(item.chartResponse); setViewMode('chart'); }, []);
-  const clearHistory = useCallback(() => { setHistory([]); if (typeof window !== 'undefined') localStorage.removeItem(HISTORY_KEY); }, []);
-  const clearData = useCallback(() => { setDatasetInternal(null); setCurrentChart(null); setFiltersInternal([]); if (typeof window !== 'undefined') localStorage.removeItem(DATASET_KEY); }, []);
+  const selectFromHistory = useCallback((item: HistoryItem) => {
+    setCurrentChart(item.chartResponse);
+    setCurrentHistoryId(item.id);
+    setViewMode('chart');
+  }, []);
+  const clearHistory = useCallback(() => {
+    setHistory([]);
+    setCurrentHistoryId(null);
+    if (typeof window !== 'undefined') localStorage.removeItem(HISTORY_KEY);
+  }, []);
+  const clearData = useCallback(() => {
+    setDatasetInternal(null);
+    setCurrentChart(null);
+    setCurrentHistoryId(null);
+    setFiltersInternal([]);
+    if (typeof window !== 'undefined') localStorage.removeItem(DATASET_KEY);
+  }, []);
 
   const numericColumns = dataset?.columns.filter(c => c.is_numeric) ?? [];
   const categoricalColumns = dataset?.columns.filter(c => c.semantic_type === 'categorical') ?? [];
@@ -165,7 +190,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   return (
     <DataContext.Provider value={{
       dataset, setDataset, currentChart, setCurrentChart, filters, setFilters, addFilter, removeFilter, clearFilters,
-      viewMode, setViewMode, builderMode, setBuilderMode, history, addToHistory, selectFromHistory, clearHistory,
+      viewMode, setViewMode, builderMode, setBuilderMode, history, currentHistoryId, addToHistory, selectFromHistory, clearHistory,
       isUploading, setIsUploading, isQuerying, setIsQuerying, numericColumns, categoricalColumns, metricColumns, temporalColumns, clearData,
       drillDownData, setDrillDownData, isDrillDownOpen, setIsDrillDownOpen,
       groupOthers, setGroupOthers, limit, setLimit, sortBy, setSortBy,

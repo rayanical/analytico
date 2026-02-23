@@ -69,6 +69,8 @@ class UploadResponse(BaseModel):
 
 class FilterConfig(BaseModel):
     column: str
+    operator: Optional[str] = None
+    value: Optional[Any] = None
     values: Optional[list[Any]] = None
     min_val: Optional[Any] = None
     max_val: Optional[Any] = None
@@ -100,6 +102,7 @@ class ChartResponse(BaseModel):
     analysis: Optional[str] = None  # 2-sentence business insight (renamed from reasoning)
     warnings: Optional[list[str]] = None
     applied_filters: Optional[list[str]] = None
+    llm_filters: Optional[list[FilterConfig]] = None
     answer: Optional[str] = None  # For scalar results from Python queries
 
 

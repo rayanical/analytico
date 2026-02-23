@@ -14,7 +14,7 @@ backend/.env
 backend/.pytest_cache/
 backend/.coverage
 backend/htmlcov/
-
+backend/datasets/
 # OS
 .DS_Store
 Thumbs.db

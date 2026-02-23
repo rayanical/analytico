@@ -13,7 +13,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onToggle }: SidebarProps) {
-  const { history, selectFromHistory, clearHistory, currentChart, dataset } = useData();
+  const { history, selectFromHistory, clearHistory, currentHistoryId } = useData();
 
   const formatTime = (date: Date) => {
     const now = new Date();
@@ -68,17 +68,6 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
         )}
       </div>
 
-      {/* Dataset Summary Card */}
-      {isOpen && dataset?.summary && (
-        <div className="mx-3 mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Wand2 className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs font-medium text-primary">Dataset Context</span>
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed">{dataset.summary}</p>
-        </div>
-      )}
-
       {/* History Header */}
       {isOpen ? (
         <div className="flex items-center justify-between px-6 py-4">
@@ -126,7 +115,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                 className={`group w-full rounded-lg text-left transition-all ${
                   isOpen ? 'p-3' : 'flex justify-center p-2'
                 } ${
-                  currentChart?.title === item.chartResponse.title
+                  currentHistoryId === item.id
                     ? 'bg-primary/10 border border-primary/30'
                     : 'hover:bg-white/[0.03]'
                 }`}
@@ -149,9 +138,15 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
                         {item.query}
                       </p>
-                      <p className="mt-1 text-xs text-muted-foreground/60">
-                        {formatTime(item.timestamp)}
-                      </p>
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground/60">
+                        <span>{formatTime(item.timestamp)}</span>
+                        <span>•</span>
+                        <span>{item.chartResponse.row_count} pts</span>
+                        <span>•</span>
+                        <span className={`rounded-full px-1.5 py-0.5 ${item.isManual ? 'bg-zinc-700/40 text-zinc-300' : 'bg-primary/20 text-primary'}`}>
+                          {item.isManual ? 'Manual' : 'AI'}
+                        </span>
+                      </div>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                   </div>
