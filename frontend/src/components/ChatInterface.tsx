@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 export function ChatInterface() {
   const { dataset, filters, setCurrentChart, addToHistory, isQuerying, setIsQuerying, setViewMode, groupOthers, limit } = useData();
   const [query, setQuery] = useState('');
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -30,6 +31,7 @@ export function ChatInterface() {
       addToHistory(query.trim(), response, false);
       setViewMode('chart');
       setQuery('');
+      setIsInputFocused(false);
       toast.success(`Generated: ${response.title}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to generate chart');
@@ -54,17 +56,28 @@ export function ChatInterface() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full">
       {/* Dynamic Suggestions */}
-      {dataset && !isQuerying && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4 flex flex-wrap gap-2">
-          {suggestions.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => handleSuggestion(s)}
-              className="rounded-full border border-border/50 bg-white/[0.02] px-4 py-2 text-sm text-muted-foreground transition-all hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
-            >
-              {s}
-            </button>
-          ))}
+      {dataset && !isQuerying && isInputFocused && (
+        <motion.div
+          initial={{ opacity: 0, y: 10, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+          className="mb-4 rounded-xl border border-border/40 bg-background/40 p-2 backdrop-blur-sm"
+        >
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+            {suggestions.map((s, i) => (
+              <button
+                key={i}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleSuggestion(s);
+                }}
+                title={s}
+                className="min-h-[74px] rounded-xl border border-border/50 bg-white/[0.02] px-4 py-3 text-left text-sm text-muted-foreground transition-all hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+              >
+                <p className="line-clamp-2 leading-relaxed">{s}</p>
+              </button>
+            ))}
+          </div>
         </motion.div>
       )}
 
@@ -74,7 +87,9 @@ export function ChatInterface() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={dataset ? "Ask about your data..." : "Upload a CSV first"}
+            onFocus={() => setIsInputFocused(true)}
+            onBlur={() => setIsInputFocused(false)}
+            placeholder={dataset ? "Ask a business question (e.g., trends, top drivers, comparisons)..." : "Upload a CSV first"}
             disabled={isDisabled}
             className="flex-1 border-0 bg-transparent text-base placeholder:text-muted-foreground/50 focus-visible:ring-0"
           />

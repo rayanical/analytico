@@ -3,11 +3,12 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileSpreadsheet, AlertCircle, Loader2, Database, Sparkles, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Upload, FileSpreadsheet, AlertCircle, Loader2, Database, Sparkles, AlertTriangle, TrendingUp, Info } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { uploadCSV, loadDemoDataset, aggregateData } from '@/lib/api';
 import { UploadResponse } from '@/types';
 import { toast } from 'sonner';
+import { CleaningReportDrawer } from '@/components/CleaningReportDrawer';
 
 // Smart number formatter with proper K/M/B scaling
 function formatCompact(value: number, format: string = 'number'): string {
@@ -34,6 +35,8 @@ export function FileUploader() {
   const { dataset, setDataset, setCurrentChart, addToHistory, setIsUploading, isUploading, clearData } = useData();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
+  const [isCleaningReportOpen, setIsCleaningReportOpen] = useState(false);
+  const [isQualityInfoOpen, setIsQualityInfoOpen] = useState(false);
 
   const applyUploadResponse = useCallback(async (response: UploadResponse) => {
     setDataset({
@@ -62,7 +65,7 @@ export function FileUploader() {
         
         chartData.analysis = response.default_chart.analysis;
         setCurrentChart(chartData);
-        addToHistory('Auto-generated insight', chartData, true);
+        addToHistory('Auto-generated insight', chartData, false);
         
         toast.success('Data loaded with instant insight!', {
           description: response.default_chart.title,
@@ -123,6 +126,8 @@ export function FileUploader() {
     const { dataHealth, profile } = dataset;
     const hasCleaning = dataHealth.cleaning_actions.length > 0;
     const hasWarning = dataHealth.quality_score < 90;
+    const missingCells = Object.values(dataHealth.missing_values).reduce((sum, count) => sum + count, 0);
+    const totalCells = dataset.rowCount * dataset.columns.length;
     
     return (
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full">
@@ -140,10 +145,34 @@ export function FileUploader() {
                       <Sparkles className="h-3 w-3" />Data Cleaned
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setIsCleaningReportOpen(true)}
+                    className="rounded-md border border-border/60 bg-card/40 px-2 py-0.5 text-xs font-medium text-foreground hover:border-primary/40 hover:bg-primary/10"
+                  >
+                    View Cleaning Report
+                  </button>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {dataset.rowCount.toLocaleString()} rows • {dataset.columns.length} cols • {dataHealth.quality_score.toFixed(0)}% quality
+                  <button
+                    type="button"
+                    onClick={() => setIsQualityInfoOpen((open) => !open)}
+                    className="ml-2 inline-flex align-middle text-muted-foreground/80 hover:text-foreground"
+                    aria-label="Show quality score details"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
                 </p>
+                {isQualityInfoOpen && (
+                  <div className="mt-2 rounded-md border border-border/50 bg-card/40 p-2 text-xs text-muted-foreground">
+                    <p>Quality = 100 - (missing cells / total cells), measured before imputations.</p>
+                    <p className="mt-1">Missing cells: {missingCells.toLocaleString()} / {totalCells.toLocaleString()}</p>
+                    <p className="mt-1 text-muted-foreground/80">
+                      This score currently reflects completeness, not outliers or duplicates.
+                    </p>
+                  </div>
+                )}
                 {/* Executive Summary with smart formatting */}
                 {profile.top_metrics.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-3">
@@ -168,6 +197,13 @@ export function FileUploader() {
             </button>
           </div>
         </div>
+        <CleaningReportDrawer
+          open={isCleaningReportOpen}
+          onClose={() => setIsCleaningReportOpen(false)}
+          dataHealth={dataHealth}
+          rowCount={dataset.rowCount}
+          columnCount={dataset.columns.length}
+        />
       </motion.div>
     );
   }

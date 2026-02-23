@@ -709,6 +709,8 @@ async def query_endpoint(request: QueryRequest):
     ds = get_dataset(request.dataset_id)
     df = ds.df
     valid_columns = df.columns.tolist()
+    preferred_metric_columns = [c for c, t in ds.column_types.items() if t == SemanticType.METRIC][:8]
+    preferred_temporal_columns = [c for c, t in ds.column_types.items() if t == SemanticType.TEMPORAL][:5]
     
     # Build context
     cols_info = [f"- {c} ({ds.column_types.get(c, '?').upper()}, format: {ds.column_formats.get(c, 'number')})" for c in df.columns]
@@ -734,6 +736,12 @@ filters MUST be an array of objects with:
 - column: one of the exact valid column names
 - operator: one of eq, gt, lt, gte, lte, contains
 - value: a primitive value
+
+COLUMN PREFERENCE RULE:
+Prefer these metric columns for yAxisKeys when relevant:
+{json.dumps(preferred_metric_columns)}
+Prefer these temporal columns for xAxisKey when trend/time intent is asked:
+{json.dumps(preferred_temporal_columns)}
 
 PYTHON TOOL RULE:
 If you choose to use generate_python_analysis, you must apply all requested filtering directly in your pandas code.
@@ -882,12 +890,18 @@ Do not rely on the JSON filters array in that path."""
         
         x_axis_candidate = config.get("xAxisKey")
         y_axis_candidate = config.get("yAxisKeys", [])
+        guidance = (
+            "I need one grouping column and at least one metric to build this chart. "
+            "Try: 'Show average fare_amount by payment_type', "
+            "'Trend total trips by pickup_datetime', or "
+            "'Top categories in payment_type by total_amount'."
+        )
         if not isinstance(x_axis_candidate, str) or not x_axis_candidate:
-            return _safe_empty_chart_response("I couldn't find that specific column in the data.")
+            return _safe_empty_chart_response(guidance)
         if not isinstance(y_axis_candidate, list) or not all(isinstance(c, str) for c in y_axis_candidate):
-            return _safe_empty_chart_response("I couldn't find that specific column in the data.")
+            return _safe_empty_chart_response(guidance)
         if len(y_axis_candidate) == 0:
-            return _safe_empty_chart_response("I couldn't find that specific column in the data.")
+            return _safe_empty_chart_response(guidance)
 
         # Validate axis columns and gracefully degrade if hallucinated.
         all_cols = [x_axis_candidate] + y_axis_candidate
@@ -898,7 +912,7 @@ Do not rely on the JSON filters array in that path."""
                 for s in sugg.get(c, []):
                     if s not in suggestions:
                         suggestions.append(s)
-            msg = "I couldn't find that specific column in the data."
+            msg = "I couldn't find one or more requested columns in this dataset."
             if suggestions:
                 msg += f" Did you mean: {', '.join(suggestions[:5])}?"
             return _safe_empty_chart_response(msg)
@@ -929,7 +943,10 @@ Do not rely on the JSON filters array in that path."""
         # Apply filters
         filtered, applied = apply_filters(df, combined_filters)
         if filtered.empty:
-            raise HTTPException(status_code=400, detail="No data after filters.")
+            return _safe_empty_chart_response(
+                "No rows match the active filters. Try relaxing filters or broadening the date/category selection.",
+                title="No Data After Filters"
+            )
         
         # Enforce semantic rules
         agg = config.get("aggregation", "sum")

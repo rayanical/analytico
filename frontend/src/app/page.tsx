@@ -166,7 +166,7 @@ export default function Home() {
       <main className="relative flex flex-1 flex-col overflow-hidden min-w-0">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
         
-        <div className="relative flex flex-1 flex-col overflow-y-auto p-6">
+        <div className={`relative flex flex-1 flex-col overflow-y-auto p-6 ${builderMode === 'ai' ? 'pb-56' : ''}`}>
           {/* Header */}
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
             <h1 className="text-2xl font-bold">Data Visualization</h1>
@@ -353,8 +353,12 @@ export default function Home() {
 
         {/* Chat Input */}
         {builderMode === 'ai' && (
-          <div className="relative border-t border-border/50 bg-background/80 p-6 backdrop-blur-xl">
-            <div className="mx-auto max-w-4xl"><ChatInterface /></div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
+            <div className="mx-auto max-w-4xl p-6">
+              <div className="pointer-events-auto rounded-2xl border border-border/40 bg-background/20 p-2 backdrop-blur-md">
+                <ChatInterface />
+              </div>
+            </div>
           </div>
         )}
       </main>
