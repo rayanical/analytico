@@ -243,7 +243,11 @@ export function SmartChart({ chartData }: SmartChartProps) {
                 stroke={COLORS[i % COLORS.length]} 
                 strokeWidth={2} 
                 dot={{ fill: COLORS[i % COLORS.length], r: 4 }}
-                activeDot={{ r: 6, onClick: (e: any) => handleDrillDown(e.payload) }}
+                activeDot={{
+                  r: 8,
+                  cursor: 'pointer',
+                  onClick: (event: any, payload: any) => handleDrillDown(payload?.payload),
+                }}
               />
             ))}
           </LineChart>
@@ -270,8 +274,11 @@ export function SmartChart({ chartData }: SmartChartProps) {
                 dataKey={k} 
                 stroke={COLORS[i % COLORS.length]} 
                 fill={`url(#grad-${k})`} 
-                onClick={(e: any) => handleDrillDown(e.payload)}
-                cursor="pointer"
+                activeDot={{
+                  r: 8,
+                  cursor: 'pointer',
+                  onClick: (event: any, payload: any) => handleDrillDown(payload?.payload),
+                }}
               />
             ))}
           </AreaChart>

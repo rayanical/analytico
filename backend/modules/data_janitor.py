@@ -336,11 +336,44 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             
             # Try date parsing
             try:
-                parsed = pd.to_datetime(df[col], errors='coerce', format='mixed')
-                if parsed.notna().sum() > len(df) * 0.7:
-                    df[col] = parsed
-                    column_formats[col] = 'date'
-                    cleaning_actions.append(f"Parsed '{col}' as date")
+                sample_parsed = pd.to_datetime(sample, errors='coerce')
+                if sample_parsed.notna().sum() > len(sample) * 0.7:
+                    parsed = None
+                    success = False
+
+                    # Fast path 1: explicit ISO8601 parser.
+                    try:
+                        parsed_iso = pd.to_datetime(df[col], format='ISO8601', errors='coerce')
+                        if parsed_iso.notna().sum() > len(df) * 0.7:
+                            parsed = parsed_iso
+                            success = True
+                    except Exception:
+                        pass
+
+                    # Fast path 2: strict common timestamp format.
+                    if not success:
+                        try:
+                            parsed_std = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors='coerce')
+                            if parsed_std.notna().sum() > len(df) * 0.7:
+                                parsed = parsed_std
+                                success = True
+                        except Exception:
+                            pass
+
+                    # Final fallback: generic parser with warning suppression.
+                    if not success:
+                        import warnings
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore", UserWarning)
+                            parsed_fallback = pd.to_datetime(df[col], errors='coerce')
+                        if parsed_fallback.notna().sum() > len(df) * 0.7:
+                            parsed = parsed_fallback
+                            success = True
+
+                    if success and parsed is not None:
+                        df[col] = parsed
+                        column_formats[col] = 'date'
+                        cleaning_actions.append(f"Parsed '{col}' as date")
             except Exception:
                 pass
     

@@ -182,7 +182,8 @@ export function FileUploader() {
           {isUploading ? (
             <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="font-medium">Analyzing & cleaning data...</p>
+              <p className="font-medium">Processing dataset...</p>
+              <p className="text-xs text-muted-foreground animate-pulse">Please wait, preparing your dashboard...</p>
             </motion.div>
           ) : uploadError ? (
             <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
