@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
+from pydantic import ValidationError
 
 # Import models
 from models import (
@@ -63,6 +64,7 @@ app.add_middleware(
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 DEMO_DATASET_PATH = Path(__file__).resolve().parent / "datasets" / "2021_Green_Taxi_Trip_Data_20260221.csv"
+ALLOWED_FILTER_OPERATORS = {"eq", "gt", "lt", "gte", "lte", "contains"}
 
 
 # ============================================================================
@@ -96,6 +98,84 @@ def validate_columns(df: pd.DataFrame, cols: list[str]) -> tuple[bool, list[str]
     return False, missing, suggestions
 
 
+def _safe_empty_chart_response(message: str, title: str = "Clarification Needed") -> ChartResponse:
+    return ChartResponse(
+        data=[],
+        x_axis_key="",
+        y_axis_keys=[],
+        chart_type="empty",
+        title=title,
+        aggregation=None,
+        row_count=0,
+        y_axis_label="",
+        analysis=message,
+        answer=None
+    )
+
+
+def _apply_operator_filter(filtered: pd.DataFrame, f: FilterConfig, applied: list[str]) -> pd.DataFrame:
+    """Apply a single operator-style filter safely without mutating column dtypes."""
+    if not f.operator or f.value is None:
+        return filtered
+
+    op = f.operator.lower()
+    if op not in ALLOWED_FILTER_OPERATORS:
+        applied.append(f"{f.column}: skipped invalid operator '{f.operator}'")
+        return filtered
+
+    col = filtered[f.column]
+    mask = None
+
+    if op == "eq":
+        mask = col.astype(str) == str(f.value)
+        applied.append(f"{f.column} == {f.value}")
+    elif op == "contains":
+        mask = col.astype(str).str.contains(str(f.value), case=False, na=False, regex=False)
+        applied.append(f"{f.column} contains '{f.value}'")
+    elif op in {"gt", "lt", "gte", "lte"}:
+        # Datetime-aware comparisons for NLP date filters.
+        if pd.api.types.is_datetime64_any_dtype(col):
+            cmp_value = pd.to_datetime(f.value, errors="coerce")
+            if pd.isna(cmp_value):
+                applied.append(f"{f.column}: skipped invalid datetime value '{f.value}'")
+                return filtered
+            if op == "gt":
+                mask = col > cmp_value
+                applied.append(f"{f.column} > {f.value}")
+            elif op == "lt":
+                mask = col < cmp_value
+                applied.append(f"{f.column} < {f.value}")
+            elif op == "gte":
+                mask = col >= cmp_value
+                applied.append(f"{f.column} >= {f.value}")
+            elif op == "lte":
+                mask = col <= cmp_value
+                applied.append(f"{f.column} <= {f.value}")
+        else:
+            try:
+                num_value = float(f.value)
+            except (TypeError, ValueError):
+                applied.append(f"{f.column}: skipped invalid numeric value '{f.value}'")
+                return filtered
+            num_col = pd.to_numeric(col, errors="coerce")
+            if op == "gt":
+                mask = num_col > num_value
+                applied.append(f"{f.column} > {f.value}")
+            elif op == "lt":
+                mask = num_col < num_value
+                applied.append(f"{f.column} < {f.value}")
+            elif op == "gte":
+                mask = num_col >= num_value
+                applied.append(f"{f.column} >= {f.value}")
+            elif op == "lte":
+                mask = num_col <= num_value
+                applied.append(f"{f.column} <= {f.value}")
+
+    if mask is None:
+        return filtered
+    return filtered[mask.fillna(False)]
+
+
 def apply_filters(df: pd.DataFrame, filters: Optional[list[FilterConfig]]) -> tuple[pd.DataFrame, list[str]]:
     """Apply filter configurations to dataframe"""
     if not filters:
@@ -107,16 +187,28 @@ def apply_filters(df: pd.DataFrame, filters: Optional[list[FilterConfig]]) -> tu
     for f in filters:
         if f.column not in filtered.columns:
             continue
+
+        filtered = _apply_operator_filter(filtered, f, applied)
+
+        # Legacy compatibility: values behaves like IN-list equality filter.
         if f.values:
             str_values = [str(v) for v in f.values]
             filtered = filtered[filtered[f.column].astype(str).isin(str_values)]
             applied.append(f"{f.column}: {', '.join(str(v) for v in f.values[:3])}")
+
+        # Legacy compatibility: min/max map to gte/lte semantics.
         if f.min_val is not None:
-            filtered = filtered[filtered[f.column] >= f.min_val]
-            applied.append(f"{f.column} >= {f.min_val}")
+            filtered = _apply_operator_filter(
+                filtered,
+                FilterConfig(column=f.column, operator="gte", value=f.min_val),
+                applied
+            )
         if f.max_val is not None:
-            filtered = filtered[filtered[f.column] <= f.max_val]
-            applied.append(f"{f.column} <= {f.max_val}")
+            filtered = _apply_operator_filter(
+                filtered,
+                FilterConfig(column=f.column, operator="lte", value=f.max_val),
+                applied
+            )
     
     return filtered, applied
 
@@ -203,6 +295,12 @@ Rules:
 - IDENTIFIER columns: use COUNT only
 - TEMPORAL columns: prefer as X-axis
 - Format labels based on column format (currency → include $)
+
+ROUTING DECISION:
+- Primary goal: produce a JSON chart configuration that visualizes the answer.
+- If the user asks for basic aggregations (sum, average/mean, min, max, count), grouped by category or time, you MUST return JSON config and MUST NOT use the Python tool.
+- Infer the best chart type even if the user asks for a single number; default to a chartable aggregation JSON response whenever possible.
+- Use the Python tool only as a fallback for advanced statistics or multi-step transformations that cannot be represented as a standard aggregated chart.
 
 Return ONLY raw JSON, no markdown."""
 
@@ -590,6 +688,7 @@ async def query_endpoint(request: QueryRequest):
     
     ds = get_dataset(request.dataset_id)
     df = ds.df
+    valid_columns = df.columns.tolist()
     
     # Build context
     cols_info = [f"- {c} ({ds.column_types.get(c, '?').upper()}, format: {ds.column_formats.get(c, 'number')})" for c in df.columns]
@@ -604,7 +703,21 @@ Columns:
 Sample:
 {sample}
 
-Rows: {len(df)}"""
+Rows: {len(df)}
+
+STRICT COLUMN RULE:
+You may ONLY use these exact column names for xAxisKey, yAxisKeys, and filters:
+{json.dumps(valid_columns)}
+
+FILTER SCHEMA RULE:
+filters MUST be an array of objects with:
+- column: one of the exact valid column names
+- operator: one of eq, gt, lt, gte, lte, contains
+- value: a primitive value
+
+PYTHON TOOL RULE:
+If you choose to use generate_python_analysis, you must apply all requested filtering directly in your pandas code.
+Do not rely on the JSON filters array in that path."""
 
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -618,7 +731,7 @@ Rows: {len(df)}"""
                 "type": "function",
                 "function": {
                     "name": "generate_python_analysis",
-                    "description": "Write a Python script to answer complex questions or perform advanced calculations. df is available.",
+                    "description": "Only use this fallback tool if the user's request requires advanced statistics (e.g., correlation, standard deviation, forecasting) or multi-step DataFrame transformations that cannot be represented by a standard aggregated chart. Do NOT use this tool for simple averages, sums, or counts.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -644,6 +757,14 @@ Rows: {len(df)}"""
             call = tool_calls[0]
             args = json.loads(call.function.arguments)
             code = args['code']
+            code = code.strip()
+            if code.startswith("```"):
+                code_lines = code.splitlines()
+                if code_lines:
+                    code_lines = code_lines[1:]
+                if code_lines and code_lines[-1].strip().startswith("```"):
+                    code_lines = code_lines[:-1]
+                code = "\n".join(code_lines).strip()
             explanation = args.get('explanation', '')
             
             try:
@@ -736,26 +857,67 @@ Rows: {len(df)}"""
                 analysis=content,  # Original content as analysis
                 answer=content
             )
+        if not isinstance(config, dict):
+            return _safe_empty_chart_response("I couldn't find that specific column in the data.")
         
-        # Validate
-        all_cols = [config["xAxisKey"]] + config["yAxisKeys"]
+        x_axis_candidate = config.get("xAxisKey")
+        y_axis_candidate = config.get("yAxisKeys", [])
+        if not isinstance(x_axis_candidate, str) or not x_axis_candidate:
+            return _safe_empty_chart_response("I couldn't find that specific column in the data.")
+        if not isinstance(y_axis_candidate, list) or not all(isinstance(c, str) for c in y_axis_candidate):
+            return _safe_empty_chart_response("I couldn't find that specific column in the data.")
+        if len(y_axis_candidate) == 0:
+            return _safe_empty_chart_response("I couldn't find that specific column in the data.")
+
+        # Validate axis columns and gracefully degrade if hallucinated.
+        all_cols = [x_axis_candidate] + y_axis_candidate
         valid, missing, sugg = validate_columns(df, all_cols)
         if not valid:
-            msg = "; ".join(f"'{c}' not found, try: {sugg.get(c, [])}'" for c in missing)
-            raise HTTPException(status_code=400, detail=msg)
+            suggestions = []
+            for c in missing:
+                for s in sugg.get(c, []):
+                    if s not in suggestions:
+                        suggestions.append(s)
+            msg = "I couldn't find that specific column in the data."
+            if suggestions:
+                msg += f" Did you mean: {', '.join(suggestions[:5])}?"
+            return _safe_empty_chart_response(msg)
+
+        # Parse and validate LLM filters, then merge with UI filters.
+        llm_raw_filters = config.get("filters", [])
+        llm_filters: list[FilterConfig] = []
+        if isinstance(llm_raw_filters, list):
+            for raw_filter in llm_raw_filters:
+                if not isinstance(raw_filter, dict):
+                    continue
+                try:
+                    parsed_filter = FilterConfig(**raw_filter)
+                    if isinstance(parsed_filter.value, (dict, list, tuple, set)):
+                        continue
+                    llm_filters.append(parsed_filter)
+                except (ValidationError, TypeError):
+                    continue
+
+        for f in llm_filters:
+            if f.column not in valid_columns:
+                return _safe_empty_chart_response("I couldn't find that specific column in the data.")
+            if f.operator and f.operator.lower() not in ALLOWED_FILTER_OPERATORS:
+                return _safe_empty_chart_response("I couldn't find that specific column in the data.")
+
+        combined_filters = (request.filters or []) + llm_filters
         
         # Apply filters
-        filtered, applied = apply_filters(df, request.filters)
+        filtered, applied = apply_filters(df, combined_filters)
         if filtered.empty:
             raise HTTPException(status_code=400, detail="No data after filters.")
         
         # Enforce semantic rules
         agg = config.get("aggregation", "sum")
-        agg, warnings, auto_y_label = enforce_semantic_rules(agg, config["yAxisKeys"], ds.column_types)
+        agg, warnings, auto_y_label = enforce_semantic_rules(agg, y_axis_candidate, ds.column_types)
         
         # Smart aggregation
-        x_key = config["xAxisKey"]
-        y_keys = config["yAxisKeys"]
+        x_key = x_axis_candidate
+        y_keys = y_axis_candidate
         
         if pd.api.types.is_datetime64_any_dtype(filtered.get(x_key)):
             filtered, x_key = smart_resample_dates(filtered, x_key, y_keys, agg)
