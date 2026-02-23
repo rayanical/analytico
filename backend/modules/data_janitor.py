@@ -6,6 +6,7 @@ Smart ingestion, header normalization, type repair, and data cleaning
 import json
 import os
 import re
+import warnings
 from typing import Optional
 
 import pandas as pd
@@ -13,6 +14,36 @@ from openai import OpenAI
 
 # Client initialized lazily to avoid import-time side effects
 _client: Optional[OpenAI] = None
+
+# Master list of candidate date formats for fast C-vectorized parsing.
+# Order matters: most common/high-signal formats are first.
+DATE_FORMAT_CANDIDATES = [
+    "ISO8601",
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d %H:%M",
+    "%Y-%m-%d",
+    "%Y/%m/%d %H:%M:%S",
+    "%Y/%m/%d",
+    "%m/%d/%Y %H:%M:%S",
+    "%m/%d/%Y %I:%M:%S %p",
+    "%m/%d/%Y",
+    "%d/%m/%Y %H:%M:%S",
+    "%d/%m/%Y",
+    "%d-%m-%Y %H:%M:%S",
+    "%d-%m-%Y",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S.%f",
+    "%Y-%m-%dT%H:%M:%S%z",
+    "%Y-%m-%dT%H:%M:%S.%f%z",
+    "%Y-%m-%d %H:%M:%S%z",
+    "%Y-%m-%d %H:%M:%S.%f%z",
+    "%Y %b %d %I:%M:%S %p",
+    "%d %b %Y %H:%M:%S",
+    "%d %b %Y",
+    "%b %d, %Y",
+    "%b %d %Y %H:%M:%S",
+    "%Y%m%d",
+]
 
 def get_openai_client() -> OpenAI:
     global _client
@@ -338,35 +369,38 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             try:
                 sample_parsed = pd.to_datetime(sample, errors='coerce')
                 if sample_parsed.notna().sum() > len(sample) * 0.7:
+                    sample_threshold = len(sample) * 0.7
+                    full_threshold = len(df) * 0.7
                     parsed = None
                     success = False
+                    winning_format = None
 
-                    # Fast path 1: explicit ISO8601 parser.
-                    try:
-                        parsed_iso = pd.to_datetime(df[col], format='ISO8601', errors='coerce')
-                        if parsed_iso.notna().sum() > len(df) * 0.7:
-                            parsed = parsed_iso
-                            success = True
-                    except Exception:
-                        pass
-
-                    # Fast path 2: strict common timestamp format.
-                    if not success:
+                    # Infer the fastest viable format on the sample first.
+                    for fmt in DATE_FORMAT_CANDIDATES:
                         try:
-                            parsed_std = pd.to_datetime(df[col], format="%Y-%m-%d %H:%M:%S", errors='coerce')
-                            if parsed_std.notna().sum() > len(df) * 0.7:
-                                parsed = parsed_std
+                            sample_fmt_parsed = pd.to_datetime(sample, format=fmt, errors='coerce')
+                            if sample_fmt_parsed.notna().sum() > sample_threshold:
+                                winning_format = fmt
+                                break
+                        except Exception:
+                            continue
+
+                    # Apply winning format to full column for fast vectorized parsing.
+                    if winning_format:
+                        try:
+                            parsed_candidate = pd.to_datetime(df[col], format=winning_format, errors='coerce')
+                            if parsed_candidate.notna().sum() > full_threshold:
+                                parsed = parsed_candidate
                                 success = True
                         except Exception:
                             pass
 
-                    # Final fallback: generic parser with warning suppression.
+                    # Final fallback for obscure/mixed formats.
                     if not success:
-                        import warnings
                         with warnings.catch_warnings():
                             warnings.simplefilter("ignore", UserWarning)
                             parsed_fallback = pd.to_datetime(df[col], errors='coerce')
-                        if parsed_fallback.notna().sum() > len(df) * 0.7:
+                        if parsed_fallback.notna().sum() > full_threshold:
                             parsed = parsed_fallback
                             success = True
 
