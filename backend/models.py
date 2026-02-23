@@ -102,6 +102,7 @@ class ChartResponse(BaseModel):
     analysis: Optional[str] = None  # 2-sentence business insight (renamed from reasoning)
     warnings: Optional[list[str]] = None
     applied_filters: Optional[list[str]] = None
+    llm_filters: Optional[list[FilterConfig]] = None
     answer: Optional[str] = None  # For scalar results from Python queries
 
 

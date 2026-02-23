@@ -951,7 +951,8 @@ Do not rely on the JSON filters array in that path."""
             row_count=len(data),
             analysis=config.get("analysis", "AI-generated configuration."),
             warnings=warnings or None,
-            applied_filters=applied or None
+            applied_filters=applied or None,
+            llm_filters=combined_filters or None
         )
     except HTTPException:
         raise
