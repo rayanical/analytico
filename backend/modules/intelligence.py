@@ -99,6 +99,10 @@ def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Op
 
 def auto_profile(df: pd.DataFrame, column_types: dict[str, str]) -> dict:
     """Generate executive summary / auto-profile"""
+    # Sample frame reserved for heavy categorical profiling operations.
+    # Keep deterministic for stable outputs across runs.
+    sample_df = df.sample(n=min(100000, len(df)), random_state=42) if len(df) > 0 else df
+
     profile = {
         "top_metrics": [],
         "time_range": None,
@@ -133,6 +137,10 @@ def auto_profile(df: pd.DataFrame, column_types: dict[str, str]) -> dict:
                     "start": str(valid_dates.min()),
                     "end": str(valid_dates.max())
                 }
+
+    # Hook for future heavy categorical profile metrics: use sample_df for
+    # value_counts/nunique-style operations, while preserving current output shape.
+    _ = sample_df
     
     return profile
 

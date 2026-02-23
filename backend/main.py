@@ -11,7 +11,8 @@ import json
 import os
 import traceback
 from pathlib import Path
-from typing import Any, Optional
+from time import perf_counter
+from typing import Any, Optional, TextIO
 
 import numpy as np
 import pandas as pd
@@ -129,6 +130,17 @@ def df_to_markdown(df: pd.DataFrame, n: int = 5) -> str:
     return "\n".join([header, sep] + rows)
 
 
+def read_csv_fast(source: str | Path | TextIO) -> pd.DataFrame:
+    """Read CSV using pyarrow when available, with safe fallback."""
+    try:
+        return pd.read_csv(source, engine="pyarrow")
+    except Exception:
+        if hasattr(source, "seek"):
+            source.seek(0)
+            return pd.read_csv(source, low_memory=False)
+        return pd.read_csv(source, low_memory=False)
+
+
 def secure_exec(code: str, df: pd.DataFrame) -> Any:
     """Execute generated Python code securely using AST whitelisting"""
     try:
@@ -158,6 +170,17 @@ def secure_exec(code: str, df: pd.DataFrame) -> Any:
     if local_scope.get('result') is not None:
         return local_scope['result']
     return output or "No output."
+
+
+def print_pipeline_timing(endpoint: str, durations: dict[str, float]) -> None:
+    """Print formatted execution timings for ingestion pipeline phases."""
+    print(f"\n=== {endpoint} Pipeline Timing ===")
+    print(f"CSV Ingestion: {durations['csv_ingestion']:.2f}s")
+    print(f"Data Cleaning: {durations['data_cleaning']:.2f}s")
+    print(f"Data Profiling: {durations['data_profiling']:.2f}s")
+    print(f"LLM Summary Generation: {durations['llm_summary']:.2f}s")
+    print(f"Total Pipeline: {durations['total']:.2f}s")
+    print("=" * (len(endpoint) + 20))
 
 
 # ============================================================================
@@ -211,12 +234,17 @@ async def upload_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Please upload a CSV file.")
     
     try:
-        df = pd.read_csv(file.file, low_memory=False)
+        endpoint_start = perf_counter()
+        t0 = perf_counter()
+        df = read_csv_fast(file.file)
+        t1 = perf_counter()
         if df.empty:
             raise HTTPException(status_code=400, detail="CSV is empty.")
         
         # Clean data using data_janitor module
+        t2 = perf_counter()
         df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df)
+        t3 = perf_counter()
         
         # Use LLM semantic types when available, fallback to heuristic detection per column.
         col_types = {
@@ -225,7 +253,9 @@ async def upload_csv(file: UploadFile = File(...)):
         }
         
         # Generate profile
+        t4 = perf_counter()
         profile = auto_profile(df, col_types)
+        t5 = perf_counter()
         
         # Quality score
         total_cells = len(df) * len(df.columns)
@@ -234,6 +264,7 @@ async def upload_csv(file: UploadFile = File(...)):
         
         # Generate Business Summary
         summary = None
+        t6 = perf_counter()
         try:
             summary_prompt = f"""Summarize this dataset in 1-2 business sentences. 
             Filename: {file.filename}
@@ -253,6 +284,7 @@ async def upload_csv(file: UploadFile = File(...)):
             summary = summary_resp.choices[0].message.content.strip()
         except Exception as e:
             print(f"Summary generation failed: {e}")
+        t7 = perf_counter()
 
         # Generate Default Chart
         default_chart = generate_default_chart(df, col_types)
@@ -274,7 +306,17 @@ async def upload_csv(file: UploadFile = File(...)):
             summary=summary
         )
         store_dataset(ds_info)
-        
+
+        t8 = perf_counter()
+        durations = {
+            "csv_ingestion": t1 - t0,
+            "data_cleaning": t3 - t2,
+            "data_profiling": t5 - t4,
+            "llm_summary": t7 - t6,
+            "total": t8 - endpoint_start,
+        }
+        print_pipeline_timing("/upload", durations)
+
         return UploadResponse(
             dataset_id=ds_info.id,
             filename=ds_info.filename,
@@ -312,12 +354,17 @@ async def load_demo_dataset():
         raise HTTPException(status_code=500, detail="Demo dataset file not found.")
 
     try:
-        df = pd.read_csv(DEMO_DATASET_PATH, low_memory=False)
+        endpoint_start = perf_counter()
+        t0 = perf_counter()
+        df = read_csv_fast(DEMO_DATASET_PATH)
+        t1 = perf_counter()
         if df.empty:
             raise HTTPException(status_code=400, detail="CSV is empty.")
         
         # Clean data using data_janitor module
+        t2 = perf_counter()
         df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df)
+        t3 = perf_counter()
         
         # Use LLM semantic types when available, fallback to heuristic detection per column.
         col_types = {
@@ -326,7 +373,9 @@ async def load_demo_dataset():
         }
         
         # Generate profile
+        t4 = perf_counter()
         profile = auto_profile(df, col_types)
+        t5 = perf_counter()
         
         # Quality score
         total_cells = len(df) * len(df.columns)
@@ -335,6 +384,7 @@ async def load_demo_dataset():
         
         # Generate Business Summary
         summary = None
+        t6 = perf_counter()
         try:
             summary_prompt = f"""Summarize this dataset in 1-2 business sentences. 
             Filename: {filename}
@@ -354,6 +404,7 @@ async def load_demo_dataset():
             summary = summary_resp.choices[0].message.content.strip()
         except Exception as e:
             print(f"Summary generation failed: {e}")
+        t7 = perf_counter()
 
         # Generate Default Chart
         default_chart = generate_default_chart(df, col_types)
@@ -375,7 +426,17 @@ async def load_demo_dataset():
             summary=summary
         )
         store_dataset(ds_info)
-        
+
+        t8 = perf_counter()
+        durations = {
+            "csv_ingestion": t1 - t0,
+            "data_cleaning": t3 - t2,
+            "data_profiling": t5 - t4,
+            "llm_summary": t7 - t6,
+            "total": t8 - endpoint_start,
+        }
+        print_pipeline_timing("/load-demo", durations)
+
         return UploadResponse(
             dataset_id=ds_info.id,
             filename=ds_info.filename,

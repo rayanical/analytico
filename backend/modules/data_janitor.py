@@ -7,6 +7,7 @@ import json
 import os
 import re
 import warnings
+from time import perf_counter
 from typing import Optional
 
 import pandas as pd
@@ -153,47 +154,46 @@ def llm_enrich_columns(headers: list[str], df: pd.DataFrame) -> list[dict[str, O
 
     try:
         client = get_openai_client()
-        sample_rows = df.head(3).to_dict("records")
+        sample_rows = df.head(5).to_dict("records")
         sample_rows = [{k: str(v) for k, v in row.items()} for row in sample_rows]
-
-        prompt = f"""You are normalizing dataset columns for analytics.
-
-Return strict JSON with this shape only:
-{{
-  "columns": [
-    {{
-      "original": "original header",
-      "clean": "clean_snake_case_name",
-      "format": "currency|percentage|number|date",
-      "semantic_type": "metric|identifier|temporal|categorical"
-    }}
-  ]
-}}
-
-Rules:
-1. Keep "clean" concise snake_case, max 25 chars.
-2. Use context from all headers and sample rows.
-3. Resolve multilingual headers (e.g., Spanish/French) into meaningful English clean names.
-4. If uncertain, use format "number" and semantic_type "categorical".
-5. Every original header must appear exactly once in "columns".
-
-Original headers:
+        system_prompt = (
+            "Respond ONLY with a flat JSON object mapping original column names to semantic types. "
+            "Do not include explanations, formatting, or markdown. "
+            "Valid semantic types: metric, identifier, temporal, categorical."
+        )
+        user_prompt = f"""Headers:
 {json.dumps(headers)}
 
-Sample rows:
+Sample rows (first 5):
 {json.dumps(sample_rows, indent=2)}"""
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
             temperature=0,
             response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content
         parsed = json.loads(content)
-        raw_columns = parsed.get("columns", [])
         by_original: dict[str, dict[str, Optional[str]]] = {}
 
+        # Fast path: flat object mapping "original_header" -> "semantic_type"
+        for original, semantic in parsed.items():
+            original_key = str(original).strip()
+            if not original_key:
+                continue
+            by_original[original_key] = {
+                "original": original_key,
+                "clean": legacy_normalize_header(original_key),
+                "format": None,
+                "semantic_type": _normalize_llm_semantic(semantic),
+            }
+
+        # Backward-compatible parser for older structured payloads.
+        raw_columns = parsed.get("columns", []) if isinstance(parsed, dict) else []
         for row in raw_columns:
             if not isinstance(row, dict):
                 continue
@@ -305,7 +305,10 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
     
     # 1. Header Normalization (LLM Powered with Sample Data)
     original_cols = df.columns.tolist()
+    llm_start = perf_counter()
     llm_columns = llm_enrich_columns(original_cols, df)
+    llm_end = perf_counter()
+    print(f"LLM Schema Mapping Time: {llm_end - llm_start:.2f}s")
     new_cols = [str(row.get("clean", "") or legacy_normalize_header(h)) for h, row in zip(original_cols, llm_columns)]
     
     # Handle duplicate column names by appending _2, _3, etc.
@@ -335,6 +338,7 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             semantic_types[final_col] = llm_sem
     
     # 2. Type Repair and Format Detection
+    pandas_processing_start = perf_counter()
     for col in df.columns:
         if df[col].dtype == 'object':
             sample = df[col].dropna().head(100).astype(str)
@@ -367,7 +371,9 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             
             # Try date parsing
             try:
-                sample_parsed = pd.to_datetime(sample, errors='coerce')
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    sample_parsed = pd.to_datetime(sample, errors='coerce')
                 if sample_parsed.notna().sum() > len(sample) * 0.7:
                     sample_threshold = len(sample) * 0.7
                     full_threshold = len(df) * 0.7
@@ -410,6 +416,8 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
                         cleaning_actions.append(f"Parsed '{col}' as date")
             except Exception:
                 pass
+    pandas_processing_end = perf_counter()
+    print(f"Pandas Vectorization & Date Parsing Time: {pandas_processing_end - pandas_processing_start:.2f}s")
     
     # Detect formats for remaining numeric columns
     numeric_cols = df.select_dtypes(include=['number']).columns
