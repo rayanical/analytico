@@ -890,11 +890,20 @@ Do not rely on the JSON filters array in that path."""
         
         x_axis_candidate = config.get("xAxisKey")
         y_axis_candidate = config.get("yAxisKeys", [])
+        metric_cols = [c for c, t in ds.column_types.items() if t == SemanticType.METRIC][:3]
+        temporal_cols = [c for c, t in ds.column_types.items() if t == SemanticType.TEMPORAL][:2]
+        category_cols = [c for c, t in ds.column_types.items() if t in {SemanticType.CATEGORICAL, SemanticType.IDENTIFIER}][:3]
+        examples = []
+        if metric_cols and category_cols:
+            examples.append(f"Show average {metric_cols[0]} by {category_cols[0]}")
+            examples.append(f"Top categories in {category_cols[0]} by total {metric_cols[0]}")
+        if metric_cols and temporal_cols:
+            examples.append(f"Trend total {metric_cols[0]} by {temporal_cols[0]}")
+        while len(examples) < 3:
+            examples.append("Show total by category")
         guidance = (
             "I need one grouping column and at least one metric to build this chart. "
-            "Try: 'Show average fare_amount by payment_type', "
-            "'Trend total trips by pickup_datetime', or "
-            "'Top categories in payment_type by total_amount'."
+            f"Try: '{examples[0]}', '{examples[1]}', or '{examples[2]}'."
         )
         if not isinstance(x_axis_candidate, str) or not x_axis_candidate:
             return _safe_empty_chart_response(guidance)

@@ -123,3 +123,26 @@
     @apply bg-background text-foreground;
   }
 }
+
+.dashboard-grid-container .react-grid-item {
+  transition: transform 180ms ease, width 180ms ease, height 180ms ease;
+}
+
+.dashboard-grid-container .react-grid-item.react-grid-placeholder {
+  background: hsl(var(--primary) / 0.18);
+  border: 1px dashed hsl(var(--primary) / 0.45);
+  border-radius: var(--radius-lg);
+}
+
+.dashboard-grid-container .react-resizable-handle {
+  opacity: 0.65;
+}
+
+.dashboard-grid-container .react-resizable-handle-se {
+  right: 6px;
+  bottom: 6px;
+}
+
+.is-exporting [data-export-exclude="true"] {
+  display: none !important;
+}

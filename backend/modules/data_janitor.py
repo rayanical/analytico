@@ -6,6 +6,7 @@ Smart ingestion, header normalization, type repair, and data cleaning
 import json
 import os
 import re
+import unicodedata
 import warnings
 from time import perf_counter
 from typing import Optional
@@ -48,6 +49,11 @@ DATE_FORMAT_CANDIDATES = [
 
 # Skip LLM schema mapping for very wide datasets to cap latency/cost.
 LLM_SCHEMA_MAX_COLUMNS = 120
+UNIVERSAL_CURRENCY_KEYWORDS = {
+    "amount", "price", "cost", "revenue", "income", "salary", "expense",
+    "value", "total", "balance", "payment",
+}
+IDENTIFIER_HINT_KEYWORDS = {"id", "code", "key", "identifier"}
 
 def get_openai_client() -> OpenAI:
     global _client
@@ -57,68 +63,10 @@ def get_openai_client() -> OpenAI:
 
 
 def legacy_normalize_header(header: str) -> str:
-    """Convert header to clean, short snake_case names"""
-    # First, basic cleanup
-    clean = re.sub(r'[^\w\s]', '', header.strip())
-    clean = re.sub(r'\s+', '_', clean).lower()
-    
-    # Phase 1: Full replacement patterns (match entire column to known pattern)
-    full_replacements = [
-        (r'^(how_old_are_you|what_is_your_age).*', 'age'),
-        (r'^(what_industry_do_you_work_in|industry_you_work_in).*', 'industry'),
-        (r'^(what_is_your_annual_salary|annual_salary).*', 'annual_salary'),
-        (r'^(what_is_your_job_title|job_title).*', 'job_title'),
-        (r'^(what_is_your_gender|gender_identity).*', 'gender'),
-        (r'^(what_country_do_you_work_in|country_you_work_in).*', 'country'),
-        (r'^(what_state_do_you_work_in|state_you_work_in).*', 'state'),
-        (r'^(what_city_do_you_work_in|city_you_work_in).*', 'city'),
-        (r'^(how_many_years_of|years_of_professional|years_of_experience).*', 'years_experience'),
-        (r'^(highest_level_of_education|education_level).*', 'education'),
-        (r'^(what_is_your_race|race).*', 'race'),
-        (r'^(please_indicate_the_currency|currency).*', 'currency'),
-        (r'^(how_much_additional_monetary).*', 'additional_comp'),
-        (r'^(if_your_job_title_needs).*', 'job_context'),
-        (r'^(if_your_income_needs).*', 'income_context'),
-        (r'^(if_youre_in_the_us).*', 'us_state'),
-        (r'^(if_other_please).*', 'other_info'),
-    ]
-    
-    for pattern, replacement in full_replacements:
-        if re.match(pattern, clean):
-            clean = replacement
-            break
-    
-    # Phase 2: Prefix removals (apply all that match)
-    prefix_removals = [
-        r'^(what_is_your_|whats_your_|what_is_the_|what_are_your_)',
-        r'^(please_indicate_the_|please_select_the_|please_enter_the_|please_specify_the_)',
-        r'^(please_indicate_your_|please_select_your_|please_enter_your_)',
-    ]
-    for pattern in prefix_removals:
-        clean = re.sub(pattern, '', clean)
-    
-    # Phase 3: Suffix removals (apply all that match)
-    suffix_removals = [
-        r'_youll_indicate.*$',
-        r'_you_would_earn.*$',
-        r'_please_only_include.*$',
-        r'_choose_all_that_apply$',
-        r'_or_prefer_not_to_answer$',
-        r'_if_any$',
-        r'_optional$',
-        r'_please$',
-    ]
-    for pattern in suffix_removals:
-        clean = re.sub(pattern, '', clean)
-    
-    # Final cleanup: remove leading/trailing underscores
-    clean = clean.strip('_')
-    
-    # Truncate overly long names (max 20 chars for cleaner display)
-    if len(clean) > 20:
-        clean = clean[:20].rstrip('_')
-    
-    return clean
+    """Conservative, deterministic snake_case sanitizer."""
+    clean = re.sub(r"[^\w]+", "_", header.strip().lower())
+    clean = re.sub(r"_+", "_", clean).strip("_")
+    return clean or "column"
 
 
 def _normalize_llm_format(value: Optional[str]) -> Optional[str]:
@@ -167,10 +115,12 @@ def llm_enrich_columns(headers: list[str], df: pd.DataFrame) -> list[dict[str, O
             sample_values[col] = [str(v) for v in values]
 
         system_prompt = (
-            "Respond ONLY with a flat JSON object mapping original column names to semantic types. "
-            "Do not include explanations, formatting, or markdown. "
-            "Allowed semantic types: metric, identifier, temporal, categorical. "
-            "Return valid JSON only."
+            "Respond ONLY with a JSON object where each key is the original column name and each value is an object "
+            "with: semantic_type and clean_name. "
+            "Schema: {\"Original Column Name\": {\"semantic_type\": \"metric|identifier|temporal|categorical\", "
+            "\"clean_name\": \"short_snake_case_name\"}}. "
+            "clean_name must be short, human-readable snake_case (example: lpep_pickup_datetime -> pickup_date). "
+            "Do not include explanations, formatting, or markdown. Return valid JSON only."
         )
         user_prompt = f"""Headers:
 {json.dumps(headers)}
@@ -191,15 +141,18 @@ Per-column sample values (up to 3 non-null each):
         parsed = json.loads(content)
         by_original: dict[str, dict[str, Optional[str]]] = {}
 
-        # Fast path: flat object mapping "original_header" -> "semantic_type"
-        for original, semantic in parsed.items():
+        # Fast path: mapping "original_header" -> {"semantic_type", "clean_name"}.
+        # Backward compatible with legacy flat semantic values.
+        for original, payload in parsed.items():
             original_key = str(original).strip()
             if not original_key:
                 continue
-            semantic_value = semantic.get("semantic_type") if isinstance(semantic, dict) else semantic
+            semantic_value = payload.get("semantic_type") if isinstance(payload, dict) else payload
+            clean_name = payload.get("clean_name") if isinstance(payload, dict) else None
+            normalized_clean = legacy_normalize_header(str(clean_name).strip() if clean_name else original_key)
             by_original[original_key] = {
                 "original": original_key,
-                "clean": legacy_normalize_header(original_key),
+                "clean": normalized_clean,
                 "format": None,
                 "semantic_type": _normalize_llm_semantic(semantic_value),
             }
@@ -212,11 +165,10 @@ Per-column sample values (up to 3 non-null each):
             original = str(row.get("original", "")).strip()
             if not original:
                 continue
-            clean = str(row.get("clean", "")).strip()
-            clean = re.sub(r"[^\w]", "_", clean).lower() if clean else ""
+            raw_clean = str(row.get("clean_name") or row.get("clean") or "").strip()
             by_original[original] = {
                 "original": original,
-                "clean": clean or legacy_normalize_header(original),
+                "clean": legacy_normalize_header(raw_clean or original),
                 "format": None,
                 "semantic_type": _normalize_llm_semantic(row.get("semantic_type")),
             }
@@ -238,17 +190,13 @@ def detect_column_format(series: pd.Series, col_name: str) -> str:
     col_lower = col_name.lower()
     
     # Identifier columns (IDs, codes, serial numbers)
-    if any(kw in col_lower for kw in ['id', 'code', 'serial', 'key', 'number', 'ref']):
+    if any(kw in col_lower for kw in ['id', 'code', 'serial', 'key', 'number', 'ref', 'identifier']):
         # But not if it contains currency keywords
-        if not any(kw in col_lower for kw in ['salary', 'price', 'cost', 'revenue', 'amount', 'income']):
+        if not any(kw in col_lower for kw in UNIVERSAL_CURRENCY_KEYWORDS):
             return 'identifier'
     
-    # Age, year, count - should not be currency
-    if any(kw in col_lower for kw in ['age', 'year', 'count', 'qty', 'quantity', 'weight', 'height', 'distance']):
-        return 'number'
-    
-    # Currency keywords - more specific
-    if any(kw in col_lower for kw in ['salary', 'price', 'cost', 'revenue', 'amount', 'income', 'wage', 'compensation', 'payment', 'fee', 'budget']):
+    # Currency keywords (domain-agnostic set)
+    if any(kw in col_lower for kw in UNIVERSAL_CURRENCY_KEYWORDS):
         return 'currency'
     
     # Percentage keywords
@@ -264,6 +212,53 @@ def detect_column_format(series: pd.Series, col_name: str) -> str:
                 return 'percentage'
     
     return 'number'
+
+
+def _contains_currency_symbol(value: str) -> bool:
+    return any(unicodedata.category(ch) == "Sc" for ch in value)
+
+
+def _strip_numeric_text(value: str) -> str:
+    # Remove unicode currency symbols + common separators.
+    no_currency = "".join(ch for ch in value if unicodedata.category(ch) != "Sc")
+    return re.sub(r"[,\s]", "", no_currency)
+
+
+def _is_coded_numeric_column(
+    series: pd.Series,
+    col_name: str,
+    semantic_types: dict[str, str],
+    column_formats: dict[str, str],
+) -> bool:
+    """Detect numeric columns that are categorical/identifier-like codes using generic signals."""
+    sem = semantic_types.get(col_name)
+    col_lower = col_name.lower()
+    non_null = series.dropna()
+    if len(non_null) == 0:
+        return False
+
+    if column_formats.get(col_name) in {"currency", "percentage"}:
+        return False
+
+    if sem == "identifier":
+        return True
+
+    keyword_hint = any(kw in col_lower for kw in IDENTIFIER_HINT_KEYWORDS)
+    numeric_vals = pd.to_numeric(non_null, errors="coerce").dropna()
+    if len(numeric_vals) == 0:
+        return False
+
+    integer_like = (numeric_vals.round() == numeric_vals).mean() > 0.95
+    unique_count = int(numeric_vals.nunique())
+    unique_ratio = unique_count / max(len(numeric_vals), 1)
+    repeat_ratio = 1.0 - unique_ratio
+    low_cardinality = unique_count <= max(20, int(len(numeric_vals) * 0.05))
+
+    if sem == "categorical" and integer_like and low_cardinality and repeat_ratio >= 0.5:
+        return True
+    if keyword_hint and integer_like and low_cardinality:
+        return True
+    return False
 
 
 def llm_fix_data_issues(df: pd.DataFrame, column_types: dict[str, str]) -> tuple[pd.DataFrame, list[str]]:
@@ -354,14 +349,27 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             if len(sample) == 0:
                 continue
             
-            # Currency pattern
-            currency_matches = sample.str.replace(',', '').str.match(r'^\$?[\d,]+\.?\d*$').sum()
-            if currency_matches > len(sample) * 0.5:
+            normalized_numeric = sample.apply(_strip_numeric_text).str.strip()
+            numeric_like_matches = normalized_numeric.str.match(r'^[+-]?\d+(\.\d+)?$').sum()
+            currency_symbol_matches = sample.apply(_contains_currency_symbol).sum()
+            has_currency_name = any(kw in col.lower() for kw in UNIVERSAL_CURRENCY_KEYWORDS)
+
+            # Numeric-like text columns should be converted to numeric deterministically.
+            if numeric_like_matches > len(sample) * 0.5:
                 try:
-                    df[col] = df[col].astype(str).str.replace('$', '', regex=False).str.replace(',', '', regex=False)
+                    df[col] = (
+                        df[col]
+                        .astype(str)
+                        .apply(_strip_numeric_text)
+                        .str.strip()
+                    )
                     df[col] = pd.to_numeric(df[col], errors='coerce')
-                    column_formats[col] = 'currency'
-                    cleaning_actions.append(f"Converted '{col}' from currency text to numeric")
+                    has_currency_evidence = has_currency_name or currency_symbol_matches > len(sample) * 0.1
+                    if has_currency_evidence:
+                        column_formats[col] = 'currency'
+                        cleaning_actions.append(f"Converted '{col}' from currency text to numeric")
+                    else:
+                        cleaning_actions.append(f"Converted '{col}' from numeric text to numeric")
                 except Exception:
                     pass
                 continue
@@ -431,7 +439,11 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
     # Heuristic-first format detection (authoritative): always recompute for numeric columns.
     numeric_cols = df.select_dtypes(include=['number']).columns
     for col in numeric_cols:
-        column_formats[col] = detect_column_format(df[col], col)
+        inferred = detect_column_format(df[col], col)
+        # Preserve strong parsing evidence from earlier conversion.
+        if column_formats.get(col) in {"currency", "percentage"} and inferred == "number":
+            continue
+        column_formats[col] = inferred
     
     # 3. Record missing counts BEFORE filling
     for col in df.columns:
@@ -442,11 +454,65 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
     # 4. Auto-Imputation using smart logic
     for col in numeric_cols:
         if col in missing_counts:
-            mean_val = df[col].mean()
-            if pd.notna(mean_val):
-                df[col] = df[col].fillna(round(mean_val, 2))
-                cleaning_actions.append(f"Filled {missing_counts[col]} missing '{col}' values with mean")
-            else:
-                df[col] = df[col].fillna(0)
+            if _is_coded_numeric_column(df[col], col, semantic_types, column_formats):
+                df[col] = df[col].fillna(-1)
+                cleaning_actions.append(
+                    f"Filled {missing_counts[col]} missing '{col}' values with sentinel (-1) for coded field"
+                )
+                continue
+
+            non_null = df[col].dropna()
+            if len(non_null) == 0:
+                cleaning_actions.append(
+                    f"Left {missing_counts[col]} missing '{col}' values as null (low-confidence imputation)"
+                )
+                continue
+
+            numeric_vals = pd.to_numeric(non_null, errors="coerce").dropna()
+            coverage = len(non_null) / max(len(df[col]), 1)
+            integer_like = (numeric_vals.round() == numeric_vals).mean() > 0.95 if len(numeric_vals) else False
+            unique_ratio = numeric_vals.nunique() / max(len(numeric_vals), 1) if len(numeric_vals) else 0.0
+            sem = semantic_types.get(col)
+
+            # High-confidence bounded binary/ratio fields.
+            if len(numeric_vals) and numeric_vals.between(0, 1).all():
+                if (numeric_vals == 0).mean() >= 0.8:
+                    df[col] = df[col].fillna(0)
+                    cleaning_actions.append(
+                        f"Filled {missing_counts[col]} missing '{col}' values with 0 for bounded ratio field"
+                    )
+                    continue
+                mode = numeric_vals.mode(dropna=True)
+                if len(mode) > 0:
+                    mode_val = float(mode.iloc[0])
+                    df[col] = df[col].fillna(mode_val)
+                    cleaning_actions.append(
+                        f"Filled {missing_counts[col]} missing '{col}' values with mode ({mode_val}) for bounded ratio field"
+                    )
+                    continue
+
+            metric_confident = (
+                sem == "metric"
+                or (coverage >= 0.7 and not integer_like and unique_ratio > 0.2)
+            )
+            if metric_confident:
+                skew = abs(float(numeric_vals.skew())) if len(numeric_vals) > 2 and pd.notna(numeric_vals.skew()) else 0.0
+                if skew > 1.0:
+                    median_val = float(numeric_vals.median())
+                    df[col] = df[col].fillna(round(median_val, 4))
+                    cleaning_actions.append(
+                        f"Filled {missing_counts[col]} missing '{col}' values with median (high-confidence metric)"
+                    )
+                else:
+                    mean_val = float(numeric_vals.mean())
+                    df[col] = df[col].fillna(round(mean_val, 4))
+                    cleaning_actions.append(
+                        f"Filled {missing_counts[col]} missing '{col}' values with mean (high-confidence metric)"
+                    )
+                continue
+
+            cleaning_actions.append(
+                f"Left {missing_counts[col]} missing '{col}' values as null (low-confidence imputation)"
+            )
     
     return df, cleaning_actions, missing_counts, column_formats, semantic_types
