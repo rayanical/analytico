@@ -153,3 +153,28 @@ export type ViewMode = 'chart' | 'table';
 
 // Builder mode
 export type BuilderMode = 'ai' | 'manual';
+
+// Workspace mode
+export type WorkspaceMode = 'explore' | 'dashboard';
+
+// Dashboard grid item layout
+export interface DashboardLayoutItem {
+  i: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW?: number;
+  minH?: number;
+}
+
+// Pinned dashboard widget
+export interface DashboardWidget {
+  id: string;
+  title: string;
+  chart: ChartResponse;
+  sourceQuery: string;
+  createdAt: string;
+  datasetId: string;
+  layout: DashboardLayoutItem;
+}

@@ -21,6 +21,7 @@ const COLORS = [
 
 interface SmartChartProps {
   chartData?: ChartResponse;
+  showAnalyzeButton?: boolean;
 }
 
 // Format value based on column format
@@ -96,7 +97,7 @@ const CustomTooltip = memo(function CustomTooltip({
 // SmartChart - Main chart component using composed Recharts architecture
 // ============================================================================
 
-export function SmartChart({ chartData }: SmartChartProps) {
+export function SmartChart({ chartData, showAnalyzeButton = true }: SmartChartProps) {
   const { currentChart, dataset, filters, setCurrentChart, setDrillDownData, setIsDrillDownOpen, limit, groupOthers, sortBy } = useData();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const data = chartData || currentChart;
@@ -399,7 +400,7 @@ export function SmartChart({ chartData }: SmartChartProps) {
         </div>
       )}
 
-      {!analysis && chart_type !== 'empty' && (
+      {showAnalyzeButton && !analysis && (
         <div className="mt-3 flex justify-end">
           <Button
             variant="ghost"

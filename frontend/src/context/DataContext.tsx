@@ -8,10 +8,13 @@ import {
   FilterConfig,
   ViewMode,
   BuilderMode,
+  WorkspaceMode,
   DataHealth,
   DataProfile,
   DefaultChart,
   ColumnFormat,
+  DashboardWidget,
+  DashboardLayoutItem,
 } from '@/types';
 
 interface DatasetState {
@@ -41,11 +44,18 @@ interface DataContextType {
   setViewMode: (mode: ViewMode) => void;
   builderMode: BuilderMode;
   setBuilderMode: (mode: BuilderMode) => void;
+  workspaceMode: WorkspaceMode;
+  setWorkspaceMode: (mode: WorkspaceMode) => void;
   history: HistoryItem[];
   currentHistoryId: string | null;
   addToHistory: (query: string, response: ChartResponse, isManual: boolean) => void;
   selectFromHistory: (item: HistoryItem) => void;
   clearHistory: () => void;
+  dashboardWidgets: DashboardWidget[];
+  pinCurrentChart: (chart: ChartResponse, sourceQuery?: string) => void;
+  removeWidget: (widgetId: string) => void;
+  updateWidgetLayout: (layouts: DashboardLayoutItem[]) => void;
+  clearDashboard: () => void;
   isUploading: boolean;
   setIsUploading: (loading: boolean) => void;
   isQuerying: boolean;
@@ -75,6 +85,36 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 const DATASET_KEY = 'analytico_dataset_v4';
 const HISTORY_KEY = 'analytico_history_v4';
+const DASHBOARD_KEY = 'analytico_dashboard_v1';
+
+function intersects(a: DashboardLayoutItem, b: DashboardLayoutItem): boolean {
+  return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
+}
+
+function getDefaultWidgetDimensions(chartType: ChartResponse['chart_type']) {
+  if (chartType === 'pie') return { w: 8, h: 10, minW: 6, minH: 9 };
+  if (chartType === 'line' || chartType === 'area') return { w: 14, h: 10, minW: 8, minH: 9 };
+  if (chartType === 'composed') return { w: 16, h: 11, minW: 10, minH: 9 };
+  return { w: 12, h: 10, minW: 7, minH: 9 };
+}
+
+function findNextLayoutSlot(
+  chartType: ChartResponse['chart_type'],
+  occupied: DashboardLayoutItem[],
+): DashboardLayoutItem {
+  const cols = 24;
+  const { w, h, minW, minH } = getDefaultWidgetDimensions(chartType);
+  for (let y = 0; y < 1000; y += 1) {
+    for (let x = 0; x <= cols - w; x += 1) {
+      const candidate: DashboardLayoutItem = { i: '', x, y, w, h, minW, minH };
+      const hasCollision = occupied.some(item => intersects(candidate, item));
+      if (!hasCollision) {
+        return candidate;
+      }
+    }
+  }
+  return { i: '', x: 0, y: occupied.length * h, w, h, minW, minH };
+}
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [dataset, setDatasetInternal] = useState<DatasetState | null>(null);
@@ -82,8 +122,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [filters, setFiltersInternal] = useState<FilterConfig[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('chart');
   const [builderMode, setBuilderMode] = useState<BuilderMode>('ai');
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('explore');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
+  const [dashboardStore, setDashboardStore] = useState<Record<string, DashboardWidget[]>>({});
   const [isUploading, setIsUploading] = useState(false);
   const [isQuerying, setIsQuerying] = useState(false);
   const [drillDownData, setDrillDownData] = useState<any[] | null>(null);
@@ -99,9 +141,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       try {
         const saved = localStorage.getItem(DATASET_KEY);
         const hist = localStorage.getItem(HISTORY_KEY);
+        const dashboard = localStorage.getItem(DASHBOARD_KEY);
         
         if (hist) {
           setHistory(JSON.parse(hist).map((i: HistoryItem) => ({ ...i, timestamp: new Date(i.timestamp) })));
+        }
+        if (dashboard) {
+          setDashboardStore(JSON.parse(dashboard));
         }
         
         if (saved) {
@@ -141,6 +187,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
     }
   }, [history, isClient]);
+  useEffect(() => {
+    if (!isClient) return;
+    const timeout = setTimeout(() => {
+      localStorage.setItem(DASHBOARD_KEY, JSON.stringify(dashboardStore));
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [dashboardStore, isClient]);
 
   const setFilters = useCallback((f: FilterConfig[]) => setFiltersInternal(f), []);
   const addFilter = useCallback((f: FilterConfig) => {
@@ -174,11 +227,62 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCurrentHistoryId(null);
     if (typeof window !== 'undefined') localStorage.removeItem(HISTORY_KEY);
   }, []);
+  const dashboardWidgets = dataset ? (dashboardStore[dataset.datasetId] ?? []) : [];
+  const pinCurrentChart = useCallback((chart: ChartResponse, sourceQuery?: string) => {
+    if (!dataset || chart.chart_type === 'empty') return;
+    const id = crypto.randomUUID();
+    setDashboardStore(prev => {
+      const existing = prev[dataset.datasetId] ?? [];
+      const placement = findNextLayoutSlot(chart.chart_type, existing.map(widget => widget.layout));
+      const widget: DashboardWidget = {
+        id,
+        title: chart.title,
+        chart: JSON.parse(JSON.stringify(chart)) as ChartResponse,
+        sourceQuery: sourceQuery?.trim() || chart.title,
+        createdAt: new Date().toISOString(),
+        datasetId: dataset.datasetId,
+        layout: { ...placement, i: id },
+      };
+      return {
+        ...prev,
+        [dataset.datasetId]: [widget, ...existing],
+      };
+    });
+  }, [dataset]);
+  const removeWidget = useCallback((widgetId: string) => {
+    if (!dataset) return;
+    setDashboardStore(prev => ({
+      ...prev,
+      [dataset.datasetId]: (prev[dataset.datasetId] ?? []).filter(widget => widget.id !== widgetId),
+    }));
+  }, [dataset]);
+  const updateWidgetLayout = useCallback((layouts: DashboardLayoutItem[]) => {
+    if (!dataset) return;
+    setDashboardStore(prev => {
+      const current = prev[dataset.datasetId] ?? [];
+      const next = current.map(widget => {
+        const layout = layouts.find(l => l.i === widget.id);
+        return layout ? { ...widget, layout: { ...widget.layout, ...layout } } : widget;
+      });
+      return {
+        ...prev,
+        [dataset.datasetId]: next,
+      };
+    });
+  }, [dataset]);
+  const clearDashboard = useCallback(() => {
+    if (!dataset) return;
+    setDashboardStore(prev => ({
+      ...prev,
+      [dataset.datasetId]: [],
+    }));
+  }, [dataset]);
   const clearData = useCallback(() => {
     setDatasetInternal(null);
     setCurrentChart(null);
     setCurrentHistoryId(null);
     setFiltersInternal([]);
+    setWorkspaceMode('explore');
     if (typeof window !== 'undefined') localStorage.removeItem(DATASET_KEY);
   }, []);
 
@@ -190,7 +294,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   return (
     <DataContext.Provider value={{
       dataset, setDataset, currentChart, setCurrentChart, filters, setFilters, addFilter, removeFilter, clearFilters,
-      viewMode, setViewMode, builderMode, setBuilderMode, history, currentHistoryId, addToHistory, selectFromHistory, clearHistory,
+      viewMode, setViewMode, builderMode, setBuilderMode, workspaceMode, setWorkspaceMode,
+      history, currentHistoryId, addToHistory, selectFromHistory, clearHistory,
+      dashboardWidgets, pinCurrentChart, removeWidget, updateWidgetLayout, clearDashboard,
       isUploading, setIsUploading, isQuerying, setIsQuerying, numericColumns, categoricalColumns, metricColumns, temporalColumns, clearData,
       drillDownData, setDrillDownData, isDrillDownOpen, setIsDrillDownOpen,
       groupOthers, setGroupOthers, limit, setLimit, sortBy, setSortBy,
