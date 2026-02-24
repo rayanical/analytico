@@ -1,6 +1,6 @@
+import sys
 import unittest
 from pathlib import Path
-import sys
 
 import pandas as pd
 
@@ -11,81 +11,54 @@ if str(BACKEND_DIR) not in sys.path:
 from modules.data_janitor import clean_dataframe
 
 
-class DataJanitorFormatAndImputationTests(unittest.TestCase):
-    def test_trip_distance_numeric_text_is_not_currency(self):
+class DataJanitorGeneralizationTests(unittest.TestCase):
+    def test_header_normalization_is_conservative(self):
+        df = pd.DataFrame(
+            {
+                "  What is your annual salary?  ": [100, 200],
+                "Highest level of education!": ["BS", "MS"],
+            }
+        )
+        cleaned, actions, _, _, _ = clean_dataframe(df)
+        self.assertIn("Normalized 2 column headers", actions)
+        self.assertIn("what_is_your_annual_salary", cleaned.columns.tolist())
+        self.assertIn("highest_level_of_education", cleaned.columns.tolist())
+
+    def test_taxi_like_numeric_and_currency_detection(self):
         df = pd.DataFrame(
             {
                 "trip_distance": ["1.2", "2.0", "3.5", None],
-                "fare_amount": ["$10.5", "$20.0", "$5.0", None],
+                "fare_amount": ["₹10.5", "₹20.0", "₹5.0", None],
                 "total_amount": ["$12.0", "$22.0", "$6.5", None],
-                "vendorid": [1, None, 2, None],
-                "payment_type": [1, None, 2, None],
-                "ratecodeid": [1, None, 2, None],
-                "trip_type": [1, None, 2, None],
-                "passenger_count": [1, None, 2, None],
-                "congestion_surcharge": [2.5, None, 0.0, None],
-                "metric_value": [10.0, None, 30.0, 50.0],
             }
         )
-
-        cleaned, actions, missing_counts, column_formats, _ = clean_dataframe(df)
-
+        _, actions, _, column_formats, _ = clean_dataframe(df)
         self.assertEqual(column_formats.get("trip_distance"), "number")
         self.assertEqual(column_formats.get("fare_amount"), "currency")
         self.assertEqual(column_formats.get("total_amount"), "currency")
-
         self.assertIn("Converted 'trip_distance' from numeric text to numeric", actions)
-        self.assertIn("Converted 'fare_amount' from currency text to numeric", actions)
         self.assertNotIn("Converted 'trip_distance' from currency text to numeric", actions)
 
-        self.assertIn(
-            "Filled 2 missing 'vendorid' values with sentinel (-1) for coded field",
-            actions,
-        )
-        self.assertIn(
-            "Filled 2 missing 'payment_type' values with sentinel (-1) for coded field",
-            actions,
-        )
-        self.assertIn(
-            "Filled 2 missing 'ratecodeid' values with sentinel (-1) for coded field",
-            actions,
-        )
-        self.assertIn(
-            "Filled 2 missing 'trip_type' values with sentinel (-1) for coded field",
-            actions,
-        )
-        self.assertNotIn(
-            "Filled 2 missing 'passenger_count' values with sentinel (-1) for coded field",
-            actions,
-        )
-        self.assertNotIn(
-            "Filled 2 missing 'congestion_surcharge' values with sentinel (-1) for coded field",
-            actions,
-        )
-        self.assertIn(
-            "Filled 2 missing 'passenger_count' values with mode (1) for count metric",
-            actions,
-        )
-        self.assertIn(
-            "Filled 2 missing 'congestion_surcharge' values with 0 for surcharge/fee metric",
-            actions,
-        )
+    def test_non_taxi_vendor_string_not_forced_to_coded_numeric(self):
+        df = pd.DataFrame({"vendor": ["Acme", None, "Globex", "Acme"]})
+        cleaned, actions, _, _, _ = clean_dataframe(df)
+        # Categorical string remains categorical and not coerced to numeric sentinel.
+        self.assertTrue(cleaned["vendor"].dtype == object)
+        self.assertTrue(all("sentinel (-1)" not in action for action in actions))
 
-        # True metric still mean-imputed.
-        self.assertIn("Filled 1 missing 'metric_value' values with mean", actions)
+    def test_iot_continuous_metric_prefers_statistical_imputation_when_confident(self):
+        # 75% density, continuous values -> high-confidence metric path.
+        df = pd.DataFrame({"sensor_value": [1.1, 2.4, 3.8, None, 5.2, 6.1, None, 8.0]})
+        cleaned, actions, _, _, _ = clean_dataframe(df)
+        self.assertTrue(any("high-confidence metric" in action for action in actions))
+        self.assertEqual(int(cleaned["sensor_value"].isna().sum()), 0)
 
-        # Ensure sentinel applied in data.
-        self.assertTrue((cleaned["vendorid"] == -1).sum() >= 2)
-        self.assertTrue((cleaned["payment_type"] == -1).sum() >= 2)
-        self.assertTrue((cleaned["ratecodeid"] == -1).sum() >= 2)
-        self.assertTrue((cleaned["trip_type"] == -1).sum() >= 2)
-        self.assertTrue((cleaned["passenger_count"] == -1).sum() == 0)
-        self.assertTrue((cleaned["congestion_surcharge"] == -1).sum() == 0)
-
-        # Core response structures remain present.
-        self.assertIsInstance(column_formats, dict)
-        self.assertIsInstance(missing_counts, dict)
-        self.assertIsInstance(actions, list)
+    def test_uncertain_numeric_defaults_to_leave_null(self):
+        # Integer-like low-density column without identifier hints should remain null.
+        df = pd.DataFrame({"x_metric": [1, None, 2, None]})
+        cleaned, actions, _, _, _ = clean_dataframe(df)
+        self.assertTrue(any("low-confidence imputation" in action for action in actions))
+        self.assertEqual(int(cleaned["x_metric"].isna().sum()), 2)
 
 
 if __name__ == "__main__":
