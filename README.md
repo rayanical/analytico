@@ -1,107 +1,90 @@
 # Analytico
 
-A full-stack AI charting platform designed to make data visualization zero-friction. Upload a CSV, ask a question in plain English, and get an instant chart. No manual configuration required, unless wanted.
+Analytico is a full-stack AI analytics application that takes users from quick exploration to exportable reporting.
 
-### The Stack
-- **Engine:** Python / FastAPI / Pandas
-- **Interface:** TypeScript / Next.js / Tailwind CSS
-- **Visualization:** Recharts / Framer Motion
-- **Intelligence:** OpenAI GPT-4o-mini
+- **Explore Mode:** upload data, ask questions in natural language, or build charts manually.
+- **Dashboard Mode:** pin charts, drag/resize widgets on a snap grid, and assemble a report layout.
+- **Export Workflow:** download chart assets (PNG/SVG) or export a multi-page PDF dashboard report.
+
+## The Stack
+
+- **Backend:** Python, FastAPI, Pandas
+- **Frontend:** TypeScript, Next.js, Tailwind CSS
+- **Visualization:** Recharts, Framer Motion, react-grid-layout
+- **AI:** OpenAI GPT-4o-mini
+- **Export:** html-to-image + jsPDF
 
 ---
 
-## Technical Features
+## Core Product Capabilities
 
-### 1. Smart Data Ingestion ("Data Janitor")
+### 1) Data Ingestion
 
-The backend includes a Python module that automatically cleans uploaded CSVs without user intervention:
+- CSV upload with automatic cleaning and profiling.
+- Instant 1M-row demo dataset loading (no browser upload wait).
+- Deterministic format detection for numeric, currency, percentage, and date fields.
 
-- **Header Normalization**: Converts verbose survey-style headers into clean column names
-  - `"What is your annual salary?"` → `annual_salary`
-  - `"How old are you?"` → `age`
-  
-- **Type Detection**: Identifies currency (`$45,000` → numeric), percentages, and dates by analyzing column content patterns
+### 2) AI + Manual Charting
 
-- **Missing Value Handling**: Automatically fills missing numeric values with zeros and logs the action for transparency
+- Chat-to-chart flow with validated chart configs.
+- Manual chart builder with aggregation support:
+  - `sum`, `mean`, `median`, `count`, `min`, `max`
+- On-demand AI chart analysis for current view.
 
-```python
-# The 'Data Janitor' uses multi-phase regex cleanup
-def normalize_header(header: str) -> str:
-    # 1. Full replacements for known survey patterns
-    # 2. Prefix removals (e.g., 'what_is_your_')
-    # 3. Suffix removals (e.g., '_choose_all_that_apply')
-    # 4. 20-character truncation for clean UI display
-    ...
-```
+### 3) Filtering + Drilldown
 
-### 2. Semantic Column Analysis
+- Structured filter operators:
+  - `eq`, `gt`, `lt`, `gte`, `lte`, `contains`
+- Drilldown uses full structured filter state, including AI-generated filters.
+- Graceful handling of invalid AI chart configs.
 
-Before generating visualizations, the system classifies each column into semantic types to prevent nonsensical aggregations:
+### 4) Data Quality + Cleaning Transparency
 
-| Type | Example | Behavior |
-|------|---------|----------|
-| **Metric** | Revenue, Salary | Can be summed, averaged |
-| **Categorical** | Department, Status | Used for grouping, auto-switches to COUNT |
-| **Identifier** | Employee ID, Zip Code | Blocked from sum/mean operations |
-| **Temporal** | Date, Month | Used as X-axis, auto-resampled |
+- Dataset quality score with clear completeness formula.
+- Missing-value breakdown and profile summaries.
+- Cleaning Report view showing what was changed during ingestion.
 
-This prevents common mistakes like summing zip codes or averaging ID numbers.
+### 5) Dashboard Command Center
 
-### 3. Natural Language Querying
+- Pin charts directly from Explore.
+- Drag, resize, and snap widgets on a responsive grid.
+- Per-dataset dashboard persistence in local storage.
+- Collapsible data summary panel to maximize dashboard space.
 
-Users describe what they want in plain English. The system:
+### 6) Export
 
-1. Sends the user's question + dataset metadata to GPT-4o-mini
-2. Receives a structured JSON response with chart configuration
-3. Validates the response against actual column names
-4. Renders the chart dynamically
+- Chart-level exports: PNG, SVG.
+- Dashboard-level export: multi-page A4 landscape PDF.
+- Export capture scoped to dashboard surface to avoid UI overlay artifacts.
 
-```
-User: "Show me average salary by industry"
+---
 
-→ AI returns:
-{
-  "xAxisKey": "industry",
-  "yAxisKeys": ["annual_salary"],
-  "aggregation": "mean",
-  "chartType": "bar",
-  "title": "Average Salary by Industry"
-}
-```
+## Typical Workflow
 
-### 4. Smart Aggregation
-
-The backend handles edge cases that would otherwise produce unusable charts:
-
-- **High Cardinality**: Groups categories beyond the top 19 into "Others"
-- **Date Resampling**: Automatically groups timestamps into years/months/weeks based on date range
-- **Aggregation Passthrough**: Respects the requested aggregation type (mean, sum, count) through all processing steps
-
-### 5. Dynamic Visualization
-
-The frontend renders charts using Recharts with:
-
-- Responsive containers that adapt to screen size
-- Memoized tooltip and legend components for performance
-- Automatic number formatting (currency, percentages, compact notation)
-- Framer Motion animations for smooth transitions
+1. Upload a CSV or load the 1M-row demo dataset.
+2. Ask a question in chat or build a chart manually.
+3. Refine with filters and drilldown.
+4. Pin charts to Dashboard and arrange layout.
+5. Export the dashboard as a PDF report.
 
 ---
 
 ## Project Structure
 
-```
+```text
 analytico/
 ├── backend/
-│   ├── main.py          # FastAPI app, all endpoints
-│   ├── requirements.txt
-│   └── venv/
+│   ├── main.py
+│   ├── modules/
+│   ├── models.py
+│   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── app/         # Next.js app router
-│   │   ├── components/  # React components
-│   │   ├── context/     # Global state (DataContext)
-│   │   └── lib/         # API client
+│   │   ├── app/
+│   │   ├── components/
+│   │   ├── context/
+│   │   ├── lib/
+│   │   └── types/
 │   └── package.json
 └── README.md
 ```
@@ -129,27 +112,4 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
-
----
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/upload` | Upload CSV, returns cleaned data profile |
-| `POST` | `/query` | Natural language → chart configuration |
-| `POST` | `/aggregate` | Manual chart configuration |
-| `GET` | `/` | Health check |
-
-
----
-
-## Future Improvements
-
-- [ ] Support for Excel files
-- [ ] Chart export (PNG, SVG)
-- [ ] Saved queries / dashboard persistence
-- [ ] User authentication
-- [ ] Improved recommendations
-- [ ] Better dataset cleaning
 
