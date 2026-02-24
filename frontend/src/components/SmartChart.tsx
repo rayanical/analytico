@@ -22,6 +22,7 @@ const COLORS = [
 interface SmartChartProps {
   chartData?: ChartResponse;
   showAnalyzeButton?: boolean;
+  compact?: boolean;
 }
 
 // Format value based on column format
@@ -97,7 +98,7 @@ const CustomTooltip = memo(function CustomTooltip({
 // SmartChart - Main chart component using composed Recharts architecture
 // ============================================================================
 
-export function SmartChart({ chartData, showAnalyzeButton = true }: SmartChartProps) {
+export function SmartChart({ chartData, showAnalyzeButton = true, compact = false }: SmartChartProps) {
   const { currentChart, dataset, filters, setCurrentChart, setDrillDownData, setIsDrillDownOpen, limit, groupOthers, sortBy } = useData();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const data = chartData || currentChart;
@@ -359,7 +360,7 @@ export function SmartChart({ chartData, showAnalyzeButton = true }: SmartChartPr
   const shouldScroll = records.length > 12; // Enable scroll if more than 12 items
 
   return (
-    <div className="relative flex flex-col w-full min-w-0 min-h-[450px] rounded-lg border border-border/50 bg-card/30 p-4">
+    <div className={`relative flex w-full min-w-0 flex-col rounded-lg border border-border/50 bg-card/30 p-4 ${compact ? 'min-h-[360px]' : 'min-h-[450px]'}`}>
       {/* Fixed Legend - stays in place during horizontal scroll */}
       {chart_type !== 'pie' && y_axis_keys.length > 0 && (
         <div className="flex flex-wrap gap-4 justify-center mb-4">
@@ -380,12 +381,12 @@ export function SmartChart({ chartData, showAnalyzeButton = true }: SmartChartPr
       {/* Scrollable Chart Container */}
       <div 
         className="w-full max-w-full min-w-0 overflow-x-auto overflow-y-hidden" 
-        style={{ height: '380px' }}
+        style={{ height: compact ? '300px' : '380px' }}
       >
         <div 
           style={{ 
             width: shouldScroll ? `${calculatedWidth}px` : '100%', 
-            height: '380px',
+            height: compact ? '300px' : '380px',
             minWidth: shouldScroll ? `${calculatedWidth}px` : '100%'
           }}
         >

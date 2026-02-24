@@ -15,6 +15,7 @@ import {
   ColumnFormat,
   DashboardWidget,
   DashboardLayoutItem,
+  DashboardUiState,
 } from '@/types';
 
 interface DatasetState {
@@ -56,6 +57,8 @@ interface DataContextType {
   removeWidget: (widgetId: string) => void;
   updateWidgetLayout: (layouts: DashboardLayoutItem[]) => void;
   clearDashboard: () => void;
+  dashboardUiState: DashboardUiState;
+  setDashboardHeaderCollapsed: (collapsed: boolean, mode?: 'auto' | 'manual') => void;
   isUploading: boolean;
   setIsUploading: (loading: boolean) => void;
   isQuerying: boolean;
@@ -86,16 +89,22 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 const DATASET_KEY = 'analytico_dataset_v4';
 const HISTORY_KEY = 'analytico_history_v4';
 const DASHBOARD_KEY = 'analytico_dashboard_v1';
+const DASHBOARD_UI_KEY = 'analytico_dashboard_ui_v1';
+
+const DEFAULT_DASHBOARD_UI: DashboardUiState = {
+  isHeaderCollapsed: false,
+  headerCollapseMode: 'auto',
+};
 
 function intersects(a: DashboardLayoutItem, b: DashboardLayoutItem): boolean {
   return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
 }
 
 function getDefaultWidgetDimensions(chartType: ChartResponse['chart_type']) {
-  if (chartType === 'pie') return { w: 8, h: 10, minW: 6, minH: 9 };
-  if (chartType === 'line' || chartType === 'area') return { w: 14, h: 10, minW: 8, minH: 9 };
-  if (chartType === 'composed') return { w: 16, h: 11, minW: 10, minH: 9 };
-  return { w: 12, h: 10, minW: 7, minH: 9 };
+  if (chartType === 'pie') return { w: 8, h: 9, minW: 6, minH: 8, maxW: 12 };
+  if (chartType === 'line' || chartType === 'area') return { w: 12, h: 9, minW: 8, minH: 8, maxW: 16 };
+  if (chartType === 'composed') return { w: 12, h: 9, minW: 9, minH: 8, maxW: 16 };
+  return { w: 10, h: 9, minW: 7, minH: 8, maxW: 16 };
 }
 
 function findNextLayoutSlot(
@@ -103,17 +112,28 @@ function findNextLayoutSlot(
   occupied: DashboardLayoutItem[],
 ): DashboardLayoutItem {
   const cols = 24;
-  const { w, h, minW, minH } = getDefaultWidgetDimensions(chartType);
-  for (let y = 0; y < 1000; y += 1) {
-    for (let x = 0; x <= cols - w; x += 1) {
-      const candidate: DashboardLayoutItem = { i: '', x, y, w, h, minW, minH };
-      const hasCollision = occupied.some(item => intersects(candidate, item));
-      if (!hasCollision) {
-        return candidate;
-      }
+  const { w, h, minW, minH, maxW } = getDefaultWidgetDimensions(chartType);
+  const sorted = [...occupied].sort((a, b) => a.y - b.y || a.x - b.x);
+
+  if (sorted.length === 0) {
+    return { i: '', x: 0, y: 0, w, h, minW, minH, maxW };
+  }
+
+  const uniqueRows = Array.from(new Set(sorted.map(item => item.y))).sort((a, b) => a - b);
+  for (const rowY of uniqueRows) {
+    const rowItems = sorted
+      .filter(item => item.y === rowY)
+      .sort((a, b) => a.x - b.x);
+    const rightEdge = rowItems.reduce((max, item) => Math.max(max, item.x + item.w), 0);
+    if (rightEdge + w <= cols) {
+      const candidate: DashboardLayoutItem = { i: '', x: rightEdge, y: rowY, w, h, minW, minH, maxW };
+      const hasCollision = sorted.some(item => intersects(candidate, item));
+      if (!hasCollision) return candidate;
     }
   }
-  return { i: '', x: 0, y: occupied.length * h, w, h, minW, minH };
+
+  const nextY = sorted.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+  return { i: '', x: 0, y: nextY, w, h, minW, minH, maxW };
 }
 
 export function DataProvider({ children }: { children: ReactNode }) {
@@ -126,6 +146,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [dashboardStore, setDashboardStore] = useState<Record<string, DashboardWidget[]>>({});
+  const [dashboardUiStore, setDashboardUiStore] = useState<Record<string, DashboardUiState>>({});
   const [isUploading, setIsUploading] = useState(false);
   const [isQuerying, setIsQuerying] = useState(false);
   const [drillDownData, setDrillDownData] = useState<any[] | null>(null);
@@ -142,12 +163,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const saved = localStorage.getItem(DATASET_KEY);
         const hist = localStorage.getItem(HISTORY_KEY);
         const dashboard = localStorage.getItem(DASHBOARD_KEY);
+        const dashboardUi = localStorage.getItem(DASHBOARD_UI_KEY);
         
         if (hist) {
           setHistory(JSON.parse(hist).map((i: HistoryItem) => ({ ...i, timestamp: new Date(i.timestamp) })));
         }
         if (dashboard) {
           setDashboardStore(JSON.parse(dashboard));
+        }
+        if (dashboardUi) {
+          setDashboardUiStore(JSON.parse(dashboardUi));
         }
         
         if (saved) {
@@ -194,6 +219,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }, 250);
     return () => clearTimeout(timeout);
   }, [dashboardStore, isClient]);
+  useEffect(() => {
+    if (!isClient) return;
+    const timeout = setTimeout(() => {
+      localStorage.setItem(DASHBOARD_UI_KEY, JSON.stringify(dashboardUiStore));
+    }, 250);
+    return () => clearTimeout(timeout);
+  }, [dashboardUiStore, isClient]);
 
   const setFilters = useCallback((f: FilterConfig[]) => setFiltersInternal(f), []);
   const addFilter = useCallback((f: FilterConfig) => {
@@ -228,6 +260,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') localStorage.removeItem(HISTORY_KEY);
   }, []);
   const dashboardWidgets = dataset ? (dashboardStore[dataset.datasetId] ?? []) : [];
+  const dashboardUiState = dataset ? (dashboardUiStore[dataset.datasetId] ?? DEFAULT_DASHBOARD_UI) : DEFAULT_DASHBOARD_UI;
+
+  useEffect(() => {
+    if (!dataset || workspaceMode !== 'dashboard') return;
+    const state = dashboardUiStore[dataset.datasetId] ?? DEFAULT_DASHBOARD_UI;
+    if (state.headerCollapseMode === 'auto' && dashboardWidgets.length >= 1 && !state.isHeaderCollapsed) {
+      setDashboardUiStore(prev => ({
+        ...prev,
+        [dataset.datasetId]: { isHeaderCollapsed: true, headerCollapseMode: 'auto' },
+      }));
+    }
+  }, [dataset, workspaceMode, dashboardWidgets.length, dashboardUiStore]);
+
+  const setDashboardHeaderCollapsed = useCallback((collapsed: boolean, mode: 'auto' | 'manual' = 'manual') => {
+    if (!dataset) return;
+    setDashboardUiStore(prev => ({
+      ...prev,
+      [dataset.datasetId]: {
+        isHeaderCollapsed: collapsed,
+        headerCollapseMode: mode,
+      },
+    }));
+  }, [dataset]);
+
   const pinCurrentChart = useCallback((chart: ChartResponse, sourceQuery?: string) => {
     if (!dataset || chart.chart_type === 'empty') return;
     const id = crypto.randomUUID();
@@ -242,6 +298,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
         datasetId: dataset.datasetId,
         layout: { ...placement, i: id },
+        placementStrategy: placement.y === 0 ? 'first-row-tile' : 'next-fit',
       };
       return {
         ...prev,
@@ -297,6 +354,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       viewMode, setViewMode, builderMode, setBuilderMode, workspaceMode, setWorkspaceMode,
       history, currentHistoryId, addToHistory, selectFromHistory, clearHistory,
       dashboardWidgets, pinCurrentChart, removeWidget, updateWidgetLayout, clearDashboard,
+      dashboardUiState, setDashboardHeaderCollapsed,
       isUploading, setIsUploading, isQuerying, setIsQuerying, numericColumns, categoricalColumns, metricColumns, temporalColumns, clearData,
       drillDownData, setDrillDownData, isDrillDownOpen, setIsDrillDownOpen,
       groupOthers, setGroupOthers, limit, setLimit, sortBy, setSortBy,

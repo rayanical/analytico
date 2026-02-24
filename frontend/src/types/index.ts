@@ -166,6 +166,12 @@ export interface DashboardLayoutItem {
   h: number;
   minW?: number;
   minH?: number;
+  maxW?: number;
+}
+
+export interface DashboardUiState {
+  isHeaderCollapsed: boolean;
+  headerCollapseMode: 'auto' | 'manual';
 }
 
 // Pinned dashboard widget
@@ -177,4 +183,5 @@ export interface DashboardWidget {
   createdAt: string;
   datasetId: string;
   layout: DashboardLayoutItem;
+  placementStrategy?: 'first-row-tile' | 'next-fit';
 }

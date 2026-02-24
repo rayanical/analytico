@@ -142,3 +142,7 @@
   right: 6px;
   bottom: 6px;
 }
+
+.is-exporting [data-export-exclude="true"] {
+  display: none !important;
+}

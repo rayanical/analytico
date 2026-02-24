@@ -18,7 +18,8 @@ function toGridLayout(widget: DashboardWidget): Layout {
     w: widget.layout.w,
     h: widget.layout.h,
     minW: widget.layout.minW ?? 6,
-    minH: widget.layout.minH ?? 9,
+    minH: widget.layout.minH ?? 8,
+    maxW: widget.layout.maxW,
   };
 }
 
@@ -31,6 +32,7 @@ function toDashboardLayoutItem(layout: Layout): DashboardLayoutItem {
     h: layout.h,
     minW: layout.minW,
     minH: layout.minH,
+    maxW: layout.maxW,
   };
 }
 
@@ -74,7 +76,7 @@ export function DashboardCanvas() {
         layouts={layouts}
         breakpoints={{ lg: 1400, md: 996, sm: 768, xs: 480, xxs: 0 }}
         cols={{ lg: 24, md: 16, sm: 8, xs: 4, xxs: 2 }}
-        rowHeight={56}
+        rowHeight={42}
         margin={[16, 16]}
         containerPadding={[0, 0]}
         isDraggable
@@ -125,8 +127,8 @@ export function DashboardCanvas() {
                 </Button>
               </div>
             </div>
-            <div className="h-[calc(100%-44px)] p-2">
-              <SmartChart chartData={widget.chart} showAnalyzeButton={false} />
+            <div className="h-[calc(100%-44px)] max-h-[380px] overflow-hidden p-2">
+              <SmartChart chartData={widget.chart} showAnalyzeButton={false} compact />
             </div>
           </div>
         ))}

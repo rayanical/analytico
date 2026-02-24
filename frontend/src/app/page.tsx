@@ -15,7 +15,7 @@ import { DrillDownModal } from '@/components/DrillDownModal';
 import { useData } from '@/context/DataContext';
 import { aggregateData } from '@/lib/api';
 import { exportDashboardReport } from '@/lib/exportReport';
-import { BarChart3, Sparkles, Wand2, Wrench, Table, LineChart, Info, AlertTriangle, X, Filter, Pin, Compass, LayoutGrid, FileDown, Trash2 } from 'lucide-react';
+import { BarChart3, Sparkles, Wand2, Wrench, Table, LineChart, Info, AlertTriangle, X, Filter, Pin, Compass, LayoutGrid, FileDown, Trash2, ChevronDown } from 'lucide-react';
 import { toPng, toSvg } from 'html-to-image';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ export default function Home() {
   const {
     dataset, currentChart, isQuerying, viewMode, setViewMode, builderMode, setBuilderMode,
     workspaceMode, setWorkspaceMode, dashboardWidgets, pinCurrentChart, clearDashboard,
+    dashboardUiState, setDashboardHeaderCollapsed,
     filters, setCurrentChart, limit, groupOthers, sortBy, setIsQuerying,
   } = useData();
 
@@ -171,11 +172,6 @@ export default function Home() {
 
   const handleExportReport = async () => {
     if (!dataset || dashboardWidgets.length === 0 || isExportingReport) return;
-    const root = document.getElementById('dashboard-report-root');
-    if (!root) {
-      toast.error('Dashboard canvas not found');
-      return;
-    }
 
     const toastId = toast.loading('Preparing PDF report...');
     if (dashboardWidgets.length > 24) {
@@ -185,10 +181,13 @@ export default function Home() {
     try {
       setIsExportingReport(true);
       const safeBase = dataset.filename.replace(/\.[^.]+$/, '').replace(/[^a-z0-9_-]+/gi, '_');
-      await exportDashboardReport(root, {
+      await exportDashboardReport({
         filename: `analytico-report-${safeBase}.pdf`,
         datasetLabel: dataset.filename,
         widgetCount: dashboardWidgets.length,
+        targetSelector: '#dashboard-report-root',
+        excludeSelectors: ['[data-export-exclude="true"]'],
+        useExportModeClass: true,
       });
       toast.success('PDF report exported.', { id: toastId });
     } catch (error) {
@@ -198,6 +197,8 @@ export default function Home() {
       setIsExportingReport(false);
     }
   };
+
+  const showDatasetSummary = !dashboardUiState.isHeaderCollapsed;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -243,26 +244,43 @@ export default function Home() {
             </div>
           </motion.div>
 
-          {/* File Upload */}
+          {dataset?.summary && (
+            <div className="mb-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-2 rounded-full border border-border/50 bg-card/40 px-3 text-xs"
+                onClick={() => setDashboardHeaderCollapsed(!dashboardUiState.isHeaderCollapsed)}
+              >
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${dashboardUiState.isHeaderCollapsed ? '-rotate-90' : 'rotate-0'}`} />
+                Data Summary
+              </Button>
+            </div>
+          )}
+
           <section className="mb-6">
             <FileUploader />
-            {dataset?.summary && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-4"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="rounded-full bg-primary/10 p-2 text-primary">
-                     <Sparkles className="h-4 w-4" />
+            <AnimatePresence initial={false}>
+              {dataset?.summary && showDatasetSummary && (
+                <motion.div
+                  initial={{ maxHeight: 0, opacity: 0 }}
+                  animate={{ maxHeight: 220, opacity: 1 }}
+                  exit={{ maxHeight: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="mt-4 overflow-hidden rounded-lg border border-primary/20 bg-primary/5 p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-full bg-primary/10 p-2 text-primary">
+                      <Sparkles className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="mb-1 text-sm font-semibold text-foreground">Dataset Context</h3>
+                      <p className="text-sm leading-relaxed text-muted-foreground">{dataset.summary}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="mb-1 text-sm font-semibold text-foreground">Dataset Context</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{dataset.summary}</p>
-                  </div>
-                </div>
-              </motion.div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </section>
 
           {/* Filter Bar */}
@@ -471,7 +489,7 @@ export default function Home() {
 
         {/* Chat Input */}
         {builderMode === 'ai' && workspaceMode === 'explore' && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
+          <div data-export-exclude="true" className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
             <div className="mx-auto max-w-4xl p-6">
               <div className="pointer-events-auto rounded-2xl border border-border/40 bg-background/20 p-2 backdrop-blur-md">
                 <ChatInterface />
