@@ -115,10 +115,12 @@ def llm_enrich_columns(headers: list[str], df: pd.DataFrame) -> list[dict[str, O
             sample_values[col] = [str(v) for v in values]
 
         system_prompt = (
-            "Respond ONLY with a flat JSON object mapping original column names to semantic types. "
-            "Do not include explanations, formatting, or markdown. "
-            "Allowed semantic types: metric, identifier, temporal, categorical. "
-            "Return valid JSON only."
+            "Respond ONLY with a JSON object where each key is the original column name and each value is an object "
+            "with: semantic_type and clean_name. "
+            "Schema: {\"Original Column Name\": {\"semantic_type\": \"metric|identifier|temporal|categorical\", "
+            "\"clean_name\": \"short_snake_case_name\"}}. "
+            "clean_name must be short, human-readable snake_case (example: lpep_pickup_datetime -> pickup_date). "
+            "Do not include explanations, formatting, or markdown. Return valid JSON only."
         )
         user_prompt = f"""Headers:
 {json.dumps(headers)}
@@ -139,15 +141,18 @@ Per-column sample values (up to 3 non-null each):
         parsed = json.loads(content)
         by_original: dict[str, dict[str, Optional[str]]] = {}
 
-        # Fast path: flat object mapping "original_header" -> "semantic_type"
-        for original, semantic in parsed.items():
+        # Fast path: mapping "original_header" -> {"semantic_type", "clean_name"}.
+        # Backward compatible with legacy flat semantic values.
+        for original, payload in parsed.items():
             original_key = str(original).strip()
             if not original_key:
                 continue
-            semantic_value = semantic.get("semantic_type") if isinstance(semantic, dict) else semantic
+            semantic_value = payload.get("semantic_type") if isinstance(payload, dict) else payload
+            clean_name = payload.get("clean_name") if isinstance(payload, dict) else None
+            normalized_clean = legacy_normalize_header(str(clean_name).strip() if clean_name else original_key)
             by_original[original_key] = {
                 "original": original_key,
-                "clean": legacy_normalize_header(original_key),
+                "clean": normalized_clean,
                 "format": None,
                 "semantic_type": _normalize_llm_semantic(semantic_value),
             }
@@ -160,11 +165,10 @@ Per-column sample values (up to 3 non-null each):
             original = str(row.get("original", "")).strip()
             if not original:
                 continue
-            clean = str(row.get("clean", "")).strip()
-            clean = re.sub(r"[^\w]", "_", clean).lower() if clean else ""
+            raw_clean = str(row.get("clean_name") or row.get("clean") or "").strip()
             by_original[original] = {
                 "original": original,
-                "clean": clean or legacy_normalize_header(original),
+                "clean": legacy_normalize_header(raw_clean or original),
                 "format": None,
                 "semantic_type": _normalize_llm_semantic(row.get("semantic_type")),
             }
