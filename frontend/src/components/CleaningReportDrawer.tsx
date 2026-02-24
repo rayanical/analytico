@@ -97,11 +97,13 @@ export function CleaningReportDrawer({
               {filteredActions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No cleaning actions matched.</p>
               ) : (
-                filteredActions.map((action, idx) => (
-                  <p key={`${idx}-${action}`} className="rounded-md border border-border/40 bg-background/40 p-2 text-sm">
-                    {action}
-                  </p>
-                ))
+                <ol className="space-y-2">
+                  {filteredActions.map((action, idx) => (
+                    <li key={`${idx}-${action}`} className="rounded-md border border-border/40 bg-background/40 p-2 text-sm leading-relaxed">
+                      {action}
+                    </li>
+                  ))}
+                </ol>
               )}
             </div>
           </section>

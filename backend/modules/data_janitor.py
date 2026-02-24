@@ -48,6 +48,17 @@ DATE_FORMAT_CANDIDATES = [
 
 # Skip LLM schema mapping for very wide datasets to cap latency/cost.
 LLM_SCHEMA_MAX_COLUMNS = 120
+CURRENCY_NAME_KEYWORDS = {
+    "salary", "price", "cost", "revenue", "amount", "income", "wage",
+    "compensation", "payment", "fee", "budget", "fare", "tip", "surcharge",
+    "tax", "charge", "expense",
+}
+CODED_FIELD_KEYWORDS = {
+    "id", "type", "code", "vendor", "ratecode", "payment", "trip_type",
+}
+METRIC_NAME_GUARD_KEYWORDS = {
+    "count", "distance", "amount", "fare", "surcharge", "tax", "tip", "total",
+}
 
 def get_openai_client() -> OpenAI:
     global _client
@@ -238,7 +249,7 @@ def detect_column_format(series: pd.Series, col_name: str) -> str:
     col_lower = col_name.lower()
     
     # Identifier columns (IDs, codes, serial numbers)
-    if any(kw in col_lower for kw in ['id', 'code', 'serial', 'key', 'number', 'ref']):
+    if any(kw in col_lower for kw in ['id', 'code', 'serial', 'key', 'number', 'ref', 'type']):
         # But not if it contains currency keywords
         if not any(kw in col_lower for kw in ['salary', 'price', 'cost', 'revenue', 'amount', 'income']):
             return 'identifier'
@@ -264,6 +275,32 @@ def detect_column_format(series: pd.Series, col_name: str) -> str:
                 return 'percentage'
     
     return 'number'
+
+
+def _is_coded_numeric_column(
+    series: pd.Series,
+    col_name: str,
+    semantic_types: dict[str, str],
+    column_formats: dict[str, str],
+) -> bool:
+    """Detect numeric columns that are categorical/identifier-like codes."""
+    del series
+    sem = semantic_types.get(col_name)
+    col_lower = col_name.lower()
+
+    # Metric guardrails: these are usually true measures, not category codes.
+    if any(kw in col_lower for kw in METRIC_NAME_GUARD_KEYWORDS):
+        return False
+    if column_formats.get(col_name) in {"currency", "percentage"}:
+        return False
+
+    if sem == "identifier":
+        return True
+
+    if any(kw in col_lower for kw in CODED_FIELD_KEYWORDS):
+        return True
+    # Only treat numeric-categorical as coded when no metric hints are present.
+    return sem == "categorical"
 
 
 def llm_fix_data_issues(df: pd.DataFrame, column_types: dict[str, str]) -> tuple[pd.DataFrame, list[str]]:
@@ -354,14 +391,39 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             if len(sample) == 0:
                 continue
             
-            # Currency pattern
-            currency_matches = sample.str.replace(',', '').str.match(r'^\$?[\d,]+\.?\d*$').sum()
-            if currency_matches > len(sample) * 0.5:
+            normalized_numeric = (
+                sample
+                .str.replace('$', '', regex=False)
+                .str.replace('€', '', regex=False)
+                .str.replace('£', '', regex=False)
+                .str.replace('¥', '', regex=False)
+                .str.replace(',', '', regex=False)
+                .str.strip()
+            )
+            numeric_like_matches = normalized_numeric.str.match(r'^[+-]?\d+(\.\d+)?$').sum()
+            currency_symbol_matches = sample.str.contains(r'[$€£¥]', regex=True).sum()
+            has_currency_name = any(kw in col.lower() for kw in CURRENCY_NAME_KEYWORDS)
+
+            # Numeric-like text columns should be converted to numeric deterministically.
+            if numeric_like_matches > len(sample) * 0.5:
                 try:
-                    df[col] = df[col].astype(str).str.replace('$', '', regex=False).str.replace(',', '', regex=False)
+                    df[col] = (
+                        df[col]
+                        .astype(str)
+                        .str.replace('$', '', regex=False)
+                        .str.replace('€', '', regex=False)
+                        .str.replace('£', '', regex=False)
+                        .str.replace('¥', '', regex=False)
+                        .str.replace(',', '', regex=False)
+                        .str.strip()
+                    )
                     df[col] = pd.to_numeric(df[col], errors='coerce')
-                    column_formats[col] = 'currency'
-                    cleaning_actions.append(f"Converted '{col}' from currency text to numeric")
+                    has_currency_evidence = has_currency_name or currency_symbol_matches > len(sample) * 0.1
+                    if has_currency_evidence:
+                        column_formats[col] = 'currency'
+                        cleaning_actions.append(f"Converted '{col}' from currency text to numeric")
+                    else:
+                        cleaning_actions.append(f"Converted '{col}' from numeric text to numeric")
                 except Exception:
                     pass
                 continue
@@ -442,6 +504,31 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
     # 4. Auto-Imputation using smart logic
     for col in numeric_cols:
         if col in missing_counts:
+            col_lower = col.lower()
+            if _is_coded_numeric_column(df[col], col, semantic_types, column_formats):
+                df[col] = df[col].fillna(-1)
+                cleaning_actions.append(
+                    f"Filled {missing_counts[col]} missing '{col}' values with sentinel (-1) for coded field"
+                )
+                continue
+
+            if "count" in col_lower:
+                mode = df[col].mode(dropna=True)
+                if len(mode) > 0 and pd.notna(mode.iloc[0]):
+                    mode_val = int(mode.iloc[0]) if float(mode.iloc[0]).is_integer() else round(float(mode.iloc[0]), 2)
+                    df[col] = df[col].fillna(mode_val)
+                    cleaning_actions.append(
+                        f"Filled {missing_counts[col]} missing '{col}' values with mode ({mode_val}) for count metric"
+                    )
+                    continue
+
+            if any(kw in col_lower for kw in ["surcharge", "fee", "tax", "tip"]):
+                df[col] = df[col].fillna(0)
+                cleaning_actions.append(
+                    f"Filled {missing_counts[col]} missing '{col}' values with 0 for surcharge/fee metric"
+                )
+                continue
+
             mean_val = df[col].mean()
             if pd.notna(mean_val):
                 df[col] = df[col].fillna(round(mean_val, 2))
