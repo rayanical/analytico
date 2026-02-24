@@ -23,3 +23,6 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+
+# Local data files (never commit datasets)
+*.csv
