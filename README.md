@@ -6,6 +6,12 @@ Analytico is a full-stack AI analytics application that takes users from quick e
 - **Dashboard Mode:** pin charts, drag/resize widgets on a snap grid, and assemble a report layout.
 - **Export Workflow:** download chart assets (PNG/SVG) or export a multi-page PDF dashboard report.
 
+
+
+https://github.com/user-attachments/assets/4c3df7ed-f755-4f2b-91f6-d5cb18f45186
+
+
+
 ## The Stack
 
 - **Backend:** Python, FastAPI, Pandas
