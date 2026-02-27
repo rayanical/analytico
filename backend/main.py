@@ -128,7 +128,22 @@ def _apply_operator_filter(filtered: pd.DataFrame, f: FilterConfig, applied: lis
     mask = None
 
     if op == "eq":
-        mask = col.astype(str) == str(f.value)
+        if pd.api.types.is_datetime64_any_dtype(col):
+            cmp_value = pd.to_datetime(f.value, errors="coerce")
+            if pd.isna(cmp_value):
+                applied.append(f"{f.column}: skipped invalid datetime value '{f.value}'")
+                return filtered
+            mask = col == cmp_value
+        elif pd.api.types.is_numeric_dtype(col):
+            try:
+                cmp_value = float(f.value)
+            except (TypeError, ValueError):
+                applied.append(f"{f.column}: skipped invalid numeric value '{f.value}'")
+                return filtered
+            num_col = pd.to_numeric(col, errors="coerce")
+            mask = num_col == cmp_value
+        else:
+            mask = col.astype(str) == str(f.value)
         applied.append(f"{f.column} == {f.value}")
     elif op == "contains":
         mask = col.astype(str).str.contains(str(f.value), case=False, na=False, regex=False)
