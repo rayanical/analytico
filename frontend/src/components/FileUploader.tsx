@@ -10,6 +10,8 @@ import { UploadResponse } from '@/types';
 import { toast } from 'sonner';
 import { CleaningReportDrawer } from '@/components/CleaningReportDrawer';
 
+type DemoDataset = 'taxi' | 'gapminder';
+
 // Smart number formatter with proper K/M/B scaling
 function formatCompact(value: number, format: string = 'number'): string {
   const abs = Math.abs(value);
@@ -100,13 +102,13 @@ export function FileUploader() {
     }
   }, [setIsUploading, applyUploadResponse]);
 
-  const handleDemoLoad = useCallback(async () => {
+  const handleDemoLoad = useCallback(async (dataset: DemoDataset) => {
     setUploadError(null);
     setIsDemoLoading(true);
     setIsUploading(true);
 
     try {
-      const response = await loadDemoDataset();
+      const response = await loadDemoDataset(dataset);
       await applyUploadResponse(response);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Demo load failed';
@@ -244,15 +246,27 @@ export function FileUploader() {
           )}
         </AnimatePresence>
       </div>
-      <button
-        type="button"
-        onClick={handleDemoLoad}
-        disabled={isDemoLoading || isUploading}
-        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-gradient-to-r from-primary/15 via-primary/10 to-transparent px-4 py-3 text-sm font-medium text-primary transition-all hover:border-primary/60 hover:from-primary/20 hover:via-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {isDemoLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-        {isDemoLoading ? 'Loading demo dataset...' : '🚀 Try 1 Million Rows Demo (NYC Taxi)'}
-      </button>
+      <div className="mt-4 space-y-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Try a demo dataset</p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => handleDemoLoad('taxi')}
+            disabled={isDemoLoading || isUploading}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/40 bg-gradient-to-r from-primary/15 via-primary/10 to-transparent px-4 py-3 text-sm font-medium text-primary transition-all hover:border-primary/60 hover:from-primary/20 hover:via-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            NYC Taxi (1M)
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDemoLoad('gapminder')}
+            disabled={isDemoLoading || isUploading}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/40 bg-gradient-to-r from-primary/15 via-primary/10 to-transparent px-4 py-3 text-sm font-medium text-primary transition-all hover:border-primary/60 hover:from-primary/20 hover:via-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Gapminder
+          </button>
+        </div>
+      </div>
     </motion.div>
   );
 }

@@ -14,7 +14,8 @@ backend/.env
 backend/.pytest_cache/
 backend/.coverage
 backend/htmlcov/
-backend/datasets/
+backend/datasets/*
+!backend/datasets/gapminderDataFiveYear.csv
 # OS
 .DS_Store
 Thumbs.db
@@ -26,3 +27,4 @@ Thumbs.db
 
 # Local data files (never commit datasets)
 *.csv
+!backend/datasets/gapminderDataFiveYear.csv

@@ -17,7 +17,7 @@ from typing import Any, Optional, TextIO
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from pydantic import ValidationError
@@ -63,7 +63,16 @@ app.add_middleware(
 )
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-DEMO_DATASET_PATH = Path(__file__).resolve().parent / "datasets" / "2021_Green_Taxi_Trip_Data_20260221.csv"
+DEMO_DATASETS = {
+    "taxi": {
+        "filename": "taxi_1m_rows.csv",
+        "path": Path(__file__).resolve().parent / "datasets" / "2021_Green_Taxi_Trip_Data_20260221.csv",
+    },
+    "gapminder": {
+        "filename": "gapminderDataFiveYear.csv",
+        "path": Path(__file__).resolve().parent / "datasets" / "gapminderDataFiveYear.csv",
+    },
+}
 ALLOWED_FILTER_OPERATORS = {"eq", "gt", "lt", "gte", "lte", "contains"}
 MAX_CHART_POINTS = 500
 
@@ -112,6 +121,19 @@ def _safe_empty_chart_response(message: str, title: str = "Clarification Needed"
         analysis=message,
         answer=None
     )
+
+
+def _friendly_ingestion_error_message(error: Exception) -> tuple[int, str]:
+    """Map internal ingestion exceptions to concise user-facing errors."""
+    error_text = str(error)
+    if "could not convert string to float" in error_text:
+        return (
+            400,
+            "We couldn't auto-parse one of the metric columns because it contains text values "
+            "(for example, unit-suffixed values like '142 min'). "
+            "Try changing that column to plain numeric values before upload.",
+        )
+    return (500, "Dataset processing failed. Please check the file format and try again.")
 
 
 def _apply_operator_filter(filtered: pd.DataFrame, f: FilterConfig, applied: list[str]) -> pd.DataFrame:
@@ -459,19 +481,26 @@ async def upload_csv(file: UploadFile = File(...)):
     except pd.errors.EmptyDataError:
         raise HTTPException(status_code=400, detail="Empty CSV.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        status, detail = _friendly_ingestion_error_message(e)
+        raise HTTPException(status_code=status, detail=detail)
 
 
 @app.post("/load-demo", response_model=UploadResponse)
-async def load_demo_dataset():
-    filename = "taxi_1m_rows.csv"
-    if not DEMO_DATASET_PATH.exists():
-        raise HTTPException(status_code=500, detail="Demo dataset file not found.")
+async def load_demo_dataset(dataset: str = Query(default="taxi")):
+    selected_demo = DEMO_DATASETS.get(dataset)
+    if not selected_demo:
+        available = ", ".join(sorted(DEMO_DATASETS.keys()))
+        raise HTTPException(status_code=400, detail=f"Unknown demo dataset '{dataset}'. Available: {available}")
+
+    filename = selected_demo["filename"]
+    demo_path = selected_demo["path"]
+    if not demo_path.exists():
+        raise HTTPException(status_code=500, detail=f"Demo dataset file not found: {filename}")
 
     try:
         endpoint_start = perf_counter()
         t0 = perf_counter()
-        df = read_csv_fast(DEMO_DATASET_PATH)
+        df = read_csv_fast(demo_path)
         t1 = perf_counter()
         if df.empty:
             raise HTTPException(status_code=400, detail="CSV is empty.")
@@ -579,7 +608,8 @@ async def load_demo_dataset():
     except pd.errors.EmptyDataError:
         raise HTTPException(status_code=400, detail="Empty CSV.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        status, detail = _friendly_ingestion_error_message(e)
+        raise HTTPException(status_code=status, detail=detail)
 
 
 @app.post("/aggregate", response_model=ChartResponse)

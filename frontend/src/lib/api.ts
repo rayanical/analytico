@@ -59,9 +59,11 @@ export async function uploadCSV(file: File): Promise<UploadResponse> {
 /**
  * Load the built-in demo dataset from backend storage
  */
-export async function loadDemoDataset(): Promise<UploadResponse> {
+export async function loadDemoDataset(dataset: 'taxi' | 'gapminder' = 'taxi'): Promise<UploadResponse> {
   try {
-    const response = await api.post<UploadResponse>('/load-demo');
+    const response = await api.post<UploadResponse>('/load-demo', null, {
+      params: { dataset },
+    });
     return response.data;
   } catch (error) {
     handleApiError(error);
