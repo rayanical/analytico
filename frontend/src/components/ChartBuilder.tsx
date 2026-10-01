@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3, LineChart, AreaChart, PieChart, Layers, Play, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ const AGGREGATIONS: { type: AggregationType; label: string }[] = [
 ];
 
 export function ChartBuilder() {
-  const { dataset, numericColumns, filters, currentChart, setCurrentChart, addToHistory, isQuerying, setIsQuerying, groupOthers, limit, sortBy } = useData();
+  const { dataset, numericColumns, filters, currentChart, setCurrentChart, addToHistory, isQuerying, beginQuery, isCurrentQuery, finishQuery, isCurrentDataset, groupOthers, limit, sortBy } = useData();
   
   const [chartType, setChartType] = useState<ChartType>('bar');
   const [xAxis, setXAxis] = useState<string>('');
@@ -42,6 +42,15 @@ export function ChartBuilder() {
   } | null>(null);
 
   const allColumns = dataset?.columns ?? [];
+  const measureColumns = numericColumns.filter(column => column.semantic_type !== 'identifier');
+
+  useEffect(() => {
+    setXAxis('');
+    setYAxes([]);
+    setChartType('bar');
+    setAggregation('sum');
+    setLastPlotConfig(null);
+  }, [dataset?.datasetId]);
 
   const handleYAxisToggle = (col: string) => {
     setYAxes(prev => 
@@ -57,7 +66,8 @@ export function ChartBuilder() {
       return;
     }
 
-    setIsQuerying(true);
+    const controller = new AbortController();
+    const requestId = beginQuery(dataset.datasetId, controller);
 
     try {
       const response = await aggregateData({
@@ -71,8 +81,10 @@ export function ChartBuilder() {
         sort_by: sortBy,
         group_others: groupOthers,
         include_analysis: false,
+        signal: controller.signal,
       });
 
+      if (!isCurrentQuery(requestId, dataset.datasetId)) return;
       setCurrentChart(response);
       setLastPlotConfig({ chartType, xAxis, yAxes, aggregation });
       addToHistory(
@@ -80,18 +92,23 @@ export function ChartBuilder() {
         response,
         true
       );
-      toast.success(`Generated chart with ${response.row_count} data points`);
+      if (response.chart_type === 'empty') toast.message('The chart needs clarification. See the response below.');
+      else toast.success(`Generated chart with ${response.row_count} data points`);
     } catch (error) {
-      console.error('Aggregate error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to generate chart';
-      toast.error(message);
+      if (!controller.signal.aborted && isCurrentDataset(dataset.datasetId)) {
+        console.error('Aggregate error:', error);
+        const message = error instanceof Error ? error.message : 'Failed to generate chart';
+        toast.error(message);
+      }
     } finally {
-      setIsQuerying(false);
+      finishQuery(requestId);
     }
   };
 
   const handleAnalyze = async () => {
     if (!dataset || !lastPlotConfig) return;
+    const controller = new AbortController();
+    const requestId = beginQuery(dataset.datasetId, controller);
     setIsAnalyzing(true);
     try {
       const response = await aggregateData({
@@ -105,21 +122,27 @@ export function ChartBuilder() {
         sort_by: sortBy,
         group_others: groupOthers,
         include_analysis: true,
+        signal: controller.signal,
       });
 
+      if (!isCurrentQuery(requestId, dataset.datasetId)) return;
       setCurrentChart(response);
       addToHistory(
         `Analysis: ${lastPlotConfig.yAxes.join(', ')} by ${lastPlotConfig.xAxis}`,
         response,
         true
       );
-      toast.success('Analysis added');
+      if (response.chart_type === 'empty') toast.message('The chart needs clarification. See the response below.');
+      else toast.success('Analysis added');
     } catch (error) {
-      console.error('Analyze error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to analyze chart';
-      toast.error(message);
+      if (!controller.signal.aborted && isCurrentDataset(dataset.datasetId)) {
+        console.error('Analyze error:', error);
+        const message = error instanceof Error ? error.message : 'Failed to analyze chart';
+        toast.error(message);
+      }
     } finally {
       setIsAnalyzing(false);
+      finishQuery(requestId);
     }
   };
 
@@ -181,10 +204,10 @@ export function ChartBuilder() {
           Y-Axis (Values) — Select numeric columns
         </label>
         <div className="flex flex-wrap gap-2">
-          {numericColumns.length === 0 ? (
+          {measureColumns.length === 0 ? (
             <p className="text-sm text-muted-foreground/60">No numeric columns available</p>
           ) : (
-            numericColumns.map(col => (
+            measureColumns.map(col => (
               <button
                 key={col.name}
                 onClick={() => handleYAxisToggle(col.name)}

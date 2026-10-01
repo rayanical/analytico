@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const BAR_HEIGHTS = [42, 71, 54, 86, 63, 94, 49, 77];
+
 export function ChartSkeleton() {
   return (
     <motion.div
@@ -36,7 +38,7 @@ export function ChartSkeleton() {
                   ease: 'easeOut'
                 }}
                 className="flex-1 origin-bottom"
-                style={{ height: `${30 + Math.random() * 60}%` }}
+                style={{ height: `${BAR_HEIGHTS[i]}%` }}
               >
                 <Skeleton className="h-full w-full rounded-t-md" />
               </motion.div>

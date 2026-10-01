@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileSpreadsheet, AlertCircle, Loader2, Database, Sparkles, AlertTriangle, TrendingUp, Info } from 'lucide-react';
@@ -9,22 +9,9 @@ import { uploadCSV, loadDemoDataset, aggregateData } from '@/lib/api';
 import { UploadResponse } from '@/types';
 import { toast } from 'sonner';
 import { CleaningReportDrawer } from '@/components/CleaningReportDrawer';
+import { formatValue } from '@/lib/formatValue';
 
 type DemoDataset = 'taxi' | 'gapminder';
-
-// Smart number formatter with proper K/M/B scaling
-function formatCompact(value: number, format: string = 'number'): string {
-  const abs = Math.abs(value);
-  const prefix = format === 'currency' ? '$' : '';
-  const suffix = format === 'percentage' ? '%' : '';
-  
-  if (abs >= 1e9) return `${prefix}${(value / 1e9).toFixed(1)}B${suffix}`;
-  if (abs >= 1e6) return `${prefix}${(value / 1e6).toFixed(1)}M${suffix}`;
-  if (abs >= 1e3) return `${prefix}${(value / 1e3).toFixed(1)}K${suffix}`;
-  
-  if (format === 'percentage') return `${(value * 100).toFixed(0)}%`;
-  return `${prefix}${value.toFixed(0)}${suffix}`;
-}
 
 // Format column name for display
 function formatName(name: string): string {
@@ -34,13 +21,15 @@ function formatName(name: string): string {
 }
 
 export function FileUploader() {
-  const { dataset, setDataset, setCurrentChart, addToHistory, setIsUploading, isUploading, clearData } = useData();
+  const { dataset, setDataset, setCurrentChart, addToHistory, setIsUploading, isUploading, clearData, beginQuery, isCurrentQuery, finishQuery } = useData();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [isCleaningReportOpen, setIsCleaningReportOpen] = useState(false);
   const [isQualityInfoOpen, setIsQualityInfoOpen] = useState(false);
+  const uploadRequestRef = useRef(0);
 
-  const applyUploadResponse = useCallback(async (response: UploadResponse) => {
+  const applyUploadResponse = useCallback(async (response: UploadResponse, uploadRequestId: number) => {
+    if (uploadRequestRef.current !== uploadRequestId) return;
     setDataset({
       datasetId: response.dataset_id,
       filename: response.filename,
@@ -56,6 +45,8 @@ export function FileUploader() {
 
     // Auto-render default chart if available
     if (response.default_chart) {
+      const controller = new AbortController();
+      const queryRequestId = beginQuery(response.dataset_id, controller);
       try {
         const chartData = await aggregateData({
           dataset_id: response.dataset_id,
@@ -63,25 +54,37 @@ export function FileUploader() {
           y_axis_keys: response.default_chart.y_axis_keys,
           aggregation: response.default_chart.aggregation,
           chart_type: response.default_chart.chart_type,
+          signal: controller.signal,
         });
         
+        if (uploadRequestRef.current !== uploadRequestId || controller.signal.aborted
+          || !isCurrentQuery(queryRequestId, response.dataset_id)) return;
         chartData.analysis = response.default_chart.analysis;
         setCurrentChart(chartData);
         addToHistory('Auto-generated insight', chartData, false);
         
-        toast.success('Data loaded with instant insight!', {
-          description: response.default_chart.title,
-        });
+        if (chartData.chart_type === 'empty') {
+          toast.message('The default chart needs clarification. See the response below.');
+        } else {
+          toast.success('Data loaded with instant insight!', {
+            description: response.default_chart.title,
+          });
+        }
       } catch (e) {
-        console.error('Default chart error:', e);
-        toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
+        if (uploadRequestRef.current === uploadRequestId && !controller.signal.aborted
+          && isCurrentQuery(queryRequestId, response.dataset_id)) {
+          console.error('Default chart error:', e);
+          toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
+        }
+      } finally {
+        finishQuery(queryRequestId);
       }
     } else if (response.data_health.cleaning_actions.length > 0) {
       toast.success(`Data cleaned: ${response.data_health.cleaning_actions.length} improvements`);
     } else {
       toast.success(`Loaded ${response.row_count.toLocaleString()} rows`);
     }
-  }, [setDataset, setCurrentChart, addToHistory]);
+  }, [setDataset, setCurrentChart, addToHistory, beginQuery, isCurrentQuery, finishQuery]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -89,14 +92,17 @@ export function FileUploader() {
 
     setUploadError(null);
     setIsUploading(true);
+    const uploadRequestId = ++uploadRequestRef.current;
 
     try {
       const response = await uploadCSV(file);
-      await applyUploadResponse(response);
+      await applyUploadResponse(response, uploadRequestId);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Upload failed';
-      setUploadError(message);
-      toast.error(message);
+      if (uploadRequestRef.current === uploadRequestId) {
+        const message = error instanceof Error ? error.message : 'Upload failed';
+        setUploadError(message);
+        toast.error(message);
+      }
     } finally {
       setIsUploading(false);
     }
@@ -106,14 +112,17 @@ export function FileUploader() {
     setUploadError(null);
     setIsDemoLoading(true);
     setIsUploading(true);
+    const uploadRequestId = ++uploadRequestRef.current;
 
     try {
       const response = await loadDemoDataset(dataset);
-      await applyUploadResponse(response);
+      await applyUploadResponse(response, uploadRequestId);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Demo load failed';
-      setUploadError(message);
-      toast.error(message);
+      if (uploadRequestRef.current === uploadRequestId) {
+        const message = error instanceof Error ? error.message : 'Demo load failed';
+        setUploadError(message);
+        toast.error(message);
+      }
     } finally {
       setIsDemoLoading(false);
       setIsUploading(false);
@@ -168,7 +177,7 @@ export function FileUploader() {
                 </p>
                 {isQualityInfoOpen && (
                   <div className="mt-2 rounded-md border border-border/50 bg-card/40 p-2 text-xs text-muted-foreground">
-                    <p>Quality = 100 - (missing cells / total cells), measured before imputations.</p>
+                    <p>Quality = 100 - (missing cells / total cells), based on source missing values. Missing values are preserved.</p>
                     <p className="mt-1">Missing cells: {missingCells.toLocaleString()} / {totalCells.toLocaleString()}</p>
                     <p className="mt-1 text-muted-foreground/80">
                       This score currently reflects completeness, not outliers or duplicates.
@@ -178,13 +187,17 @@ export function FileUploader() {
                 {/* Executive Summary with smart formatting */}
                 {profile.top_metrics.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-3">
-                    {profile.top_metrics.slice(0, 2).map(m => (
-                      <div key={m.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <TrendingUp className="h-3 w-3 text-primary" />
-                        <span className="font-medium">{formatName(m.name)}:</span>
-                        <span>{formatCompact(m.total, dataset.columnFormats[m.name] || 'number')} total</span>
-                      </div>
-                    ))}
+                    {profile.top_metrics.slice(0, 2).map(m => {
+                      const isAverage = m.aggregation === 'mean';
+                      const value = isAverage ? m.average : m.total;
+                      return (
+                        <div key={m.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <TrendingUp className="h-3 w-3 text-primary" />
+                          <span className="font-medium">{formatName(m.name)}:</span>
+                          <span>{formatValue(value, dataset.columnFormats[m.name] || 'number', { compact: true })} {isAverage ? 'average' : 'total'}</span>
+                        </div>
+                      );
+                    })}
                     {profile.time_range && (
                       <div className="text-xs text-muted-foreground">
                         📅 {profile.time_range.start.slice(0, 10)} → {profile.time_range.end.slice(0, 10)}
@@ -194,7 +207,7 @@ export function FileUploader() {
                 )}
               </div>
             </div>
-            <button onClick={clearData} className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-white">
+            <button onClick={() => { uploadRequestRef.current += 1; clearData(); }} className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-white">
               Upload New
             </button>
           </div>

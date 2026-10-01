@@ -5,6 +5,7 @@ In-memory dataset management with TTL expiration
 
 import uuid
 from datetime import datetime, timedelta
+from threading import RLock
 from typing import Optional
 
 import pandas as pd
@@ -25,10 +26,19 @@ class DatasetInfo:
         profile: dict, 
         default_chart: Optional[dict],
         suggestions: list[str], 
-        summary: Optional[str] = None
+        summary: Optional[str] = None,
+        raw_df: Optional[pd.DataFrame] = None,
     ):
         self.id = str(uuid.uuid4())
         self.df = df
+        # Keep the source separately from the parsed analytics view. Ingestion
+        # supplies an already detached frame; callers without one get a copy.
+        self.raw_df = raw_df if raw_df is not None else df.copy(deep=True)
+        self.raw_missing_counts = {
+            col: int(count)
+            for col, count in self.raw_df.isna().sum().items()
+            if count > 0
+        }
         self.filename = filename
         self.cleaning_actions = cleaning_actions
         self.missing_counts = missing_counts
@@ -53,33 +63,37 @@ class DatasetInfo:
 # Global dataset storage
 DATASETS: dict[str, DatasetInfo] = {}
 MAX_DATASETS = 10
+_DATASETS_LOCK = RLock()
 
 
 def cleanup_expired():
     """Remove expired datasets from memory"""
-    expired = [k for k, v in DATASETS.items() if v.is_expired()]
-    for k in expired:
-        del DATASETS[k]
+    with _DATASETS_LOCK:
+        expired = [k for k, v in DATASETS.items() if v.is_expired()]
+        for k in expired:
+            del DATASETS[k]
 
 
 def get_dataset(dataset_id: str) -> DatasetInfo:
     """Retrieve dataset by ID, with expiration check"""
-    cleanup_expired()
-    if dataset_id not in DATASETS:
-        raise HTTPException(status_code=404, detail="Dataset not found or expired. Please re-upload.")
-    ds = DATASETS[dataset_id]
-    ds.touch()
-    return ds
+    with _DATASETS_LOCK:
+        cleanup_expired()
+        if dataset_id not in DATASETS:
+            raise HTTPException(status_code=404, detail="Dataset not found or expired. Please re-upload.")
+        ds = DATASETS[dataset_id]
+        ds.touch()
+        return ds
 
 
 def store_dataset(ds_info: DatasetInfo) -> str:
     """Store dataset and return its ID"""
-    cleanup_expired()
-    
-    # Evict oldest if at capacity
-    if len(DATASETS) >= MAX_DATASETS:
-        oldest_id = min(DATASETS.keys(), key=lambda k: DATASETS[k].last_accessed)
-        del DATASETS[oldest_id]
-    
-    DATASETS[ds_info.id] = ds_info
-    return ds_info.id
+    with _DATASETS_LOCK:
+        cleanup_expired()
+
+        # Evict oldest if at capacity.
+        if len(DATASETS) >= MAX_DATASETS:
+            oldest_id = min(DATASETS.keys(), key=lambda k: DATASETS[k].last_accessed)
+            del DATASETS[oldest_id]
+
+        DATASETS[ds_info.id] = ds_info
+        return ds_info.id

@@ -16,11 +16,16 @@ def df_to_markdown(df: pd.DataFrame, n: int = 5) -> str:
 
 
 def read_csv_fast(source: str | Path | TextIO) -> pd.DataFrame:
-    """Read CSV using pyarrow when available, with safe fallback."""
-    try:
-        return pd.read_csv(source, engine="pyarrow")
-    except Exception:
-        if hasattr(source, "seek"):
-            source.seek(0)
-            return pd.read_csv(source, low_memory=False)
-        return pd.read_csv(source, low_memory=False)
+    """Read source lexemes before any analytics type inference.
+
+    Pandas' PyArrow engine can infer numeric values before applying dtype=str,
+    stripping identifier zeros. The C engine applies string typing at read time.
+    """
+    return pd.read_csv(
+        source,
+        engine="c",
+        dtype=str,
+        keep_default_na=False,
+        na_values=[""],
+        low_memory=False,
+    )

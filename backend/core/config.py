@@ -4,14 +4,16 @@ Application configuration and shared clients/constants.
 
 import os
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from fastapi import HTTPException
 
 load_dotenv()
 
 APP_TITLE = "Analytico API V5"
-APP_DESCRIPTION = "Zero Friction Enterprise Analytics - Modular Architecture"
+APP_DESCRIPTION = "Local-first CSV analytics API"
 APP_VERSION = "5.0.0"
 
 CORS_ALLOW_ORIGINS = [
@@ -21,7 +23,28 @@ CORS_ALLOW_ORIGINS = [
     "http://127.0.0.1:3001",
 ]
 
-OPENAI_CLIENT = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+OPENAI_TIMEOUT_SECONDS = 10.0
+OPENAI_MAX_RETRIES = 1
+_openai_client: Optional[OpenAI] = None
+_openai_client_key: Optional[str] = None
+
+
+def get_openai_client() -> OpenAI:
+    """Create the optional provider client only when an AI feature is used."""
+    global _openai_client, _openai_client_key
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="AI features require OPENAI_API_KEY.")
+    if _openai_client is None or _openai_client_key != api_key:
+        _openai_client = OpenAI(
+            api_key=api_key,
+            timeout=OPENAI_TIMEOUT_SECONDS,
+            max_retries=OPENAI_MAX_RETRIES,
+        )
+        _openai_client_key = api_key
+    return _openai_client
 
 DEMO_DATASETS = {
     "taxi": {
@@ -34,30 +57,24 @@ DEMO_DATASETS = {
     },
 }
 
-ALLOWED_FILTER_OPERATORS = {"eq", "gt", "lt", "gte", "lte", "contains"}
 MAX_CHART_POINTS = 500
 
-SYSTEM_PROMPT = """You are a data visualization assistant. Given a user question and dataset metadata, return JSON with:
+SYSTEM_PROMPT = """You plan local CSV charts from the supplied dataset columns and a user question.
 
-1. xAxisKey: Column for X-axis
-2. yAxisKeys: Numeric columns for Y-axis
-3. chartType: "bar", "line", "area", "pie", or "composed"
-4. aggregation: "sum", "mean", "count", "min", "max"
-5. title: Chart title
-6. xAxisLabel: Human-readable X-axis label (e.g., "Department")
-7. yAxisLabel: Human-readable Y-axis label (e.g., "Total Revenue ($)")
-8. analysis: A 2-sentence business insight. First sentence summarizes what is shown, second sentence highlights the key trend or outlier.
-9. calculated_field: Optional {name, expression} for derived metrics
+Return one strict JSON object matching the provided schema. For a supported grouped
+sum, mean, median, count, minimum, or maximum, use kind=chart and choose exact
+column names. Use kind=clarification for calculations that need unsupported
+statistics, predictions, derived fields, or multi-step transformations. Explain
+what the user can ask instead in clarification. Do not claim to have computed an
+insight; the application computes the chart after your plan is validated.
 
 Rules:
-- IDENTIFIER columns: use COUNT only
-- TEMPORAL columns: prefer as X-axis
-- Format labels based on column format (currency -> include $)
-
-ROUTING DECISION:
-- Primary goal: produce a JSON chart configuration that visualizes the answer.
-- If the user asks for basic aggregations (sum, average/mean, min, max, count), grouped by category or time, you MUST return JSON config and MUST NOT use the Python tool.
-- Infer the best chart type even if the user asks for a single number; default to a chartable aggregation JSON response whenever possible.
-- Use the Python tool only as a fallback for advanced statistics or multi-step transformations that cannot be represented as a standard aggregated chart.
-
-Return ONLY raw JSON, no markdown."""
+- Use only exact dataset column names for axes and filters.
+- Prefer numeric metric columns for measures and temporal columns for time trends.
+- Use count for identifier fields and non-numeric measures.
+- Add filters only when the question clearly asks for them.
+- Filter values must be scalar strings, numbers, or booleans.
+- Keep chart titles and labels short and factual.
+- A chart plan must include an X-axis and at least one measure.
+- A clarification plan must include a concise user-facing clarification.
+"""

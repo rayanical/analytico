@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:helpers": "node scripts/check-helpers.cjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",

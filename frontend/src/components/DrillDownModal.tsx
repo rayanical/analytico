@@ -2,11 +2,11 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ExternalLink, Download } from 'lucide-react';
+import { X, ExternalLink } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 
 export function DrillDownModal() {
-  const { drillDownData, setDrillDownData, isDrillDownOpen, setIsDrillDownOpen } = useData();
+  const { drillDownData, isDrillDownOpen, setIsDrillDownOpen } = useData();
 
   if (!isDrillDownOpen || !drillDownData) return null;
 

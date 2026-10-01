@@ -1,10 +1,12 @@
 import io
+import os
 import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -13,6 +15,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 from main import app
 from models import UploadResponse
+from storage import DATASETS
 
 
 class ApiSmokeTests(unittest.TestCase):
@@ -86,9 +89,74 @@ class ApiSmokeTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["filename"], "upload.csv")
 
+    def test_upload_and_manual_aggregate_work_without_ai_key(self):
+        DATASETS.clear()
+        self.addCleanup(DATASETS.clear)
+        with patch.dict(os.environ, {"OPENAI_API_KEY": ""}):
+            response = self.client.post(
+                "/upload",
+                files={
+                    "file": (
+                        "manual.csv",
+                        io.BytesIO(b"category,amount\nA,10\nB,20\nC,30\n"),
+                        "text/csv",
+                    )
+                },
+            )
+            self.assertEqual(response.status_code, 200)
+            uploaded = response.json()
+            self.assertIsNone(uploaded["summary"])
+            chart = self.client.post(
+                "/aggregate",
+                json={
+                    "dataset_id": uploaded["dataset_id"],
+                    "x_axis_key": "category",
+                    "y_axis_keys": ["amount"],
+                    "aggregation": "sum",
+                    "sort_by": "label",
+                    "group_others": False,
+                },
+            )
+        self.assertEqual(chart.status_code, 200)
+        self.assertEqual([row["amount"] for row in chart.json()["data"]], [10, 20, 30])
+
+    def test_upload_preserves_domain_http_status(self):
+        with patch("routers.ingestion.read_csv_fast", return_value=pd.DataFrame({"value": [1]})), patch(
+            "routers.ingestion.ingest_dataframe",
+            side_effect=HTTPException(status_code=422, detail="invalid ingestion request"),
+        ):
+            response = self.client.post(
+                "/upload",
+                files={"file": ("upload.csv", io.BytesIO(b"value\n1\n"), "text/csv")},
+            )
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "invalid ingestion request")
+
+    def test_malformed_csv_is_a_client_error_and_internal_errors_remain_server_errors(self):
+        malformed = self.client.post(
+            "/upload",
+            files={"file": ("bad.csv", io.BytesIO(b"value,other\n1\n2,3,4\n"), "text/csv")},
+        )
+        self.assertEqual(malformed.status_code, 400)
+
+        with patch("routers.ingestion.read_csv_fast", return_value=pd.DataFrame({"value": [1]})), patch(
+            "routers.ingestion.ingest_dataframe", side_effect=RuntimeError("internal failure")
+        ):
+            internal = self.client.post(
+                "/upload",
+                files={"file": ("upload.csv", io.BytesIO(b"value\n1\n"), "text/csv")},
+            )
+        self.assertEqual(internal.status_code, 500)
+
     def test_load_demo_taxi_gapminder_and_unknown(self):
         fake_df = pd.DataFrame({"value": [1, 2]})
-        with patch("routers.ingestion.read_csv_fast", return_value=fake_df), patch(
+        demo_fixtures = {
+            "taxi": {"filename": "taxi.csv", "path": BACKEND_DIR / "main.py"},
+            "gapminder": {"filename": "gapminder.csv", "path": BACKEND_DIR / "main.py"},
+        }
+        with patch("routers.ingestion.DEMO_DATASETS", demo_fixtures), patch(
+            "routers.ingestion.read_csv_fast", return_value=fake_df
+        ), patch(
             "routers.ingestion.ingest_dataframe", return_value=self._fake_upload_response("demo.csv")
         ):
             taxi = self.client.post("/load-demo", params={"dataset": "taxi"})

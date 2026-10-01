@@ -129,8 +129,8 @@
 }
 
 .dashboard-grid-container .react-grid-item.react-grid-placeholder {
-  background: hsl(var(--primary) / 0.18);
-  border: 1px dashed hsl(var(--primary) / 0.45);
+  background: color-mix(in oklch, var(--primary) 18%, transparent);
+  border: 1px dashed color-mix(in oklch, var(--primary) 45%, transparent);
   border-radius: var(--radius-lg);
 }
 

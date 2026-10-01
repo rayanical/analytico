@@ -5,12 +5,16 @@ from typing import Optional
 
 import pandas as pd
 
-from core.config import ALLOWED_FILTER_OPERATORS, MAX_CHART_POINTS
+from core.config import MAX_CHART_POINTS
 from models import FilterConfig
 
 
+class FilterValidationError(ValueError):
+    """A filter could not be applied without changing its meaning."""
+
+
 def validate_columns(df: pd.DataFrame, cols: list[str]) -> tuple[bool, list[str], dict[str, list[str]]]:
-    """Validate that columns exist, suggest alternatives if not."""
+    """Validate that columns exist, suggesting alternatives for chart axes."""
     df_cols = df.columns.tolist()
     missing = [c for c in cols if c not in df_cols]
     if not missing:
@@ -19,71 +23,138 @@ def validate_columns(df: pd.DataFrame, cols: list[str]) -> tuple[bool, list[str]
     return False, missing, suggestions
 
 
-def _apply_operator_filter(filtered: pd.DataFrame, f: FilterConfig, applied: list[str]) -> pd.DataFrame:
-    """Apply a single operator-style filter safely without mutating column dtypes."""
-    if not f.operator or f.value is None:
-        return filtered
+def _as_numeric(value, column: str) -> float:
+    if isinstance(value, bool):
+        raise FilterValidationError(f"Filter for '{column}' requires a numeric value.")
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise FilterValidationError(f"Filter for '{column}' requires a numeric value.") from exc
+    if pd.isna(number) or number in (float("inf"), float("-inf")):
+        raise FilterValidationError(f"Filter for '{column}' requires a finite numeric value.")
+    return number
 
-    op = f.operator.lower()
-    if op not in ALLOWED_FILTER_OPERATORS:
-        applied.append(f"{f.column}: skipped invalid operator '{f.operator}'")
-        return filtered
 
-    col = filtered[f.column]
-    mask = None
+def _as_datetime(value, series: pd.Series, column: str) -> pd.Timestamp:
+    try:
+        stamp = pd.Timestamp(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise FilterValidationError(f"Filter for '{column}' requires a valid date or timestamp.") from exc
+    if pd.isna(stamp):
+        raise FilterValidationError(f"Filter for '{column}' requires a valid date or timestamp.")
 
-    if op == "eq":
-        mask = col.astype(str) == str(f.value)
-        applied.append(f"{f.column} == {f.value}")
-    elif op == "contains":
-        mask = col.astype(str).str.contains(str(f.value), case=False, na=False, regex=False)
-        applied.append(f"{f.column} contains '{f.value}'")
-    elif op in {"gt", "lt", "gte", "lte"}:
-        if pd.api.types.is_datetime64_any_dtype(col):
-            cmp_value = pd.to_datetime(f.value, errors="coerce")
-            if pd.isna(cmp_value):
-                applied.append(f"{f.column}: skipped invalid datetime value '{f.value}'")
-                return filtered
-            if op == "gt":
-                mask = col > cmp_value
-                applied.append(f"{f.column} > {f.value}")
-            elif op == "lt":
-                mask = col < cmp_value
-                applied.append(f"{f.column} < {f.value}")
-            elif op == "gte":
-                mask = col >= cmp_value
-                applied.append(f"{f.column} >= {f.value}")
-            elif op == "lte":
-                mask = col <= cmp_value
-                applied.append(f"{f.column} <= {f.value}")
+    source_tz = series.dt.tz
+    if source_tz is None and stamp.tzinfo is not None:
+        stamp = stamp.tz_localize(None)
+    elif source_tz is not None and stamp.tzinfo is None:
+        stamp = stamp.tz_localize(source_tz)
+    elif source_tz is not None:
+        stamp = stamp.tz_convert(source_tz)
+    return stamp
+
+
+def _coerce_value(series: pd.Series, value, column: str):
+    if pd.api.types.is_datetime64_any_dtype(series):
+        return _as_datetime(value, series, column)
+    if pd.api.types.is_bool_dtype(series):
+        if type(value) is not bool:
+            raise FilterValidationError(f"Filter for '{column}' requires a boolean value.")
+        return value
+    if pd.api.types.is_numeric_dtype(series):
+        return _as_numeric(value, column)
+    if isinstance(value, (dict, list, tuple, set)) or value is None:
+        raise FilterValidationError(f"Filter for '{column}' requires a scalar value.")
+    return str(value)
+
+
+def _comparison_mask(series: pd.Series, operator: str, value, column: str) -> pd.Series:
+    is_datetime = pd.api.types.is_datetime64_any_dtype(series)
+    is_numeric = pd.api.types.is_numeric_dtype(series)
+    is_boolean = pd.api.types.is_bool_dtype(series)
+    if operator == "contains":
+        if is_numeric or is_datetime or is_boolean:
+            raise FilterValidationError(f"The contains operator is not supported for '{column}'.")
+        return series.astype("string").str.contains(value, case=False, na=False, regex=False)
+
+    if operator != "eq" and not (is_numeric or is_datetime):
+        raise FilterValidationError(f"Operator '{operator}' requires a numeric or date column ('{column}').")
+
+    compare_value = _coerce_value(series, value, column)
+    if is_numeric:
+        left = pd.to_numeric(series, errors="coerce")
+    elif is_datetime:
+        left = series
+    elif is_boolean:
+        left = series
+    else:
+        left = series.astype("string")
+
+    if operator == "eq":
+        mask = left == compare_value
+    elif operator == "gt":
+        mask = left > compare_value
+    elif operator == "lt":
+        mask = left < compare_value
+    elif operator == "gte":
+        mask = left >= compare_value
+    elif operator == "lte":
+        mask = left <= compare_value
+    else:
+        raise FilterValidationError(f"Unsupported filter operator '{operator}'.")
+    return mask.fillna(False)
+
+
+def _apply_one(filtered: pd.DataFrame, f: FilterConfig, applied: list[str]) -> pd.DataFrame:
+    if f.column not in filtered.columns:
+        raise FilterValidationError(f"Unknown filter column '{f.column}'.")
+    series = filtered[f.column]
+
+    if f.operator is not None:
+        filtered = filtered[_comparison_mask(series, f.operator, f.value, f.column)]
+        applied.append(f"{f.column} {f.operator} {f.value}")
+        series = filtered[f.column]
+
+    if f.values is not None:
+        includes_null = any(value is None for value in f.values)
+        normalized = [_coerce_value(series, value, f.column) for value in f.values if value is not None]
+        if pd.api.types.is_numeric_dtype(series):
+            left = pd.to_numeric(series, errors="coerce")
+        elif pd.api.types.is_datetime64_any_dtype(series):
+            left = series
+        elif pd.api.types.is_bool_dtype(series):
+            left = series
         else:
-            try:
-                num_value = float(f.value)
-            except (TypeError, ValueError):
-                applied.append(f"{f.column}: skipped invalid numeric value '{f.value}'")
-                return filtered
-            num_col = pd.to_numeric(col, errors="coerce")
-            if op == "gt":
-                mask = num_col > num_value
-                applied.append(f"{f.column} > {f.value}")
-            elif op == "lt":
-                mask = num_col < num_value
-                applied.append(f"{f.column} < {f.value}")
-            elif op == "gte":
-                mask = num_col >= num_value
-                applied.append(f"{f.column} >= {f.value}")
-            elif op == "lte":
-                mask = num_col <= num_value
-                applied.append(f"{f.column} <= {f.value}")
+            left = series.astype("string")
+        mask = left.isin(normalized)
+        if includes_null:
+            mask = mask | series.isna()
+        filtered = filtered[mask]
+        preview = ", ".join(str(value) for value in f.values[:3])
+        applied.append(f"{f.column} in ({preview})")
+        series = filtered[f.column]
 
-    if mask is None:
-        return filtered
-    return filtered[mask.fillna(False)]
+    if f.min_val is not None and f.max_val is not None:
+        lower = _coerce_value(series, f.min_val, f.column)
+        upper = _coerce_value(series, f.max_val, f.column)
+        if lower > upper:
+            raise FilterValidationError(f"Minimum filter value exceeds maximum for '{f.column}'.")
+
+    if f.min_val is not None:
+        filtered = filtered[_comparison_mask(series, "gte", f.min_val, f.column)]
+        applied.append(f"{f.column} >= {f.min_val}")
+        series = filtered[f.column]
+    if f.max_val is not None:
+        filtered = filtered[_comparison_mask(series, "lte", f.max_val, f.column)]
+        applied.append(f"{f.column} <= {f.max_val}")
+
+    return filtered
 
 
 def resolve_effective_limit(requested_limit: Optional[int], default_limit: int) -> tuple[int, Optional[str]]:
-    """Resolve limit with hard cap to avoid frontend rendering performance issues."""
+    """Resolve a request limit while keeping chart responses within the hard cap."""
     raw_limit = requested_limit if requested_limit is not None else default_limit
+    if raw_limit < 0:
+        raise ValueError("Limit must be zero or a positive integer.")
     if raw_limit == 0:
         return MAX_CHART_POINTS, (
             f"Result capped at {MAX_CHART_POINTS} points for performance. "
@@ -98,35 +169,12 @@ def resolve_effective_limit(requested_limit: Optional[int], default_limit: int) 
 
 
 def apply_filters(df: pd.DataFrame, filters: Optional[list[FilterConfig]]) -> tuple[pd.DataFrame, list[str]]:
-    """Apply filter configurations to dataframe."""
+    """Apply every filter or fail clearly; malformed filters are never skipped."""
     if not filters:
         return df, []
 
-    applied = []
+    applied: list[str] = []
     filtered = df.copy()
-
-    for f in filters:
-        if f.column not in filtered.columns:
-            continue
-
-        filtered = _apply_operator_filter(filtered, f, applied)
-
-        if f.values:
-            str_values = [str(v) for v in f.values]
-            filtered = filtered[filtered[f.column].astype(str).isin(str_values)]
-            applied.append(f"{f.column}: {', '.join(str(v) for v in f.values[:3])}")
-
-        if f.min_val is not None:
-            filtered = _apply_operator_filter(
-                filtered,
-                FilterConfig(column=f.column, operator="gte", value=f.min_val),
-                applied,
-            )
-        if f.max_val is not None:
-            filtered = _apply_operator_filter(
-                filtered,
-                FilterConfig(column=f.column, operator="lte", value=f.max_val),
-                applied,
-            )
-
+    for filter_config in filters:
+        filtered = _apply_one(filtered, filter_config, applied)
     return filtered, applied

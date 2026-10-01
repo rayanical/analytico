@@ -17,22 +17,22 @@ class SemanticType:
 def detect_semantic_type(df: pd.DataFrame, col: str) -> str:
     """Detect semantic type of a column"""
     series = df[col]
-    col_lower = col.lower()
+    tokens = set(col.lower().split("_"))
     
     # Check for datetime
     if pd.api.types.is_datetime64_any_dtype(series):
         return SemanticType.TEMPORAL
     
-    # Check for date-like column names
-    if any(kw in col_lower for kw in ['date', 'time', 'year', 'month', 'day', 'timestamp']):
-        return SemanticType.TEMPORAL
-    
     # Check for identifier patterns
-    if any(kw in col_lower for kw in ['id', 'code', 'key', 'name', 'email', 'phone', 'address']):
+    if tokens & {"id", "code", "key", "name", "email", "phone", "address", "zip", "postal", "ssn", "account", "serial", "ref"}:
         return SemanticType.IDENTIFIER
     
     # Numeric columns
     if pd.api.types.is_numeric_dtype(series):
+        if "year" in tokens:
+            years = series.dropna()
+            if len(years) and years.map(lambda value: float(value).is_integer() and 1000 <= value <= 2200).all():
+                return SemanticType.TEMPORAL
         unique_ratio = series.nunique() / max(len(series), 1)
         # High cardinality numeric = likely metric
         if unique_ratio > 0.5:
@@ -52,22 +52,33 @@ def detect_semantic_type(df: pd.DataFrame, col: str) -> str:
 def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Optional[dict]:
     """Generate the best default chart configuration"""
     # Find temporal, categorical, and metric columns
-    temporal_cols = [c for c, t in column_types.items() if t == SemanticType.TEMPORAL]
+    temporal_cols = [
+        c for c, t in column_types.items()
+        if t == SemanticType.TEMPORAL
+        and (pd.api.types.is_datetime64_any_dtype(df[c]) or _is_numeric_year(df[c], c))
+    ]
     categorical_cols = [c for c, t in column_types.items() if t == SemanticType.CATEGORICAL]
-    metric_cols = [c for c, t in column_types.items() if t == SemanticType.METRIC]
+    metric_cols = [
+        c for c, t in column_types.items()
+        if t == SemanticType.METRIC and pd.api.types.is_numeric_dtype(df[c])
+    ]
     
     if not metric_cols:
         return None
+
+    metric = metric_cols[0]
+    aggregation = "mean"
     
     # Best case: temporal x-axis with metric y-axis
     if temporal_cols:
+        temporal = temporal_cols[0]
         return {
-            "x_axis_key": temporal_cols[0],
-            "y_axis_keys": metric_cols[:2],
+            "x_axis_key": temporal,
+            "y_axis_keys": [metric],
             "chart_type": "line",
-            "aggregation": "sum",
-            "title": f"{', '.join(metric_cols[:2])} Over Time".replace('_', ' ').title(),
-            "analysis": f"Tracking {metric_cols[0]} over time reveals historical trends and seasonality. This data helps identify growth patterns and potential cyclical behavior impacting {temporal_cols[0]}."
+            "aggregation": aggregation,
+            "title": f"Mean {metric} by {temporal}".replace('_', ' ').title(),
+            "analysis": f"Shows the mean of {metric} for each observed {temporal} value.",
         }
     
     # Second best: categorical x-axis with metric y-axis
@@ -76,33 +87,37 @@ def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Op
         best_cat = min(categorical_cols, key=lambda c: abs(df[c].nunique() - 10))
         return {
             "x_axis_key": best_cat,
-            "y_axis_keys": metric_cols[:2],
+            "y_axis_keys": [metric],
             "chart_type": "bar",
-            "aggregation": "sum",
-            "title": f"{', '.join(metric_cols[:2])} by {best_cat}".replace('_', ' ').title(),
-            "analysis": f"Comparing {metric_cols[0]} across {best_cat} segments highlights performance variances. This breakdown identifies which {best_cat} categories are driving the most value."
+            "aggregation": aggregation,
+            "title": f"Mean {metric} by {best_cat}".replace('_', ' ').title(),
+            "analysis": f"Shows the mean of {metric} for each observed {best_cat} value.",
         }
-    
-    # Fallback: first two metrics as composed chart
-    if len(metric_cols) >= 2:
-        return {
-            "x_axis_key": metric_cols[0],
-            "y_axis_keys": metric_cols[1:3],
-            "chart_type": "composed",
-            "aggregation": "sum",
-            "title": f"Correlation: {metric_cols[0]} vs {metric_cols[1]}".replace('_', ' ').title(),
-            "analysis": f"Analyzing the relationship between {metric_cols[0]} and {metric_cols[1]}. This correlation view helps determine if an increase in one metric drives changes in the other."
-        }
-    
+
     return None
 
 
-def auto_profile(df: pd.DataFrame, column_types: dict[str, str]) -> dict:
-    """Generate executive summary / auto-profile"""
-    # Sample frame reserved for heavy categorical profiling operations.
-    # Keep deterministic for stable outputs across runs.
-    sample_df = df.sample(n=min(100000, len(df)), random_state=42) if len(df) > 0 else df
+def _is_numeric_year(series: pd.Series, col: str) -> bool:
+    if "year" not in set(str(col).lower().split("_")) or not pd.api.types.is_numeric_dtype(series):
+        return False
+    values = series.dropna()
+    return bool(len(values) and values.map(lambda value: float(value).is_integer() and 1000 <= value <= 2200).all())
 
+
+def _non_additive_metric(col: str, column_format: Optional[str]) -> bool:
+    tokens = set(str(col).lower().split("_"))
+    joined_name = str(col).lower()
+    return column_format == "percentage" or "life_exp" in joined_name or bool(
+        tokens & {"rate", "ratio", "pct", "percent", "percentage", "lifeexp", "expectancy", "score", "index", "average", "mean", "age", "temperature"}
+    )
+
+
+def auto_profile(
+    df: pd.DataFrame,
+    column_types: dict[str, str],
+    column_formats: Optional[dict[str, str]] = None,
+) -> dict:
+    """Generate executive summary / auto-profile"""
     profile = {
         "top_metrics": [],
         "time_range": None,
@@ -111,22 +126,32 @@ def auto_profile(df: pd.DataFrame, column_types: dict[str, str]) -> dict:
     }
     
     # Find metric columns for summary
-    metric_cols = [c for c, t in column_types.items() if t == SemanticType.METRIC]
+    metric_cols = [
+        c for c, t in column_types.items()
+        if t == SemanticType.METRIC and pd.api.types.is_numeric_dtype(df[c])
+    ]
+    column_formats = column_formats or {}
     
     for col in metric_cols[:3]:  # Top 3 metrics
         series = df[col].dropna()
         if len(series) == 0:
             continue
+        recommended_aggregation = "mean" if _non_additive_metric(col, column_formats.get(col)) else "sum"
         profile["top_metrics"].append({
             "name": col,
             "total": float(series.sum()),
             "average": float(series.mean()),
             "min": float(series.min()),
-            "max": float(series.max())
+            "max": float(series.max()),
+            "aggregation": recommended_aggregation,
         })
     
     # Find temporal columns for range
-    temporal_cols = [c for c, t in column_types.items() if t == SemanticType.TEMPORAL]
+    temporal_cols = [
+        c for c, t in column_types.items()
+        if t == SemanticType.TEMPORAL
+        and (pd.api.types.is_datetime64_any_dtype(df[c]) or _is_numeric_year(df[c], c))
+    ]
     if temporal_cols:
         date_col = temporal_cols[0]
         if pd.api.types.is_datetime64_any_dtype(df[date_col]):
@@ -138,10 +163,6 @@ def auto_profile(df: pd.DataFrame, column_types: dict[str, str]) -> dict:
                     "end": str(valid_dates.max())
                 }
 
-    # Hook for future heavy categorical profile metrics: use sample_df for
-    # value_counts/nunique-style operations, while preserving current output shape.
-    _ = sample_df
-    
     return profile
 
 
@@ -149,7 +170,10 @@ def generate_dynamic_suggestions(df: pd.DataFrame, column_types: dict[str, str],
     """Generate concise, intent-diverse, dataset-aware example prompts."""
     suggestions: list[str] = []
     
-    metric_cols = [c for c, t in column_types.items() if t == SemanticType.METRIC]
+    metric_cols = [
+        c for c, t in column_types.items()
+        if t == SemanticType.METRIC and pd.api.types.is_numeric_dtype(df[c])
+    ]
     categorical_cols = [c for c, t in column_types.items() if t == SemanticType.CATEGORICAL]
     temporal_cols = [c for c, t in column_types.items() if t == SemanticType.TEMPORAL]
     

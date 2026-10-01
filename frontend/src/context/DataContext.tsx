@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import {
   ColumnSummary,
   ChartResponse,
@@ -9,27 +9,12 @@ import {
   ViewMode,
   BuilderMode,
   WorkspaceMode,
-  DataHealth,
-  DataProfile,
-  DefaultChart,
-  ColumnFormat,
   DashboardWidget,
   DashboardLayoutItem,
   DashboardUiState,
+  DatasetState,
 } from '@/types';
-
-interface DatasetState {
-  datasetId: string;
-  filename: string;
-  rowCount: number;
-  columns: ColumnSummary[];
-  columnFormats: Record<string, ColumnFormat>;
-  dataHealth: DataHealth;
-  profile: DataProfile;
-  defaultChart: DefaultChart | null;
-  suggestions: string[];
-  summary?: string;
-}
+import { isDatasetState } from '@/lib/storageValidation';
 
 interface DataContextType {
   dataset: DatasetState | null;
@@ -62,15 +47,18 @@ interface DataContextType {
   isUploading: boolean;
   setIsUploading: (loading: boolean) => void;
   isQuerying: boolean;
-  setIsQuerying: (loading: boolean) => void;
+  beginQuery: (datasetId: string, controller?: AbortController) => number;
+  isCurrentQuery: (requestId: number, datasetId: string) => boolean;
+  finishQuery: (requestId: number) => void;
+  isCurrentDataset: (datasetId: string) => boolean;
   // Column helpers
   numericColumns: ColumnSummary[];
   categoricalColumns: ColumnSummary[];
   metricColumns: ColumnSummary[];
   temporalColumns: ColumnSummary[];
   // Drill Down
-  drillDownData: any[] | null;
-  setDrillDownData: (data: any[] | null) => void;
+  drillDownData: Record<string, unknown>[] | null;
+  setDrillDownData: (data: Record<string, unknown>[] | null) => void;
   isDrillDownOpen: boolean;
   setIsDrillDownOpen: (open: boolean) => void;
   // Global Settings
@@ -95,6 +83,99 @@ const DEFAULT_DASHBOARD_UI: DashboardUiState = {
   isHeaderCollapsed: false,
   headerCollapseMode: 'auto',
 };
+
+function readStorage(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch (error) {
+    console.warn(`Unable to read saved ${key}`, error);
+    return null;
+  }
+}
+
+function writeStorage(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn(`Unable to save ${key}`, error);
+  }
+}
+
+function removeStorage(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.warn(`Unable to remove saved ${key}`, error);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isChartResponse(value: unknown): value is ChartResponse {
+  return isRecord(value)
+    && Array.isArray(value.data) && value.data.every(isRecord)
+    && typeof value.x_axis_key === 'string'
+    && Array.isArray(value.y_axis_keys) && value.y_axis_keys.every(key => typeof key === 'string')
+    && ['bar', 'line', 'area', 'pie', 'composed', 'empty'].includes(String(value.chart_type))
+    && typeof value.title === 'string'
+    && typeof value.row_count === 'number';
+}
+
+function isHistoryItem(value: unknown): value is HistoryItem {
+  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.datasetId !== 'string'
+    || typeof value.query !== 'string' || !isChartResponse(value.chartResponse)) return false;
+  const timestamp = new Date(value.timestamp as string | number | Date);
+  return Number.isFinite(timestamp.getTime());
+}
+
+function parseHistory(value: string | null): HistoryItem[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isHistoryItem).slice(0, 30).map(item => ({
+      ...item,
+      timestamp: new Date(item.timestamp),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function parseDashboardStore(value: string | null): Record<string, DashboardWidget[]> {
+  if (!value) return {};
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!isRecord(parsed)) return {};
+    return Object.fromEntries(Object.entries(parsed).map(([datasetId, widgets]) => [
+      datasetId,
+      Array.isArray(widgets) ? widgets.filter((widget): widget is DashboardWidget =>
+        isRecord(widget) && widget.datasetId === datasetId && typeof widget.id === 'string'
+        && isChartResponse(widget.chart) && isRecord(widget.layout)
+        && typeof widget.layout.x === 'number' && typeof widget.layout.y === 'number'
+        && typeof widget.layout.w === 'number' && typeof widget.layout.h === 'number'
+      ) : [],
+    ]));
+  } catch {
+    return {};
+  }
+}
+
+function parseDashboardUiStore(value: string | null): Record<string, DashboardUiState> {
+  if (!value) return {};
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!isRecord(parsed)) return {};
+    return Object.fromEntries(Object.entries(parsed).filter(([, state]) =>
+      isRecord(state) && typeof state.isHeaderCollapsed === 'boolean'
+      && (state.headerCollapseMode === 'auto' || state.headerCollapseMode === 'manual')
+    )) as Record<string, DashboardUiState>;
+  } catch {
+    return {};
+  }
+}
 
 function intersects(a: DashboardLayoutItem, b: DashboardLayoutItem): boolean {
   return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y);
@@ -138,7 +219,7 @@ function findNextLayoutSlot(
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [dataset, setDatasetInternal] = useState<DatasetState | null>(null);
-  const [currentChart, setCurrentChart] = useState<ChartResponse | null>(null);
+  const [currentChart, setCurrentChartInternal] = useState<ChartResponse | null>(null);
   const [filters, setFiltersInternal] = useState<FilterConfig[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('chart');
   const [builderMode, setBuilderMode] = useState<BuilderMode>('ai');
@@ -149,98 +230,208 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [dashboardUiStore, setDashboardUiStore] = useState<Record<string, DashboardUiState>>({});
   const [isUploading, setIsUploading] = useState(false);
   const [isQuerying, setIsQuerying] = useState(false);
-  const [drillDownData, setDrillDownData] = useState<any[] | null>(null);
+  const [drillDownData, setDrillDownData] = useState<Record<string, unknown>[] | null>(null);
   const [isDrillDownOpen, setIsDrillDownOpen] = useState(false);
-  const [groupOthers, setGroupOthers] = useState(true);
-  const [limit, setLimit] = useState(20);
-  const [sortBy, setSortBy] = useState<'value' | 'label'>('value');
-  const [isClient, setIsClient] = useState(false);
+  const [groupOthers, setGroupOthersInternal] = useState(true);
+  const [limit, setLimitInternal] = useState(20);
+  const [sortBy, setSortByInternal] = useState<'value' | 'label'>('value');
+  const [storageReady, setStorageReady] = useState(false);
+  const datasetIdRef = useRef<string | null>(null);
+  const datasetRevisionRef = useRef(0);
+  const queryRequestIdRef = useRef(0);
+  const activeQueryControllerRef = useRef<AbortController | null>(null);
+  const dashboardTouchedIdsRef = useRef(new Set<string>());
+  const dashboardUiTouchedIdsRef = useRef(new Set<string>());
+  const historyClearedDatasetIdsRef = useRef(new Set<string>());
+  const historyClearedAllRef = useRef(false);
+
+  const setCurrentChart = useCallback((chart: ChartResponse | null) => {
+    setCurrentChartInternal(chart);
+    setDrillDownData(null);
+    setIsDrillDownOpen(false);
+  }, []);
+
+  const beginQuery = useCallback((datasetId: string, controller?: AbortController) => {
+    activeQueryControllerRef.current?.abort();
+    activeQueryControllerRef.current = null;
+    const requestId = ++queryRequestIdRef.current;
+    if (datasetIdRef.current !== datasetId) {
+      controller?.abort();
+      setIsQuerying(false);
+      return requestId;
+    }
+    activeQueryControllerRef.current = controller ?? null;
+    setIsQuerying(true);
+    return requestId;
+  }, []);
+
+  const isCurrentQuery = useCallback((requestId: number, datasetId: string) =>
+    queryRequestIdRef.current === requestId && datasetIdRef.current === datasetId, []);
+
+  const finishQuery = useCallback((requestId: number) => {
+    if (queryRequestIdRef.current === requestId) {
+      activeQueryControllerRef.current = null;
+      setIsQuerying(false);
+    }
+  }, []);
+
+  const isCurrentDataset = useCallback((datasetId: string) => datasetIdRef.current === datasetId, []);
+
+  const invalidateQuery = useCallback(() => {
+    queryRequestIdRef.current += 1;
+    activeQueryControllerRef.current?.abort();
+    activeQueryControllerRef.current = null;
+    setIsQuerying(false);
+  }, []);
 
   useEffect(() => {
-    setIsClient(true);
     const loadAndValidate = async () => {
+      const startingRevision = datasetRevisionRef.current;
       try {
-        const saved = localStorage.getItem(DATASET_KEY);
-        const hist = localStorage.getItem(HISTORY_KEY);
-        const dashboard = localStorage.getItem(DASHBOARD_KEY);
-        const dashboardUi = localStorage.getItem(DASHBOARD_UI_KEY);
-        
-        if (hist) {
-          setHistory(JSON.parse(hist).map((i: HistoryItem) => ({ ...i, timestamp: new Date(i.timestamp) })));
-        }
-        if (dashboard) {
-          setDashboardStore(JSON.parse(dashboard));
-        }
-        if (dashboardUi) {
-          setDashboardUiStore(JSON.parse(dashboardUi));
-        }
+        const saved = readStorage(DATASET_KEY);
+        const savedHistory = parseHistory(readStorage(HISTORY_KEY));
+        setHistory(prev => {
+          const currentIds = new Set(prev.map(item => item.id));
+          const restored = historyClearedAllRef.current
+            ? []
+            : savedHistory.filter(item => !currentIds.has(item.id) && !historyClearedDatasetIdsRef.current.has(item.datasetId));
+          return [...prev, ...restored].slice(0, 30);
+        });
+
+        const savedDashboard = parseDashboardStore(readStorage(DASHBOARD_KEY));
+        setDashboardStore(prev => {
+          const merged = { ...savedDashboard };
+          for (const datasetId of dashboardTouchedIdsRef.current) {
+            if (datasetId in prev) merged[datasetId] = prev[datasetId];
+            else delete merged[datasetId];
+          }
+          return merged;
+        });
+
+        const savedDashboardUi = parseDashboardUiStore(readStorage(DASHBOARD_UI_KEY));
+        setDashboardUiStore(prev => {
+          const merged = { ...savedDashboardUi };
+          for (const datasetId of dashboardUiTouchedIdsRef.current) {
+            if (datasetId in prev) merged[datasetId] = prev[datasetId];
+            else delete merged[datasetId];
+          }
+          return merged;
+        });
         
         if (saved) {
-          const parsedDataset = JSON.parse(saved);
-          // Validate that dataset still exists in backend
+          let parsedDataset: unknown;
+          try {
+            parsedDataset = JSON.parse(saved);
+          } catch {
+            removeStorage(DATASET_KEY);
+            return;
+          }
+          if (!isDatasetState(parsedDataset)) {
+            removeStorage(DATASET_KEY);
+            return;
+          }
           const { validateDataset } = await import('@/lib/api');
-          const isValid = await validateDataset(parsedDataset.datasetId);
-          
-          if (isValid) {
+          const validation = await validateDataset(parsedDataset.datasetId);
+          if (datasetRevisionRef.current !== startingRevision) return;
+
+          if (validation === 'valid') {
+            datasetIdRef.current = parsedDataset.datasetId;
             setDatasetInternal(parsedDataset);
-          } else {
-            // Dataset expired or server restarted - clear stale data
-            localStorage.removeItem(DATASET_KEY);
-            console.log('Dataset expired - please re-upload');
+          } else if (validation === 'expired') {
+            removeStorage(DATASET_KEY);
           }
         }
       } catch (e) {
         console.error('Load error:', e);
+      } finally {
+        setStorageReady(true);
       }
     };
     loadAndValidate();
   }, []);
 
   const setDataset = useCallback((state: DatasetState | null) => {
+    activeQueryControllerRef.current?.abort();
+    activeQueryControllerRef.current = null;
+    datasetRevisionRef.current += 1;
+    queryRequestIdRef.current += 1;
+    datasetIdRef.current = state?.datasetId ?? null;
     setDatasetInternal(state);
-    setCurrentChart(null);
+    setCurrentChartInternal(null);
     setCurrentHistoryId(null);
     setFiltersInternal([]);
+    setIsQuerying(false);
+    setIsDrillDownOpen(false);
+    setDrillDownData(null);
+    setViewMode('chart');
+    setLimitInternal(20);
+    setGroupOthersInternal(true);
+    setSortByInternal('value');
     if (typeof window !== 'undefined') {
-      if (state) localStorage.setItem(DATASET_KEY, JSON.stringify(state));
-      else localStorage.removeItem(DATASET_KEY);
+      if (state) writeStorage(DATASET_KEY, JSON.stringify(state));
+      else removeStorage(DATASET_KEY);
     }
   }, []);
 
   useEffect(() => {
-    if (isClient && history.length > 0) {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-    }
-  }, [history, isClient]);
+    if (!storageReady) return;
+    writeStorage(HISTORY_KEY, JSON.stringify(history));
+  }, [history, storageReady]);
   useEffect(() => {
-    if (!isClient) return;
+    if (!storageReady) return;
     const timeout = setTimeout(() => {
-      localStorage.setItem(DASHBOARD_KEY, JSON.stringify(dashboardStore));
+      writeStorage(DASHBOARD_KEY, JSON.stringify(dashboardStore));
     }, 250);
     return () => clearTimeout(timeout);
-  }, [dashboardStore, isClient]);
+  }, [dashboardStore, storageReady]);
   useEffect(() => {
-    if (!isClient) return;
+    if (!storageReady) return;
     const timeout = setTimeout(() => {
-      localStorage.setItem(DASHBOARD_UI_KEY, JSON.stringify(dashboardUiStore));
+      writeStorage(DASHBOARD_UI_KEY, JSON.stringify(dashboardUiStore));
     }, 250);
     return () => clearTimeout(timeout);
-  }, [dashboardUiStore, isClient]);
+  }, [dashboardUiStore, storageReady]);
 
-  const setFilters = useCallback((f: FilterConfig[]) => setFiltersInternal(f), []);
+  const setFilters = useCallback((f: FilterConfig[]) => {
+    invalidateQuery();
+    setFiltersInternal(f);
+  }, [invalidateQuery]);
   const addFilter = useCallback((f: FilterConfig) => {
+    invalidateQuery();
     setFiltersInternal(prev => {
       const idx = prev.findIndex(x => x.column === f.column);
       if (idx >= 0) { const u = [...prev]; u[idx] = f; return u; }
       return [...prev, f];
     });
-  }, []);
-  const removeFilter = useCallback((col: string) => setFiltersInternal(prev => prev.filter(f => f.column !== col)), []);
-  const clearFilters = useCallback(() => setFiltersInternal([]), []);
+  }, [invalidateQuery]);
+  const removeFilter = useCallback((col: string) => {
+    invalidateQuery();
+    setFiltersInternal(prev => prev.filter(f => f.column !== col));
+  }, [invalidateQuery]);
+  const clearFilters = useCallback(() => {
+    invalidateQuery();
+    setFiltersInternal([]);
+  }, [invalidateQuery]);
+
+  const setLimit = useCallback((value: number) => {
+    invalidateQuery();
+    setLimitInternal(value);
+  }, [invalidateQuery]);
+  const setGroupOthers = useCallback((value: boolean) => {
+    invalidateQuery();
+    setGroupOthersInternal(value);
+  }, [invalidateQuery]);
+  const setSortBy = useCallback((value: 'value' | 'label') => {
+    invalidateQuery();
+    setSortByInternal(value);
+  }, [invalidateQuery]);
 
   const addToHistory = useCallback((query: string, response: ChartResponse, isManual: boolean) => {
+    const datasetId = datasetIdRef.current;
+    if (!datasetId) return;
     const entry: HistoryItem = {
       id: crypto.randomUUID(),
+      datasetId,
       query,
       chartResponse: response,
       timestamp: new Date(),
@@ -250,15 +441,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCurrentHistoryId(entry.id);
   }, []);
   const selectFromHistory = useCallback((item: HistoryItem) => {
+    if (!dataset || item.datasetId !== dataset.datasetId) return;
+    invalidateQuery();
     setCurrentChart(item.chartResponse);
     setCurrentHistoryId(item.id);
     setViewMode('chart');
-  }, []);
+  }, [dataset, invalidateQuery, setCurrentChart]);
   const clearHistory = useCallback(() => {
-    setHistory([]);
+    if (dataset) {
+      historyClearedDatasetIdsRef.current.add(dataset.datasetId);
+      setHistory(prev => prev.filter(item => item.datasetId !== dataset.datasetId));
+    } else {
+      historyClearedAllRef.current = true;
+      setHistory([]);
+    }
     setCurrentHistoryId(null);
-    if (typeof window !== 'undefined') localStorage.removeItem(HISTORY_KEY);
-  }, []);
+  }, [dataset]);
+  const visibleHistory = dataset ? history.filter(item => item.datasetId === dataset.datasetId) : [];
   const dashboardWidgets = dataset ? (dashboardStore[dataset.datasetId] ?? []) : [];
   const dashboardUiState = dataset ? (dashboardUiStore[dataset.datasetId] ?? DEFAULT_DASHBOARD_UI) : DEFAULT_DASHBOARD_UI;
 
@@ -266,6 +465,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!dataset || workspaceMode !== 'dashboard') return;
     const state = dashboardUiStore[dataset.datasetId] ?? DEFAULT_DASHBOARD_UI;
     if (state.headerCollapseMode === 'auto' && dashboardWidgets.length >= 1 && !state.isHeaderCollapsed) {
+      dashboardUiTouchedIdsRef.current.add(dataset.datasetId);
       setDashboardUiStore(prev => ({
         ...prev,
         [dataset.datasetId]: { isHeaderCollapsed: true, headerCollapseMode: 'auto' },
@@ -275,6 +475,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const setDashboardHeaderCollapsed = useCallback((collapsed: boolean, mode: 'auto' | 'manual' = 'manual') => {
     if (!dataset) return;
+    dashboardUiTouchedIdsRef.current.add(dataset.datasetId);
     setDashboardUiStore(prev => ({
       ...prev,
       [dataset.datasetId]: {
@@ -286,6 +487,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const pinCurrentChart = useCallback((chart: ChartResponse, sourceQuery?: string) => {
     if (!dataset || chart.chart_type === 'empty') return;
+    dashboardTouchedIdsRef.current.add(dataset.datasetId);
     const id = crypto.randomUUID();
     setDashboardStore(prev => {
       const existing = prev[dataset.datasetId] ?? [];
@@ -308,6 +510,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [dataset]);
   const removeWidget = useCallback((widgetId: string) => {
     if (!dataset) return;
+    dashboardTouchedIdsRef.current.add(dataset.datasetId);
     setDashboardStore(prev => ({
       ...prev,
       [dataset.datasetId]: (prev[dataset.datasetId] ?? []).filter(widget => widget.id !== widgetId),
@@ -315,6 +518,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [dataset]);
   const updateWidgetLayout = useCallback((layouts: DashboardLayoutItem[]) => {
     if (!dataset) return;
+    dashboardTouchedIdsRef.current.add(dataset.datasetId);
     setDashboardStore(prev => {
       const current = prev[dataset.datasetId] ?? [];
       const next = current.map(widget => {
@@ -329,19 +533,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [dataset]);
   const clearDashboard = useCallback(() => {
     if (!dataset) return;
+    dashboardTouchedIdsRef.current.add(dataset.datasetId);
     setDashboardStore(prev => ({
       ...prev,
       [dataset.datasetId]: [],
     }));
   }, [dataset]);
   const clearData = useCallback(() => {
-    setDatasetInternal(null);
-    setCurrentChart(null);
-    setCurrentHistoryId(null);
-    setFiltersInternal([]);
+    setDataset(null);
     setWorkspaceMode('explore');
-    if (typeof window !== 'undefined') localStorage.removeItem(DATASET_KEY);
-  }, []);
+  }, [setDataset]);
 
   const numericColumns = dataset?.columns.filter(c => c.is_numeric) ?? [];
   const categoricalColumns = dataset?.columns.filter(c => c.semantic_type === 'categorical') ?? [];
@@ -352,10 +553,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     <DataContext.Provider value={{
       dataset, setDataset, currentChart, setCurrentChart, filters, setFilters, addFilter, removeFilter, clearFilters,
       viewMode, setViewMode, builderMode, setBuilderMode, workspaceMode, setWorkspaceMode,
-      history, currentHistoryId, addToHistory, selectFromHistory, clearHistory,
+      history: visibleHistory, currentHistoryId, addToHistory, selectFromHistory, clearHistory,
       dashboardWidgets, pinCurrentChart, removeWidget, updateWidgetLayout, clearDashboard,
       dashboardUiState, setDashboardHeaderCollapsed,
-      isUploading, setIsUploading, isQuerying, setIsQuerying, numericColumns, categoricalColumns, metricColumns, temporalColumns, clearData,
+      isUploading, setIsUploading, isQuerying, beginQuery, isCurrentQuery, finishQuery, isCurrentDataset, numericColumns, categoricalColumns, metricColumns, temporalColumns, clearData,
       drillDownData, setDrillDownData, isDrillDownOpen, setIsDrillDownOpen,
       groupOthers, setGroupOthers, limit, setLimit, sortBy, setSortBy,
     }}>

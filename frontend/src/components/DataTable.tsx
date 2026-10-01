@@ -5,12 +5,24 @@ import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useData } from '@/context/DataContext';
+import { formatValue } from '@/lib/formatValue';
+import type { ChartResponse } from '@/types';
 
 const ROWS_PER_PAGE = 10;
 
 export function DataTable() {
-  const { currentChart } = useData();
-  const [page, setPage] = useState(0);
+  const { currentChart, dataset } = useData();
+  const [pagination, setPagination] = useState<{ chart: ChartResponse | null; page: number }>({ chart: null, page: 0 });
+  const page = pagination.chart === currentChart ? pagination.page : 0;
+  const setPage = (nextPage: number | ((currentPage: number) => number)) => {
+    setPagination(previous => {
+      const currentPage = previous.chart === currentChart ? previous.page : 0;
+      return {
+        chart: currentChart,
+        page: typeof nextPage === 'function' ? nextPage(currentPage) : nextPage,
+      };
+    });
+  };
 
   if (!currentChart || !currentChart.data.length) {
     return (
@@ -28,37 +40,13 @@ export function DataTable() {
   const endIdx = Math.min(startIdx + ROWS_PER_PAGE, data.length);
   const pageData = data.slice(startIdx, endIdx);
 
-  const formatValue = (value: unknown, column: string): string => {
-    if (value === null || value === undefined) return '—';
-    
-    const num = Number(value);
-    if (isNaN(num)) return String(value);
-    
-    // Currency formatting
-    const lowerCol = column.toLowerCase();
-    if (/sales|revenue|rev|cost|price|amount|profit/.test(lowerCol)) {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        notation: num >= 1000000 ? 'compact' : 'standard',
-        maximumFractionDigits: num >= 1000 ? 0 : 2,
-      }).format(num);
-    }
-    
-    // Percentage formatting
-    if (/rate|percent|ratio|pct/.test(lowerCol)) {
-      return `${num.toFixed(1)}%`;
-    }
-    
-    // Compact number formatting
-    if (num >= 1000) {
-      return new Intl.NumberFormat('en-US', {
-        notation: 'compact',
-        maximumFractionDigits: 1,
-      }).format(num);
-    }
-    
-    return num.toLocaleString();
+  const formatColumnValue = (value: unknown, column: string): string => {
+    const isMeasure = y_axis_keys.includes(column);
+    return formatValue(
+      value,
+      column === x_axis_key ? 'identifier' : dataset?.columnFormats[column] ?? 'number',
+      { aggregation: isMeasure ? currentChart.aggregation : undefined, compact: true },
+    );
   };
 
   return (
@@ -101,7 +89,7 @@ export function DataTable() {
               >
                 {columns.map(col => (
                   <td key={col} className="whitespace-nowrap px-6 py-3 text-sm">
-                    {formatValue(row[col], col)}
+                    {formatColumnValue(row[col], col)}
                   </td>
                 ))}
               </motion.tr>

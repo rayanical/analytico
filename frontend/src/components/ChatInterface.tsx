@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, FormEvent } from 'react';
+import React, { useEffect, useRef, useState, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,33 +10,54 @@ import { queryChart } from '@/lib/api';
 import { toast } from 'sonner';
 
 export function ChatInterface() {
-  const { dataset, filters, setCurrentChart, addToHistory, isQuerying, setIsQuerying, setViewMode, groupOthers, limit } = useData();
+  const { dataset, filters, setCurrentChart, addToHistory, isQuerying, beginQuery, isCurrentQuery, finishQuery, isCurrentDataset, setViewMode, groupOthers, limit } = useData();
   const [query, setQuery] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const requestControllerRef = useRef<AbortController | null>(null);
+  const filterSignature = JSON.stringify(filters);
+
+  useEffect(() => () => requestControllerRef.current?.abort(), [
+    dataset?.datasetId,
+    filterSignature,
+    groupOthers,
+    limit,
+  ]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!query.trim() || !dataset || isQuerying) return;
 
-    setIsQuerying(true);
+    const datasetId = dataset.datasetId;
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+    const requestId = beginQuery(datasetId, controller);
     try {
       const response = await queryChart({
-        dataset_id: dataset.datasetId,
+        dataset_id: datasetId,
         user_prompt: query.trim(),
         filters: filters.length > 0 ? filters : undefined,
         limit: limit,
         group_others: groupOthers,
+        signal: controller.signal,
       });
+      if (!isCurrentQuery(requestId, datasetId)) return;
       setCurrentChart(response);
       addToHistory(query.trim(), response, false);
       setViewMode('chart');
       setQuery('');
       setIsInputFocused(false);
-      toast.success(`Generated: ${response.title}`);
+      if (response.chart_type === 'empty') {
+        toast.message('The response needs clarification', { description: response.answer || response.analysis });
+      } else {
+        toast.success(`Generated: ${response.title}`);
+      }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to generate chart');
+      if (!controller.signal.aborted && isCurrentDataset(datasetId)) {
+        toast.error(error instanceof Error ? error.message : 'Failed to generate chart');
+      }
     } finally {
-      setIsQuerying(false);
+      if (requestControllerRef.current === controller) requestControllerRef.current = null;
+      finishQuery(requestId);
     }
   };
 

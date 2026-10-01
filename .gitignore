@@ -24,6 +24,9 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+.playwright-mcp/
+.playwright-cli/
+output/playwright/
 
 # Local data files (never commit datasets)
 *.csv

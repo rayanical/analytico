@@ -1,6 +1,6 @@
 # Analytico
 
-Analytico is a full-stack AI analytics application that takes users from quick exploration to exportable reporting.
+Analytico is a local-first analytics application that takes users from CSV exploration to exportable reporting. Manual analytics work without an AI key; optional AI features send selected dataset context to OpenAI.
 
 - **Explore Mode:** upload data, ask questions in natural language, or build charts manually.
 - **Dashboard Mode:** pin charts, drag/resize widgets on a snap grid, and assemble a report layout.
@@ -11,7 +11,7 @@ Analytico is a full-stack AI analytics application that takes users from quick e
 - **Backend:** Python, FastAPI, Pandas
 - **Frontend:** TypeScript, Next.js, Tailwind CSS
 - **Visualization:** Recharts, Framer Motion, react-grid-layout
-- **AI:** OpenAI GPT-4o-mini
+- **AI:** optional OpenAI integration (default model: GPT-4o-mini)
 - **Export:** html-to-image + jsPDF
 
 ---
@@ -20,13 +20,15 @@ Analytico is a full-stack AI analytics application that takes users from quick e
 
 ### 1) Data Ingestion
 
-- CSV upload with automatic cleaning and profiling.
-- Instant 1M-row demo dataset loading (no browser upload wait).
-- Deterministic format detection for numeric, currency, percentage, and date fields.
+- CSV upload with conservative parsing and profiling.
+- Included Gapminder demo; optional taxi demo when its CSV is installed.
+- Stable column names and conservative format detection for numeric, currency, percentage, and date fields.
+- Missing observations remain null; ingestion retains the original data separately from the parsed view.
 
 ### 2) AI + Manual Charting
 
-- Chat-to-chart flow with validated chart configs.
+- Chat-to-chart flow with validated chart configs and filters.
+- Both AI and manual charts use the same deterministic aggregation path. Generated Python execution is not supported.
 - Manual chart builder with aggregation support:
   - `sum`, `mean`, `median`, `count`, `min`, `max`
 - On-demand AI chart analysis for current view.
@@ -61,7 +63,7 @@ Analytico is a full-stack AI analytics application that takes users from quick e
 
 ## Typical Workflow
 
-1. Upload a CSV or load the 1M-row demo dataset.
+1. Upload a CSV or load the included Gapminder demo.
 2. Ask a question in chat or build a chart manually.
 3. Refine with filters and drilldown.
 4. Pin charts to Dashboard and arrange layout.
@@ -100,16 +102,52 @@ cd backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --host 127.0.0.1 --reload
 ```
 
 ### Frontend
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
 
+Set `OPENAI_API_KEY` in `backend/.env` only if you want AI-assisted column interpretation, chart planning, or descriptions. With a key configured, ingestion can send samples for interpretation and summaries automatically; an explicit per-dataset privacy switch is still pending. Upload, profiling, filtering, and manual charts remain available without it. Unsupported advanced questions return a clarification rather than running generated code.
+
+The backend is intended to run on localhost. It has no account/authentication system; do not expose it as a public server. Dataset storage is still in memory, expires after inactivity, and is lost on restart. History and dashboard snapshots are stored in the browser, scoped to the dataset. Retaining raw data is not yet a durable workspace or backup mechanism.
+
+Gapminder is included in the repository. The taxi demo requires the separate CSV named in `backend/core/config.py`; it is not included in a fresh download.
+
+## Validation
+
+Backend checks are deterministic and mock AI calls:
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+python -m unittest discover -s tests -v
+```
+
+Frontend checks:
+
+```bash
+cd frontend
+npm run lint
+npx tsc --noEmit
+npm run test:helpers
+npm run build
+```
+
+## Before changing AI interpretation
+
+The synthetic interpretation benchmark defines expected column roles, units, parsing policies, aggregation recommendations, and clarification decisions. It includes ambiguous cases where guessing would be wrong. Its richer interpretation vocabulary does not add new runtime operations such as weighted rates or snapshot aggregation.
+
+```bash
+python3 backend/evals/evaluate_interpretation.py --self-check
+python3 backend/evals/evaluate_interpretation.py --predictions backend/evals/baseline_current_repo.json
+```
+
+See [benchmark instructions](docs/interpretation-benchmark.md) for scoring future Jev/Luna predictions and regenerating the offline baseline. See [dependency audit](docs/dependency-audit-2026-10-01.md) for package changes and residual findings. The [original repository audit](docs/production-readiness-audit-2026-10-01.md) is a historical pre-fix document; [completed fixes](docs/local-safety-fixes-2026-10-01.md) records the verified implementation.

@@ -1,5 +1,7 @@
 # Numeric Parsing Improvement Plan
 
+> Historical proposal, not the current ingestion contract. Raw/parsed separation and loss-aware parsing are implemented. Partial-success coercion and separator guessing are not approved defaults: mixed or ambiguous values remain source text. Future interpretation changes should be evaluated against [the interpretation benchmark](interpretation-benchmark.md).
+
 ## Problem
 Current ingestion can classify a column as a metric while values still contain textual units (for example `142 min`).
 When downstream profiling expects pure numeric values, users may get hard-to-read conversion errors.
