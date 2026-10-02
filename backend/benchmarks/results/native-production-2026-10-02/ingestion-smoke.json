@@ -1,0 +1,12 @@
+{
+  "scope": "Single production native-method ingestion and deterministic chart worker, providers disabled. Loader timing instrumented by benchmark wrapper.",
+  "dataset": "taxi",
+  "strategy": "native",
+  "luna": false,
+  "rows": 1068755,
+  "columns": 20,
+  "ready_seconds": 15.630685333977453,
+  "loader_seconds": 3.2954185829730704,
+  "chart_seconds": 0.012186332955025136,
+  "peak_rss_bytes": 297697280
+}

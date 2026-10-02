@@ -1,0 +1,12 @@
+{
+  "scope": "Single default production-path run without loader patching; excludes transfer, human input and browser rendering. Background enrichment active.",
+  "rows": 1068755,
+  "csv_loader": "native",
+  "model": "gpt-6-luna",
+  "staging_seconds": 2.191158458008431,
+  "ingestion_seconds": 14.184605958056636,
+  "question_seconds": 3.1320370419416577,
+  "total_processing_seconds": 19.507801458006725,
+  "chart_rows": 6,
+  "result": "passed"
+}

@@ -230,6 +230,8 @@ class DiskDataset:
         self._plans: dict[str, _Plan] = {}
         self._clean_to_raw: dict[str, str] = {}
         self._max_rows = DEFAULT_MAX_ROWS
+        self.csv_loader = "pandas"
+        self.csv_fallback_reason: Optional[str] = None
         self.import_settings = ImportSettings()
         self.column_overrides: list[ColumnOverride] = []
         self.column_schema: list[dict[str, Any]] = []
@@ -301,7 +303,7 @@ class DiskDataset:
                     "preserve_insertion_order": "true",
                 },
             )
-            dataset._ingest_csv_chunks(chunk_size)
+            dataset._ingest_csv(chunk_size)
             dataset._analyze_and_build()
             if dataset.row_count > max_rows:
                 raise ValueError(f"CSV file exceeds the {max_rows}-row ingestion limit.")
@@ -319,6 +321,53 @@ class DiskDataset:
     def _ensure_open(self) -> None:
         if self._closed or self._connection is None:
             raise RuntimeError("Disk dataset is closed.")
+
+    def _ingest_csv(self, requested_chunk_size: int) -> None:
+        """Bulk-load raw UTF-8 text, retaining the established reader as fallback."""
+        import duckdb
+
+        self._ensure_open()
+        self.csv_loader = "pandas"
+        self.csv_fallback_reason = None
+        if self.import_settings.encoding not in {'utf-8', 'utf-8-sig'}:
+            self.csv_fallback_reason = 'encoding'
+            return self._ingest_csv_chunks(requested_chunk_size)
+        try:
+            headers = pd.read_csv(self.source_path, nrows=0, **reader_options(self.import_settings)).columns.tolist()
+        except pd.errors.EmptyDataError as error:
+            raise ValueError("The CSV file is empty.") from error
+        # Single-column blank physical lines have different native-reader semantics.
+        # Retain the original reader for this class instead of filtering decoded
+        # values, which would incorrectly discard quoted empty/whitespace records.
+        if len(headers) == 1:
+            self.csv_fallback_reason = 'single_column_blank_lines'
+            return self._ingest_csv_chunks(requested_chunk_size)
+        self._initialize_source_table(headers)
+        columns = ', '.join(_q(column) for column in self._raw_columns)
+        # Parameterize all source data/options; only generated c0... column names
+        # enter SQL. No AI-generated SQL or type inference is involved.
+        try:
+            self._connection.execute(
+                f'INSERT INTO source_data SELECT row_number() OVER () - 1, {columns} '
+                'FROM read_csv(?, columns=?, header=true, auto_detect=false, '
+                'delim=?, nullstr=?, force_not_null=?, encoding=\'utf-8\', '
+                'quote=\'"\', escape=\'"\', parallel=true, strict_mode=true, '
+                'ignore_errors=false, null_padding=false, max_line_size=524288, buffer_size=8388608)',
+                [str(self.source_path), {column: 'VARCHAR' for column in self._raw_columns},
+                 self.import_settings.delimiter, self.import_settings.null_values or [''],
+                 self._raw_columns if not self.import_settings.null_values else []],
+            )
+        except duckdb.Error:
+            # Bounded native buffers may reject otherwise supported wide/long rows.
+            # Discard partial raw data and rebuild with the established reader.
+            self._connection.execute('DROP TABLE source_data')
+            self.row_count = 0
+            self.csv_fallback_reason = 'native_reader_error'
+            return self._ingest_csv_chunks(requested_chunk_size)
+        self.csv_loader = "native"
+        self.row_count = self._connection.execute('SELECT count(*) FROM source_data').fetchone()[0]
+        if self.row_count > self._max_rows:
+            raise ValueError('CSV exceeds the configured row limit.')
 
     def _ingest_csv_chunks(self, requested_chunk_size: int) -> None:
         self._ensure_open()

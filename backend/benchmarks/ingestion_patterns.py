@@ -40,7 +40,7 @@ def worker(source, label, strategy, live):
         (native_loader if strategy == 'native' else ORIGINAL_LOADER)(self, chunk_size)
         loader_times.append(perf_counter() - tick)
     telemetry = io.StringIO()
-    with patch.object(DiskDataset, '_ingest_csv_chunks', loader), contextlib.redirect_stdout(telemetry):
+    with patch.object(DiskDataset, '_ingest_csv', loader), contextlib.redirect_stdout(telemetry):
         start = perf_counter()
         # Force disk for the wide workload to exercise both transport paths.
         response = ingest_csv(source, f'{label}.csv', '/pattern-benchmark',
@@ -100,7 +100,7 @@ def flow_worker(source, label, strategy, live):
     prompts = {'taxi': 'Show a bar chart of total tip_amount by payment_type.',
                'gapminder': 'Show a bar chart of average lifeExp by continent.'}
     try:
-        with patch.object(DiskDataset, '_ingest_csv_chunks', native_loader if strategy == 'native' else ORIGINAL_LOADER), contextlib.redirect_stdout(io.StringIO()):
+        with patch.object(DiskDataset, '_ingest_csv', native_loader if strategy == 'native' else ORIGINAL_LOADER), contextlib.redirect_stdout(io.StringIO()):
             start = perf_counter()
             preview = stage_import(source, f'{label}.csv')
             staged = perf_counter()

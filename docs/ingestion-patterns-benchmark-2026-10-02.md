@@ -1,5 +1,15 @@
 # Consolidation, ingestion patterns and Luna comparison
 
+**Production follow-up:** the native loader is now the default for disk-backed
+ingestion, with the compatibility fallbacks described below. The original
+comparison numbers remain experimental measurements. After promotion, all 212
+backend tests passed. A default-path taxi staging/import/GPT-6 Luna chart smoke
+test, without loader patches, passed: 2.191 s staging, 14.185 s ingestion and
+3.132 s question processing, 19.508 s total. This is one run, with provider latency
+variation, excluding transfer, human input and rendering. The native loader was
+verified active and all 1,068,755 rows were retained. Results are in
+`backend/benchmarks/results/native-production-2026-10-02/`.
+
 The production UI consolidation is committed as `689153f`: valid uploads prepare
 automatically, and one optional Review data action contains parsing, cleaning
 details and column edits. Failed imports retain their source for optional recovery.

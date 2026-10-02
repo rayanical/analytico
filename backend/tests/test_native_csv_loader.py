@@ -1,17 +1,16 @@
-"""Promotion gates for the benchmark-only native CSV bridge."""
-import contextlib
+"""Production native CSV loader compatibility and fallback contracts."""
 import io
 import unittest
 from unittest.mock import patch
 
-from benchmarks.native_csv import native_loader
 from modules.disk_dataset import DiskDataset
 from modules.import_policy import ImportSettings, CSVStructureError
 
 
-class NativePrototypeTests(unittest.TestCase):
+class NativeCSVLoaderTests(unittest.TestCase):
     def create(self, source, settings=None, native=True):
-        with patch.object(DiskDataset, '_ingest_csv_chunks', native_loader) if native else contextlib.nullcontext():
+        loader = DiskDataset._ingest_csv if native else DiskDataset._ingest_csv_chunks
+        with patch.object(DiskDataset, '_ingest_csv', loader):
             dataset = DiskDataset.from_csv(io.BytesIO(source), import_settings=settings)
         self.addCleanup(dataset.close)
         return dataset
@@ -42,6 +41,7 @@ class NativePrototypeTests(unittest.TestCase):
         source = ('code,amount\n'+''.join(f'{i:08d},{i}\n' for i in range(150_000))).encode()
         dataset = self.create(source)
         incorrect = dataset._connection.execute('SELECT count(*) FROM source_data WHERE c0 != printf(\'%08d\', _row_ordinal) OR c1 != CAST(_row_ordinal AS VARCHAR)').fetchone()[0]
+        self.assertEqual(dataset.csv_loader, "native")
         self.assertEqual(dataset.row_count, 150_000)
         self.assertEqual(incorrect, 0)
 
@@ -60,7 +60,7 @@ class NativePrototypeTests(unittest.TestCase):
         values = ['a' * 200_000, 'b' * 200_000, 'c' * 200_000]
         source = ('first,second,third\n'+','.join(values)+'\n').encode()
         dataset = self.create(source)
-        self.assertFalse(dataset._benchmark_native_used)
-        self.assertEqual(dataset._benchmark_native_fallback, 'native_reader_error')
+        self.assertEqual(dataset.csv_loader, "pandas")
+        self.assertEqual(dataset.csv_fallback_reason, 'native_reader_error')
         self.assertEqual(dataset.row_count, 1)
         self.assertEqual(dataset._connection.execute('SELECT c0,c1,c2 FROM source_data').fetchone(), tuple(values))

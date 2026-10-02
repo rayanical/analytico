@@ -159,3 +159,5 @@ See [benchmark instructions](docs/interpretation-benchmark.md) for scoring futur
 The latest [Luna improvement results](docs/luna-improvement-results-2026-10-01.md) include independent holdout runs and deterministic safety regressions.
 
 The [performance follow-up](docs/performance-improvements-2026-10-02.md) documents shared statistics, bounded chart/interpretation caches, measurement scope, and reproducible offline benchmarks. Cache limits do not replace large-file resource budgets or durable storage.
+
+Large CSVs now load directly into DuckDB as source text before full-column conversion and profiling. Complete-file validation remains enabled. Unsupported encodings, single-column files and native-reader errors use the compatible pandas chunk reader; small files keep their existing pandas path. See the [native loader comparison](docs/ingestion-patterns-benchmark-2026-10-02.md) for measured performance and scope.
