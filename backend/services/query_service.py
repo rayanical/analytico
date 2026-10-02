@@ -97,6 +97,16 @@ Use the supplied schema exactly. For unsupported calculations, return a clarific
             "The chart plan referenced a column that is not in this dataset. Please try again using the listed column names."
         )
 
+    interpretations = df.attrs.get("column_interpretations", {})
+    review_columns = [column for column in all_requested_columns
+                      if column in interpretations and interpretations[column]["runtime_status"] != "applied"]
+    if review_columns:
+        return _clarification(
+            "These columns need interpretation review before an AI chart can use them: "
+            + ", ".join(dict.fromkeys(review_columns))
+            + ". Source values are preserved; review their units and parsing in a manual chart."
+        )
+
     ai_filters = [
         FilterConfig(column=item.column, operator=item.operator, value=item.value)
         for item in plan.filters

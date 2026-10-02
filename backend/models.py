@@ -57,6 +57,19 @@ class DefaultChart(BaseModel):
     analysis: str
 
 
+class ColumnInterpretationMetadata(BaseModel):
+    status: Literal["ok", "disabled", "unavailable", "error", "uncertain", "skipped"]
+    runtime_status: Literal["applied", "clarification"]
+    provider: str
+    model: Optional[str] = None
+    prompt_version: Optional[str] = None
+    latency_ms: Optional[float] = None
+    usage: dict[str, Any] = Field(default_factory=dict)
+    confidence: Optional[dict[str, Any]] = None
+    error_code: Optional[str] = None
+    decision: Optional[dict[str, Any]] = None
+
+
 class ColumnSummary(BaseModel):
     name: str
     dtype: str
@@ -66,6 +79,7 @@ class ColumnSummary(BaseModel):
     format: ColumnFormat
     unique_count: int
     sample_values: list[Any]
+    interpretation: Optional[ColumnInterpretationMetadata] = None
 
 
 class UploadResponse(BaseModel):

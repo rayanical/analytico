@@ -32,6 +32,7 @@ ALLOWED_VALUES = {
         "parse_basis_points_to_ratio",
         "parse_decimal",
         "require_date_locale",
+        "parse_unambiguous_date",
         "preserve_mixed_numeric_formats",
         "preserve_numeric_value",
         "preserve_nulls_parse_numeric",

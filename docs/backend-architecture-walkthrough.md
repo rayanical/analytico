@@ -10,7 +10,7 @@ Analytico runs locally as a single FastAPI process. Manual analytics are determi
 - `backend/services/ingestion_service.py`: cleaning, profiling, optional AI summaries, response construction and storage.
 - `backend/services/aggregation_service.py`: shared filtering, raw-row grouping/date bucketing, one aggregation, sorting, limiting and optional result-based explanation.
 - `backend/services/query_service.py`: obtains and validates an AI chart plan or returns a clarification, then calls the same aggregation service.
-- `backend/modules/*`: conservative parsing, semantic suggestions, profiling and deterministic aggregation helpers.
+- `backend/modules/*`: conservative parsing, optional bounded Jev/Luna interpretation, profiling and deterministic aggregation helpers. The provider adapter returns proposals; full-column parsing and executor capabilities govern acceptance.
 - `backend/utils/*`: typed filters, CSV/DataFrame helpers, errors and timing logs. Generated Python execution is removed.
 - `backend/core/config.py`: constants, demo paths, provider model configuration and lazy optional AI client.
 - `backend/storage.py`: locked in-memory dataset lifecycle, with separate source and parsed frames.
@@ -30,4 +30,4 @@ Source preservation does not mean the drilldown route returns original CSV lexem
 
 Datasets are process-local, expire after an hour of inactivity, and are evicted at ten entries. Restart loses the working datasets; browser history/dashboard snapshots are not durable dataset storage. Threads avoid blocking the event loop but do not provide worker memory limits or backend job cancellation. A provider key enables optional outbound AI requests; per-dataset data-sharing controls remain pending.
 
-See [validation and remaining work](local-safety-fixes-2026-10-01.md). Jev integration, durable workspaces, packaging and CI are separate changes.
+See [validation and remaining work](local-safety-fixes-2026-10-01.md). See [column interpretation](column-interpretation.md) for the opt-in provider path. Durable workspaces, packaging, interpretation review UI and CI remain separate changes.

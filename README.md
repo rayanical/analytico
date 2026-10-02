@@ -1,6 +1,6 @@
 # Analytico
 
-Analytico is a local-first analytics application that takes users from CSV exploration to exportable reporting. Manual analytics work without an AI key; optional AI features send selected dataset context to OpenAI.
+Analytico is a local-first analytics application that takes users from CSV exploration to exportable reporting. Manual analytics work without an AI key; optional AI features send selected dataset context to the configured provider.
 
 - **Explore Mode:** upload data, ask questions in natural language, or build charts manually.
 - **Dashboard Mode:** pin charts, drag/resize widgets on a snap grid, and assemble a report layout.
@@ -117,7 +117,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
-Set `OPENAI_API_KEY` in `backend/.env` only if you want AI-assisted column interpretation, chart planning, or descriptions. With a key configured, ingestion can send samples for interpretation and summaries automatically; an explicit per-dataset privacy switch is still pending. Upload, profiling, filtering, and manual charts remain available without it. Unsupported advanced questions return a clarification rather than running generated code.
+Set `OPENAI_API_KEY` in the ignored `backend/.env` for chart planning and descriptions. Column interpretation is separately opt-in: set `COLUMN_INTERPRETER=luna` to use OpenAI, or `COLUMN_INTERPRETER=jev` with `AI_GATEWAY_API_KEY` to use Jev through Vercel Gateway. Its default is `off`. See [column interpretation](docs/column-interpretation.md) for sampling limits and safety checks. With an OpenAI key configured, ingestion can still send summary context automatically; an explicit per-dataset privacy switch is pending. Upload, profiling, filtering, and manual charts remain available without it. Unsupported advanced questions return a clarification rather than running generated code.
 
 The backend is intended to run on localhost. It has no account/authentication system; do not expose it as a public server. Dataset storage is still in memory, expires after inactivity, and is lost on restart. History and dashboard snapshots are stored in the browser, scoped to the dataset. Retaining raw data is not yet a durable workspace or backup mechanism.
 

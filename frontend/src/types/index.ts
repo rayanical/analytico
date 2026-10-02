@@ -52,6 +52,26 @@ export interface DefaultChart {
   analysis: string; // Renamed from reasoning
 }
 
+// Optional provider provenance; absent for keyless interpretation.
+export interface ColumnInterpretationMetadata {
+  status: 'ok' | 'disabled' | 'unavailable' | 'error' | 'uncertain' | 'skipped';
+  runtime_status: 'applied' | 'clarification';
+  provider: string;
+  model?: string | null;
+  prompt_version?: string | null;
+  latency_ms?: number | null;
+  usage: Record<string, unknown>;
+  confidence?: Record<string, unknown> | null;
+  error_code?: string | null;
+  decision?: {
+    role: SemanticType;
+    unit: string;
+    parsing_policy: string;
+    recommended_aggregation: string;
+    needs_clarification: boolean;
+  } | null;
+}
+
 // Column metadata
 export interface ColumnSummary {
   name: string;
@@ -62,6 +82,7 @@ export interface ColumnSummary {
   format: ColumnFormat;
   unique_count: number;
   sample_values: unknown[];
+  interpretation?: ColumnInterpretationMetadata | null;
 }
 
 // Upload response with all V4 features

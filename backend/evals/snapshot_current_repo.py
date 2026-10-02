@@ -25,6 +25,7 @@ def main() -> int:
     # The current cleaning path can optionally call a provider. Make the offline
     # behavior explicit before importing backend modules or loading any .env file.
     os.environ["OPENAI_API_KEY"] = ""
+    os.environ["COLUMN_INTERPRETER"] = "off"
     sys.path.insert(0, str(BACKEND))
     try:
         import pandas as pd

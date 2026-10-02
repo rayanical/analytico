@@ -31,6 +31,7 @@ def get_column_summary(df: pd.DataFrame, col: str, sem_type: str, fmt: str) -> C
         format=fmt,
         unique_count=int(series.nunique()),
         sample_values=sample_vals,
+        interpretation=df.attrs.get("column_interpretations", {}).get(col),
     )
 
 

@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from fastapi import HTTPException
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 APP_TITLE = "Analytico API V5"
 APP_DESCRIPTION = "Local-first CSV analytics API"

@@ -157,6 +157,11 @@ Computed chart rows:
             raise HTTPException(status_code=502, detail=f"Analysis failed: {error}") from error
 
     final_warnings = list(warnings)
+    interpretations = df.attrs.get("column_interpretations", {})
+    review_columns = [col for col in [request.x_axis_key, *request.y_axis_keys]
+                      if col in interpretations and interpretations[col]["runtime_status"] != "applied"]
+    if review_columns:
+        final_warnings.append("Interpretation needs review for: " + ", ".join(dict.fromkeys(review_columns)))
     if cap_warning and (was_capped or request.limit == 0 or (request.limit is not None and request.limit > MAX_CHART_POINTS)):
         final_warnings.append(cap_warning)
 

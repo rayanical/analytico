@@ -49,6 +49,15 @@ def detect_semantic_type(df: pd.DataFrame, col: str) -> str:
     return SemanticType.IDENTIFIER
 
 
+def _accepted_metric_decision(df: pd.DataFrame, column: str) -> Optional[dict]:
+    metadata = df.attrs.get("column_interpretations", {}).get(column, {})
+    decision = metadata.get("decision")
+    if (metadata.get("runtime_status") == "applied" and decision
+            and decision.get("recommended_aggregation") in {"sum", "mean"}):
+        return decision
+    return None
+
+
 def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Optional[dict]:
     """Generate the best default chart configuration"""
     # Find temporal, categorical, and metric columns
@@ -67,7 +76,8 @@ def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Op
         return None
 
     metric = metric_cols[0]
-    aggregation = "mean"
+    decision = _accepted_metric_decision(df, metric)
+    aggregation = decision["recommended_aggregation"] if decision else "mean"
     
     # Best case: temporal x-axis with metric y-axis
     if temporal_cols:
@@ -77,8 +87,8 @@ def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Op
             "y_axis_keys": [metric],
             "chart_type": "line",
             "aggregation": aggregation,
-            "title": f"Mean {metric} by {temporal}".replace('_', ' ').title(),
-            "analysis": f"Shows the mean of {metric} for each observed {temporal} value.",
+            "title": f"{aggregation.title()} {metric} by {temporal}".replace('_', ' ').title(),
+            "analysis": f"Shows the {aggregation} of {metric} for each observed {temporal} value.",
         }
     
     # Second best: categorical x-axis with metric y-axis
@@ -90,8 +100,8 @@ def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Op
             "y_axis_keys": [metric],
             "chart_type": "bar",
             "aggregation": aggregation,
-            "title": f"Mean {metric} by {best_cat}".replace('_', ' ').title(),
-            "analysis": f"Shows the mean of {metric} for each observed {best_cat} value.",
+            "title": f"{aggregation.title()} {metric} by {best_cat}".replace('_', ' ').title(),
+            "analysis": f"Shows the {aggregation} of {metric} for each observed {best_cat} value.",
         }
 
     return None
@@ -136,7 +146,10 @@ def auto_profile(
         series = df[col].dropna()
         if len(series) == 0:
             continue
-        recommended_aggregation = "mean" if _non_additive_metric(col, column_formats.get(col)) else "sum"
+        decision = _accepted_metric_decision(df, col)
+        recommended_aggregation = decision["recommended_aggregation"] if decision else (
+            "mean" if _non_additive_metric(col, column_formats.get(col)) else "sum"
+        )
         profile["top_metrics"].append({
             "name": col,
             "total": float(series.sum()),
