@@ -101,9 +101,11 @@ analytico/
 cd backend
 python -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install --require-hashes --only-binary=:all: -r requirements.txt
 uvicorn main:app --host 127.0.0.1 --reload
 ```
+
+The backend lock targets Python 3.11 or newer; the tested environment is Python 3.14 on macOS. Runtime and development requirements pin all resolved packages and verify download hashes. See [dependency maintenance](docs/dependency-locking.md) for controlled upgrades and platform limitations.
 
 ### Frontend
 
@@ -127,7 +129,7 @@ Backend checks are deterministic and mock AI calls:
 
 ```bash
 cd backend
-pip install -r requirements-dev.txt
+pip install --require-hashes --only-binary=:all: -r requirements-dev.txt
 python -m unittest discover -s tests -v
 ```
 

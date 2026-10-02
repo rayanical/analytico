@@ -2,6 +2,8 @@
 
 Completed the requested baseline cleanup, contract reconciliation, dependency remediation, and interpretation benchmark. Jev integration and CI were not part of this batch.
 
+Subsequent dependency-locking follow-up: backend runtime and development install requirements now contain exact versions and hashes, with editable ranges in `.in` files. See [dependency maintenance](dependency-locking.md). The frontend continues to use `package-lock.json` and `npm ci`.
+
 ## Cleanup and contracts
 
 Current architecture and README now describe the removed execution path, optional AI data sharing, keyless manual workflows, included versus optional demos, parsed drilldown rows, and temporary storage accurately. Original audits and the numeric-parsing proposal are marked historical rather than presented as current behavior.

@@ -44,4 +44,4 @@ PyArrow was removed from `backend/requirements.txt` after a repository search fo
 
 ## Residual constraints
 
-The Python requirements are not fully version-pinned. They now set explicit floors for the audited vulnerable packages and were checked against current resolution, but exact transitive versions can still change between installs. The jsPDF major bump passed the build, API smoke, and browser export checks; the browser export layout issues listed above remain unresolved.
+At the audit checkpoint, Python requirements used minimum-version ranges. The subsequent [dependency-locking follow-up](dependency-locking.md) replaces install requirements with exact, hashed runtime and development locks; editable ranges now live in `.in` files. The jsPDF major bump passed the build, API smoke, and browser export checks; the browser export layout issues listed above remain unresolved.
