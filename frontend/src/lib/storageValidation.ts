@@ -7,6 +7,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const columnFormats: ColumnFormat[] = ['currency', 'percentage', 'number', 'date', 'identifier', 'general'];
 const semanticTypes: SemanticType[] = ['metric', 'identifier', 'temporal', 'categorical', 'unknown'];
 const defaultChartTypes: DefaultChartType[] = ['bar', 'line', 'area', 'pie', 'composed'];
+const enrichmentStatuses = ['pending', 'running', 'done', 'error', 'disabled'] as const;
 const aggregations = ['sum', 'mean', 'median', 'count', 'min', 'max'] as const;
 
 function isColumnSummary(value: unknown): boolean {
@@ -48,6 +49,15 @@ function isDefaultChart(value: unknown): boolean {
     && typeof value.analysis === 'string';
 }
 
+function isInterpretationProposal(value: unknown): boolean {
+  return isRecord(value)
+    && semanticTypes.includes(value.role as SemanticType)
+    && typeof value.unit === 'string'
+    && typeof value.parsing_policy === 'string'
+    && typeof value.recommended_aggregation === 'string'
+    && typeof value.needs_clarification === 'boolean';
+}
+
 export function isDatasetState(value: unknown): value is DatasetState {
   return isRecord(value)
     && typeof value.datasetId === 'string'
@@ -67,5 +77,8 @@ export function isDatasetState(value: unknown): value is DatasetState {
     && typeof value.profile.row_count === 'number' && typeof value.profile.column_count === 'number'
     && (value.defaultChart === null || isDefaultChart(value.defaultChart))
     && Array.isArray(value.suggestions) && value.suggestions.every(suggestion => typeof suggestion === 'string')
-    && (value.summary === undefined || value.summary === null || typeof value.summary === 'string');
+    && (value.summary === undefined || value.summary === null || typeof value.summary === 'string')
+    && (value.enrichmentStatus === undefined || enrichmentStatuses.includes(value.enrichmentStatus as typeof enrichmentStatuses[number]))
+    && (value.interpretationProposals === undefined || (isRecord(value.interpretationProposals)
+      && Object.values(value.interpretationProposals).every(isInterpretationProposal)));
 }

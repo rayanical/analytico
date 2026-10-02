@@ -35,3 +35,7 @@ Hashes verify downloaded artifacts; they do not prove package safety. Locks free
 ## Verification on October 1, 2026
 
 A fresh Python 3.14 macOS environment installed the development lock with `--require-hashes --only-binary=:all:`. `pip check` passed, 53 backend tests and six benchmark tests passed, and both application locks returned no known vulnerability findings with pip-audit. Each lock has 36 exact package pins, including the Windows-only dependency; all pins applicable to the test machine match the previously validated environment. Runtime installation was separately verified in another fresh environment.
+
+## Disk ingestion addition on October 2, 2026
+
+Added exact `duckdb==1.5.6` to the runtime intent and regenerated both universal hash locks without upgrading the existing pins. A fresh Python 3.14 macOS environment installed the development lock with `--require-hashes --only-binary=:all:`; `uv pip check` reported all 36 installed packages compatible. Both runtime and development locks returned no known vulnerability findings with pip-audit. This does not establish executable/wheel compatibility on untested operating systems.

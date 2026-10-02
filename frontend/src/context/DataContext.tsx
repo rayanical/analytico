@@ -13,12 +13,15 @@ import {
   DashboardLayoutItem,
   DashboardUiState,
   DatasetState,
+  EnrichmentStatusResponse,
 } from '@/types';
 import { isDatasetState } from '@/lib/storageValidation';
+import { getEnrichmentStatus } from '@/lib/api';
 
 interface DataContextType {
   dataset: DatasetState | null;
   setDataset: (state: DatasetState | null) => void;
+  enrichment: EnrichmentStatusResponse | null;
   currentChart: ChartResponse | null;
   setCurrentChart: (chart: ChartResponse | null) => void;
   filters: FilterConfig[];
@@ -219,6 +222,7 @@ function findNextLayoutSlot(
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [dataset, setDatasetInternal] = useState<DatasetState | null>(null);
+  const [enrichment, setEnrichment] = useState<EnrichmentStatusResponse | null>(null);
   const [currentChart, setCurrentChartInternal] = useState<ChartResponse | null>(null);
   const [filters, setFiltersInternal] = useState<FilterConfig[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('chart');
@@ -236,6 +240,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [limit, setLimitInternal] = useState(20);
   const [sortBy, setSortByInternal] = useState<'value' | 'label'>('value');
   const [storageReady, setStorageReady] = useState(false);
+  const [datasetRevision, setDatasetRevision] = useState(0);
   const datasetIdRef = useRef<string | null>(null);
   const datasetRevisionRef = useRef(0);
   const queryRequestIdRef = useRef(0);
@@ -354,9 +359,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     activeQueryControllerRef.current?.abort();
     activeQueryControllerRef.current = null;
     datasetRevisionRef.current += 1;
+    setDatasetRevision(datasetRevisionRef.current);
     queryRequestIdRef.current += 1;
     datasetIdRef.current = state?.datasetId ?? null;
     setDatasetInternal(state);
+    setEnrichment(state ? {
+      dataset_id: state.datasetId,
+      status: state.enrichmentStatus ?? 'disabled',
+      progress: 0,
+      summary: state.summary ?? null,
+      interpretation_proposals: state.interpretationProposals ?? {},
+      error: null,
+      reason: null,
+    } : null);
     setCurrentChartInternal(null);
     setCurrentHistoryId(null);
     setFiltersInternal([]);
@@ -374,9 +389,77 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!dataset?.datasetId) {
+      setEnrichment(null);
+      return;
+    }
+
+    const datasetId = dataset.datasetId;
+    const ownershipRevision = datasetRevisionRef.current;
+    const controller = new AbortController();
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const stillOwnsDataset = () => !stopped
+      && !controller.signal.aborted
+      && datasetIdRef.current === datasetId
+      && datasetRevisionRef.current === ownershipRevision;
+
+    const poll = async () => {
+      if (!stillOwnsDataset()) return;
+      try {
+        const status = await getEnrichmentStatus(datasetId, controller.signal);
+        if (!stillOwnsDataset()) return;
+
+        setEnrichment(status);
+        setDatasetInternal(current => {
+          if (!stillOwnsDataset() || current?.datasetId !== datasetId) return current;
+          return {
+            ...current,
+            enrichmentStatus: status.status,
+            ...(status.summary ? { summary: status.summary } : {}),
+            ...(Object.keys(status.interpretation_proposals).length > 0
+              ? { interpretationProposals: status.interpretation_proposals }
+              : {}),
+          };
+        });
+
+        if (status.status === 'pending' || status.status === 'running') {
+          timer = setTimeout(() => { void poll(); }, 750);
+        }
+      } catch {
+        if (!stillOwnsDataset()) return;
+        const unavailable: EnrichmentStatusResponse = {
+          dataset_id: datasetId,
+          status: 'error',
+          progress: 0,
+          summary: null,
+          interpretation_proposals: {},
+          error: null,
+          reason: 'unavailable',
+        };
+        setEnrichment(unavailable);
+        setDatasetInternal(current => current?.datasetId === datasetId && stillOwnsDataset()
+          ? { ...current, enrichmentStatus: 'error' }
+          : current);
+      }
+    };
+
+    void poll();
+    return () => {
+      stopped = true;
+      controller.abort();
+      if (timer) clearTimeout(timer);
+    };
+  }, [dataset?.datasetId, datasetRevision]);
+
+  useEffect(() => {
     if (!storageReady) return;
     writeStorage(HISTORY_KEY, JSON.stringify(history));
   }, [history, storageReady]);
+  useEffect(() => {
+    if (!storageReady || !dataset) return;
+    writeStorage(DATASET_KEY, JSON.stringify(dataset));
+  }, [dataset, storageReady]);
   useEffect(() => {
     if (!storageReady) return;
     const timeout = setTimeout(() => {
@@ -551,7 +634,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      dataset, setDataset, currentChart, setCurrentChart, filters, setFilters, addFilter, removeFilter, clearFilters,
+      dataset, setDataset, enrichment, currentChart, setCurrentChart, filters, setFilters, addFilter, removeFilter, clearFilters,
       viewMode, setViewMode, builderMode, setBuilderMode, workspaceMode, setWorkspaceMode,
       history: visibleHistory, currentHistoryId, addToHistory, selectFromHistory, clearHistory,
       dashboardWidgets, pinCurrentChart, removeWidget, updateWidgetLayout, clearDashboard,

@@ -8,6 +8,7 @@ import type {
   ChartResponse,
   AggregateRequest,
   DrillDownRequest,
+  EnrichmentStatusResponse,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -114,6 +115,22 @@ export async function loadDemoDataset(dataset: 'taxi' | 'gapminder' = 'taxi'): P
     const response = await api.post<UploadResponse>('/load-demo', null, {
       params: { dataset },
     });
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/** Poll the optional, dataset-scoped enrichment job. */
+export async function getEnrichmentStatus(
+  datasetId: string,
+  signal?: AbortSignal,
+): Promise<EnrichmentStatusResponse> {
+  try {
+    const response = await api.get<EnrichmentStatusResponse>(
+      `/enrichment/${encodeURIComponent(datasetId)}`,
+      { signal },
+    );
     return response.data;
   } catch (error) {
     handleApiError(error);

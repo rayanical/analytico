@@ -27,28 +27,30 @@ class IngestionMeasurementTests(unittest.TestCase):
         self.addCleanup(self.ai.stop)
         self.addCleanup(DATASETS.clear)
 
-    def test_route_total_includes_csv_parse_and_summary_once(self):
+    def test_route_total_includes_csv_parse_and_defers_summary(self):
         clock = [0.0]
         def parse(source):
             clock[0] += 7
             return pd.DataFrame({"amount": [10, 20], "group": ["a", "b"]})
-        def summary(*args):
-            clock[0] += 3
-            return None
         output = io.StringIO()
-        with patch("utils.pipeline_logging.perf_counter", side_effect=lambda: clock[0]), \
-             patch("routers.ingestion.read_csv_fast", side_effect=parse), \
-             patch("services.ingestion_service._generate_business_summary", side_effect=summary), \
+        with patch.dict(os.environ, {"ANALYTICO_INGESTION_ENGINE": "pandas"}), \
+             patch("utils.pipeline_logging.perf_counter", side_effect=lambda: clock[0]), \
+             patch("services.csv_ingestion.read_csv_fast", side_effect=parse), \
+             patch("services.ingestion_service._generate_business_summary",
+                   side_effect=AssertionError("summary must run after the response")) as summary, \
              patch("utils.pipeline_logging.process_peak_rss_bytes", side_effect=[1000, 2000]), \
              contextlib.redirect_stdout(output):
-            upload_csv(UploadFile(filename="private-name.csv", file=io.BytesIO(b"ignored")))
+            response = upload_csv(UploadFile(filename="private-name.csv", file=io.BytesIO(b"ignored")))
+        summary.assert_not_called()
         lines = [line for line in output.getvalue().splitlines() if line.startswith('{')]
         self.assertEqual(len(lines), 1)
         record = json.loads(lines[0])
         self.assertEqual(record["phase_seconds"]["csv_parse"], 7)
-        self.assertEqual(record["phase_seconds"]["llm_summary"], 3)
-        self.assertEqual(record["total_seconds"], 10)
+        self.assertEqual(record["phase_seconds"].get("llm_summary", 0), 0)
+        self.assertEqual(record["total_seconds"], 7)
         self.assertEqual(record["status"], "ok")
+        self.assertEqual(response.enrichment_status, "disabled")
+        self.assertIsNone(response.summary)
         self.assertEqual(record["timing_scope"], "handler_parse_through_storage_excludes_transfer_and_serialization")
         self.assertEqual((record["rows"], record["columns"]), (2, 2))
         self.assertEqual(record["process_peak_rss_bytes"], 2000)
@@ -57,7 +59,7 @@ class IngestionMeasurementTests(unittest.TestCase):
 
     def test_failed_parse_has_sanitized_error_record(self):
         output = io.StringIO()
-        with patch("routers.ingestion.read_csv_fast", side_effect=ValueError("secret input")), \
+        with patch("services.csv_ingestion.read_csv_fast", side_effect=ValueError("secret input")), \
              contextlib.redirect_stdout(output):
             with self.assertRaises(HTTPException):
                 upload_csv(UploadFile(filename="private-name.csv", file=io.BytesIO(b"ignored")))

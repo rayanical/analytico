@@ -1,6 +1,8 @@
 import io
 import os
 import sys
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -78,9 +80,9 @@ class ApiSmokeTests(unittest.TestCase):
         self.assertFalse(validate.json()["valid"])
 
     def test_upload_smoke(self):
-        fake_df = pd.DataFrame({"value": [1, 2]})
-        with patch("routers.ingestion.read_csv_fast", return_value=fake_df), patch(
-            "routers.ingestion.ingest_dataframe", return_value=self._fake_upload_response("upload.csv")
+        with patch(
+            "routers.ingestion.ingest_csv",
+            return_value=self._fake_upload_response("upload.csv"),
         ):
             response = self.client.post(
                 "/upload",
@@ -106,6 +108,7 @@ class ApiSmokeTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             uploaded = response.json()
             self.assertIsNone(uploaded["summary"])
+            self.assertEqual(uploaded["enrichment_status"], "disabled")
             chart = self.client.post(
                 "/aggregate",
                 json={
@@ -121,8 +124,8 @@ class ApiSmokeTests(unittest.TestCase):
         self.assertEqual([row["amount"] for row in chart.json()["data"]], [10, 20, 30])
 
     def test_upload_preserves_domain_http_status(self):
-        with patch("routers.ingestion.read_csv_fast", return_value=pd.DataFrame({"value": [1]})), patch(
-            "routers.ingestion.ingest_dataframe",
+        with patch(
+            "routers.ingestion.ingest_csv",
             side_effect=HTTPException(status_code=422, detail="invalid ingestion request"),
         ):
             response = self.client.post(
@@ -139,8 +142,9 @@ class ApiSmokeTests(unittest.TestCase):
         )
         self.assertEqual(malformed.status_code, 400)
 
-        with patch("routers.ingestion.read_csv_fast", return_value=pd.DataFrame({"value": [1]})), patch(
-            "routers.ingestion.ingest_dataframe", side_effect=RuntimeError("internal failure")
+        with patch(
+            "routers.ingestion.ingest_csv",
+            side_effect=RuntimeError("internal failure"),
         ):
             internal = self.client.post(
                 "/upload",
@@ -149,15 +153,13 @@ class ApiSmokeTests(unittest.TestCase):
         self.assertEqual(internal.status_code, 500)
 
     def test_load_demo_taxi_gapminder_and_unknown(self):
-        fake_df = pd.DataFrame({"value": [1, 2]})
         demo_fixtures = {
             "taxi": {"filename": "taxi.csv", "path": BACKEND_DIR / "main.py"},
             "gapminder": {"filename": "gapminder.csv", "path": BACKEND_DIR / "main.py"},
         }
         with patch("routers.ingestion.DEMO_DATASETS", demo_fixtures), patch(
-            "routers.ingestion.read_csv_fast", return_value=fake_df
-        ), patch(
-            "routers.ingestion.ingest_dataframe", return_value=self._fake_upload_response("demo.csv")
+            "routers.ingestion.ingest_csv",
+            return_value=self._fake_upload_response("demo.csv"),
         ):
             taxi = self.client.post("/load-demo", params={"dataset": "taxi"})
             gapminder = self.client.post("/load-demo", params={"dataset": "gapminder"})
@@ -167,6 +169,62 @@ class ApiSmokeTests(unittest.TestCase):
 
         unknown = self.client.post("/load-demo", params={"dataset": "unknown"})
         self.assertEqual(unknown.status_code, 400)
+
+    def test_small_upload_enrichment_runs_after_response_and_keeps_data_unchanged(self):
+        DATASETS.clear()
+        self.addCleanup(DATASETS.clear)
+        summary_started = threading.Event()
+        release_summary = threading.Event()
+
+        def slow_summary(_filename, _frame):
+            summary_started.set()
+            release_summary.wait(timeout=3)
+            return "Prepared after upload."
+
+        try:
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key", "COLUMN_INTERPRETER": "off"}), patch(
+                "services.ingestion_service._generate_business_summary",
+                side_effect=slow_summary,
+            ):
+                response = self.client.post(
+                    "/upload",
+                    files={
+                        "file": (
+                            "deferred.csv",
+                            io.BytesIO(b"category,amount\nA,10\nB,20\n"),
+                            "text/csv",
+                        )
+                    },
+                )
+                self.assertEqual(response.status_code, 200)
+                uploaded = response.json()
+                dataset_id = uploaded["dataset_id"]
+                self.assertIn(uploaded["enrichment_status"], {"pending", "running"})
+                self.assertTrue(summary_started.wait(timeout=1))
+
+                initial_status = self.client.get(f"/enrichment/{dataset_id}")
+                self.assertEqual(initial_status.status_code, 200)
+                self.assertIn(initial_status.json()["status"], {"pending", "running"})
+                stored_dataset = DATASETS[dataset_id]
+                original_frame = stored_dataset.df.copy(deep=True)
+                original_column_types = dict(stored_dataset.column_types)
+
+                release_summary.set()
+                deadline = time.monotonic() + 2
+                final_status = initial_status
+                while time.monotonic() < deadline:
+                    final_status = self.client.get(f"/enrichment/{dataset_id}")
+                    if final_status.status_code == 200 and final_status.json()["status"] == "done":
+                        break
+                    time.sleep(0.01)
+
+                self.assertEqual(final_status.status_code, 200)
+                self.assertEqual(final_status.json()["status"], "done")
+                self.assertEqual(final_status.json()["summary"], "Prepared after upload.")
+                pd.testing.assert_frame_equal(stored_dataset.df, original_frame)
+                self.assertEqual(stored_dataset.column_types, original_column_types)
+        finally:
+            release_summary.set()
 
     def test_analytics_routes_reachable(self):
         aggregate = self.client.post(

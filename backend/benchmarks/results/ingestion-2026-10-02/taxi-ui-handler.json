@@ -1,0 +1,16 @@
+{
+  "event": "ingestion_performance",
+  "endpoint": "/load-demo",
+  "status": "ok",
+  "total_seconds": 19.625274708028883,
+  "phase_seconds": {
+    "disk_ingestion": 19.52650675002951,
+    "response_and_storage": 6.850005593150854e-05
+  },
+  "rows": 1068755,
+  "columns": 20,
+  "process_peak_rss_start_bytes": 125501440,
+  "process_peak_rss_bytes": 313950208,
+  "memory_scope": "process_lifetime_high_water",
+  "timing_scope": "handler_parse_through_storage_excludes_transfer_and_serialization"
+}

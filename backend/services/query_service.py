@@ -9,7 +9,7 @@ from core.config import OPENAI_MODEL, chat_completion_options, SYSTEM_PROMPT, ge
 from models import AggregateRequest, ChartResponse, FilterConfig, QueryPlan, QueryRequest
 from services.aggregation_service import run_aggregate
 from services.response_builders import safe_empty_chart_response
-from storage import get_dataset
+from storage import get_dataset, lease_dataset
 from utils.dataframe_utils import df_to_markdown
 from utils.filtering import validate_columns
 
@@ -24,8 +24,9 @@ def _clarification(message: str) -> ChartResponse:
 def run_query(request: QueryRequest) -> ChartResponse:
     """Ask the provider for a validated plan, then run the shared chart pipeline."""
     # Resolve the dataset first so missing data has a useful 404 even when AI is off.
-    dataset = get_dataset(request.dataset_id)
-    df = dataset.df
+    with lease_dataset(request.dataset_id, loader=get_dataset) as dataset:
+        df = dataset.sample_frame(5) if hasattr(dataset, "sample_frame") else dataset.df
+        row_count = dataset.row_count if hasattr(dataset, "row_count") else len(df)
     column_details = [
         f"- {column} ({dataset.column_types.get(column, 'unknown').upper()}, "
         f"format: {dataset.column_formats.get(column, 'number')})"
@@ -41,7 +42,7 @@ Dataset columns:
 Sample rows:
 {df_to_markdown(df, 5)}
 
-Row count: {len(df)}
+Row count: {row_count}
 Exact column names: {json.dumps(df.columns.tolist())}
 Preferred measures: {json.dumps(preferred_metrics)}
 Preferred date columns: {json.dumps(preferred_dates)}

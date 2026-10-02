@@ -165,7 +165,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       {isOpen && (
         <div className="border-t border-border/50 p-4">
           <p className="text-center text-xs text-muted-foreground/60">
-            Powered by GPT-4o-mini
+            Optional AI assistance
           </p>
         </div>
       )}

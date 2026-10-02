@@ -94,6 +94,7 @@ class UploadResponse(BaseModel):
     default_chart: Optional[DefaultChart]
     suggestions: list[str]
     summary: Optional[str] = None
+    enrichment_status: Literal["pending", "running", "done", "error", "disabled"] = "disabled"
 
 
 class FilterConfig(BaseModel):

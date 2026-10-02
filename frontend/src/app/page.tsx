@@ -34,6 +34,8 @@ export default function Home() {
     dashboardUiState, setDashboardHeaderCollapsed,
     filters, setCurrentChart, limit, groupOthers, sortBy, beginQuery, isCurrentQuery, finishQuery, isCurrentDataset,
   } = useData();
+  const hasEnrichmentResults = Boolean(dataset?.summary)
+    || Object.keys(dataset?.interpretationProposals ?? {}).length > 0;
 
   const [showReasoning, setShowReasoning] = useState(false);
   const [expandedFilterColumn, setExpandedFilterColumn] = useState<string | null>(null);
@@ -289,7 +291,7 @@ export default function Home() {
             </div>
           </motion.div>
 
-          {dataset?.summary && (
+          {hasEnrichmentResults && (
             <div className="mb-3">
               <Button
                 variant="ghost"
@@ -306,10 +308,10 @@ export default function Home() {
           <section className="mb-6">
             <FileUploader />
             <AnimatePresence initial={false}>
-              {dataset?.summary && showDatasetSummary && (
+              {hasEnrichmentResults && showDatasetSummary && (
                 <motion.div
                   initial={{ maxHeight: 0, opacity: 0 }}
-                  animate={{ maxHeight: 220, opacity: 1 }}
+                  animate={{ maxHeight: 420, opacity: 1 }}
                   exit={{ maxHeight: 0, opacity: 0 }}
                   transition={{ duration: 0.2, ease: 'easeOut' }}
                   className="mt-4 overflow-hidden rounded-lg border border-primary/20 bg-primary/5 p-4"
@@ -320,7 +322,23 @@ export default function Home() {
                     </div>
                     <div>
                       <h3 className="mb-1 text-sm font-semibold text-foreground">Dataset Context</h3>
-                      <p className="text-sm leading-relaxed text-muted-foreground">{dataset.summary}</p>
+                      {dataset?.summary && (
+                        <p className="text-sm leading-relaxed text-muted-foreground">{dataset.summary}</p>
+                      )}
+                      {Object.keys(dataset?.interpretationProposals ?? {}).length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs font-medium text-foreground">Suggested column meanings</p>
+                          <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                            {Object.entries(dataset?.interpretationProposals ?? {}).slice(0, 5).map(([column, proposal]) => (
+                              <li key={column}>
+                                <span className="font-medium text-foreground">{column}:</span>{' '}
+                                {proposal.role}, {proposal.unit}, {proposal.recommended_aggregation.replace(/_/g, ' ')}
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="mt-2 text-xs text-muted-foreground">These are suggestions ready for review.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>

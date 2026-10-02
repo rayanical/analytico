@@ -41,6 +41,7 @@ export function FileUploader() {
       defaultChart: response.default_chart,
       suggestions: response.suggestions,
       summary: response.summary,
+      enrichmentStatus: response.enrichment_status,
     });
 
     // Auto-render default chart if available
@@ -155,6 +156,12 @@ export function FileUploader() {
                     <span className="flex items-center gap-1 rounded-full bg-primary/20 px-2 py-0.5 text-xs font-medium text-primary">
                       <Sparkles className="h-3 w-3" />Data Cleaned
                     </span>
+                  )}
+                  {(dataset.enrichmentStatus === 'pending' || dataset.enrichmentStatus === 'running') && (
+                    <span className="text-xs text-muted-foreground">AI insights are being prepared</span>
+                  )}
+                  {dataset.enrichmentStatus === 'error' && !dataset.summary && (
+                    <span className="text-xs text-muted-foreground">AI insights could not be prepared</span>
                   )}
                   <button
                     type="button"

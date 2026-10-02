@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from models import AggregateRequest, ChartResponse, DrillDownRequest, QueryRequest
 from services.aggregation_service import records_to_json, run_aggregate
 from services.query_service import run_query
-from storage import get_dataset
+from storage import get_dataset, lease_dataset
 from utils.filtering import FilterValidationError, apply_filters
 
 router = APIRouter()
@@ -23,15 +23,20 @@ def query_endpoint(request: QueryRequest):
 
 @router.post("/drilldown")
 def drilldown_endpoint(request: DrillDownRequest):
-    ds = get_dataset(request.dataset_id)
-    try:
-        filtered, _ = apply_filters(ds.df, request.filters)
-    except FilterValidationError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
+    with lease_dataset(request.dataset_id, loader=get_dataset) as ds:
+        if hasattr(ds, "disk"):
+            try:
+                return ds.disk.drilldown(request)
+            except (ValueError, FilterValidationError) as error:
+                raise HTTPException(status_code=400, detail=str(error)) from error
+        try:
+            filtered, _ = apply_filters(ds.df, request.filters)
+        except FilterValidationError as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
 
-    rows = records_to_json(filtered.head(request.limit))
-    return {
-        "data": rows,
-        "total_rows": len(filtered),
-        "limit": request.limit,
-    }
+        rows = records_to_json(filtered.head(request.limit))
+        return {
+            "data": rows,
+            "total_rows": len(filtered),
+            "limit": request.limit,
+        }

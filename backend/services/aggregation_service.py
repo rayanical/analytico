@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from core.config import MAX_CHART_POINTS, OPENAI_MODEL, chat_completion_options, get_openai_client
 from models import AggregateRequest, ChartResponse
 from modules import aggregate_data, enforce_semantic_rules, smart_group_top_n, smart_resample_dates
-from storage import get_dataset
+from storage import get_dataset, lease_dataset
 from utils.dataframe_utils import df_to_markdown
 from utils.bounded_cache import BoundedTTLCache
 from utils.filtering import FilterValidationError, apply_filters, resolve_effective_limit, validate_columns
@@ -116,7 +116,29 @@ Computed chart rows:
 
 def run_aggregate(request: AggregateRequest) -> ChartResponse:
     """Validate filters, aggregate source rows once, then sort and limit."""
-    ds = get_dataset(request.dataset_id)
+    with lease_dataset(request.dataset_id, loader=get_dataset) as ds:
+        if request.x_axis_key in request.y_axis_keys:
+            raise HTTPException(400, "Choose different columns for the X-axis and measures.")
+        chart = _run_dataset_aggregate(ds, request.model_copy(update={"include_analysis": False}))
+    return _with_analysis(chart, request) if request.include_analysis else chart
+
+
+def _run_dataset_aggregate(ds, request: AggregateRequest) -> ChartResponse:
+    if hasattr(ds, "disk"):
+        cache_key = _chart_cache_key(ds, request)
+        chart = _CHART_CACHE.get(cache_key)
+        if chart is None:
+            try:
+                aggregation, warnings, y_axis_label = enforce_semantic_rules(
+                    request.aggregation, request.y_axis_keys, ds.column_types
+                )
+                chart = ds.disk.aggregate(request.model_copy(update={"aggregation": aggregation}))
+                chart.warnings = [*warnings, *(chart.warnings or [])] or None
+                chart.y_axis_label = y_axis_label
+            except (ValueError, FilterValidationError) as error:
+                raise HTTPException(status_code=400, detail=str(error)) from error
+            _CHART_CACHE.set(cache_key, chart)
+        return _with_analysis(chart, request) if request.include_analysis else chart
     df = ds.df
 
     valid, missing, suggestions = validate_columns(df, [request.x_axis_key, *request.y_axis_keys])

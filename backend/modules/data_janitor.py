@@ -9,8 +9,9 @@ import re
 import unicodedata
 from decimal import Decimal, InvalidOperation, localcontext
 from time import perf_counter
-from typing import Optional
+from typing import Callable, Optional
 
+import numpy as np
 import pandas as pd
 
 # Master list of candidate date formats for fast C-vectorized parsing.
@@ -51,6 +52,29 @@ IDENTIFIER_HINT_KEYWORDS = {
     "id", "code", "zip", "zipcode", "postal", "phone", "key", "identifier",
     "ssn", "account", "serial", "reference", "ref", "sequence",
 }
+_MAX_DISTINCT_TEXT_VALUES = 10_000
+_DISTINCT_TEXT_CHUNK_SIZE = 16_384
+_LEADING_ZERO_IDENTIFIER = re.compile(r"^[+-]?0\d+$")
+
+
+def _distinct_text_values(values: pd.Series) -> Optional[dict[str, None]]:
+    """Collect distinct lexemes up to a fixed cap, or signal high cardinality."""
+    unique: dict[str, None] = {}
+    for start in range(0, len(values), _DISTINCT_TEXT_CHUNK_SIZE):
+        for value in values.iloc[start:start + _DISTINCT_TEXT_CHUNK_SIZE].unique():
+            unique.setdefault(value, None)
+            if len(unique) > _MAX_DISTINCT_TEXT_VALUES:
+                return None
+    return unique
+
+
+def _map_distinct_text(values: pd.Series, mapper: Callable[[str], object]) -> pd.Series:
+    """Map repeated text once per lexeme, falling back for high-cardinality data."""
+    unique = _distinct_text_values(values)
+    if unique is None:
+        return values.map(mapper)
+    mapping = {value: mapper(value) for value in unique}
+    return values.map(mapping)
 
 
 def legacy_normalize_header(header: str) -> str:
@@ -104,8 +128,10 @@ def _is_date_name(col_name: str) -> bool:
 
 
 def _has_leading_zero_identifiers(series: pd.Series) -> bool:
-    values = series.dropna().astype(str).str.strip()
-    return bool(values.str.match(r"^[+-]?0\d+$").any())
+    values = _map_distinct_text(series.dropna().astype(str), lambda value: value.strip())
+    return bool(_map_distinct_text(
+        values, lambda value: bool(_LEADING_ZERO_IDENTIFIER.match(value))
+    ).any())
 
 
 def _normalize_llm_format(value: Optional[str]) -> Optional[str]:
@@ -209,6 +235,22 @@ def _contains_currency_symbol(value: str) -> bool:
     return any(unicodedata.category(ch) == "Sc" for ch in value)
 
 
+def _currency_symbol_set(value: str) -> frozenset[str]:
+    return frozenset(ch for ch in value if unicodedata.category(ch) == "Sc")
+
+
+def _currency_symbols_in_values(values: pd.Series) -> set[str]:
+    """Collect symbols across the full source, reusing repeated lexemes."""
+    distinct = _distinct_text_values(values)
+    lexemes = distinct if distinct is not None else values
+    symbols: set[str] = set()
+    for value in lexemes:
+        symbols.update(_currency_symbol_set(value))
+        if len(symbols) > 1:
+            break
+    return symbols
+
+
 def _strip_currency_symbols(value: str) -> str:
     return "".join(ch for ch in value if unicodedata.category(ch) != "Sc").strip()
 
@@ -295,48 +337,75 @@ _US_GROUPED_NUMBER = re.compile(r"^[+-]?\d{1,3}(?:,\d{3})+\.\d+$")
 
 def _parse_numeric_text(series: pd.Series, col: str, *, allow_metric_name: bool = False) -> tuple[Optional[pd.Series], Optional[str], Optional[str]]:
     """Parse only uniformly valid, unambiguous numeric text; otherwise retain it."""
-    values = series.dropna().astype(str).str.strip()
+    values = _map_distinct_text(series.dropna().astype(str), lambda value: value.strip())
     if values.empty:
         return None, None, None
 
     if (_is_identifier_name(col) and not allow_metric_name) or _has_leading_zero_identifiers(values):
         return None, None, None
 
-    percent_values = values.str.endswith("%")
+    percent_values = _map_distinct_text(values, lambda value: value.endswith("%"))
     if percent_values.all():
-        normalized = values.str[:-1].str.strip()
-        if normalized.map(lambda value: bool(_PLAIN_NUMBER.fullmatch(value))).all():
+        normalized = _map_distinct_text(values, lambda value: value[:-1].strip())
+        if _map_distinct_text(
+            normalized, lambda value: bool(_PLAIN_NUMBER.fullmatch(value))
+        ).all():
             parsed = pd.to_numeric(normalized, errors="raise") / 100
             return parsed, "percentage", f"Converted '{col}' from percentage text to decimal"
         return None, None, f"Could not safely parse '{col}' percentage text; retained source values"
 
-    has_currency_symbol = values.map(_contains_currency_symbol)
-    normalized = values.map(_strip_currency_symbols)
+    # Plain numeric tokens cannot contain currency symbols. Validate them before
+    # the per-character Unicode currency scan used for decorated values.
+    if _map_distinct_text(
+        values, lambda value: bool(_PLAIN_NUMBER.fullmatch(value))
+    ).all():
+        parsed = pd.to_numeric(values, errors="raise")
+        return parsed, None, f"Converted '{col}' from numeric text to numeric"
+
+    has_currency_symbol = _map_distinct_text(values, _contains_currency_symbol)
+    normalized = _map_distinct_text(values, _strip_currency_symbols)
     if has_currency_symbol.any():
-        if _PLAIN_NUMBER.fullmatch(normalized.iloc[0]) and normalized.map(
-            lambda value: bool(_PLAIN_NUMBER.fullmatch(value))
+        if len(_currency_symbols_in_values(values)) > 1:
+            return None, None, (
+                f"Could not safely parse '{col}' mixed currency text: multiple currency "
+                "symbols; retained source values for review"
+            )
+        if _PLAIN_NUMBER.fullmatch(normalized.iloc[0]) and _map_distinct_text(
+            normalized, lambda value: bool(_PLAIN_NUMBER.fullmatch(value))
         ).all():
             parsed = pd.to_numeric(normalized, errors="raise")
             return parsed, "currency", f"Converted '{col}' from currency text to numeric"
-        if normalized.map(lambda value: bool(_US_GROUPED_NUMBER.fullmatch(value))).all():
-            parsed = pd.to_numeric(normalized.str.replace(",", "", regex=False), errors="raise")
+        if _map_distinct_text(
+            normalized, lambda value: bool(_US_GROUPED_NUMBER.fullmatch(value))
+        ).all():
+            normalized = _map_distinct_text(normalized, lambda value: value.replace(",", ""))
+            parsed = pd.to_numeric(normalized, errors="raise")
             return parsed, "currency", f"Converted '{col}' from currency text to numeric"
         return None, None, f"Could not safely parse '{col}' currency text; retained source values"
 
-    if normalized.map(lambda value: bool(_PLAIN_NUMBER.fullmatch(value))).all():
+    if _map_distinct_text(
+        normalized, lambda value: bool(_PLAIN_NUMBER.fullmatch(value))
+    ).all():
         parsed = pd.to_numeric(normalized, errors="raise")
         return parsed, None, f"Converted '{col}' from numeric text to numeric"
 
-    has_comma = normalized.str.contains(",", regex=False)
+    has_comma = _map_distinct_text(normalized, lambda value: "," in value)
     if has_comma.any():
         # A comma without a decimal point can mean grouping or decimal notation.
-        if normalized.map(lambda value: bool(re.fullmatch(r"[+-]?\d{1,3}(?:,\d{3})+", value))).all():
+        if _map_distinct_text(
+            normalized,
+            lambda value: bool(re.fullmatch(r"[+-]?\d{1,3}(?:,\d{3})+", value)),
+        ).all():
             return None, None, f"Could not safely parse '{col}' numeric text: ambiguous locale separators; retained source values"
-        if normalized.map(lambda value: bool(_US_GROUPED_NUMBER.fullmatch(value))).all():
-            parsed = pd.to_numeric(normalized.str.replace(",", "", regex=False), errors="raise")
+        if _map_distinct_text(
+            normalized, lambda value: bool(_US_GROUPED_NUMBER.fullmatch(value))
+        ).all():
+            normalized = _map_distinct_text(normalized, lambda value: value.replace(",", ""))
+            parsed = pd.to_numeric(normalized, errors="raise")
             return parsed, None, f"Converted '{col}' from grouped numeric text to numeric"
 
-    numeric_like = normalized.map(
+    numeric_like = _map_distinct_text(
+        normalized,
         lambda value: bool(re.fullmatch(r"[+-]?[\d.,\s]+", value))
     )
     if numeric_like.mean() >= 0.5:
@@ -409,6 +478,15 @@ def _validated_llm_semantic(series: pd.Series, col: str, value: Optional[str]) -
     return semantic
 
 
+def _numeric_values_are_finite(values: pd.Series) -> bool:
+    """Check parsed values without converting exact integer arrays through float."""
+    if pd.api.types.is_integer_dtype(values.dtype):
+        return True
+    if pd.api.types.is_numeric_dtype(values.dtype):
+        return bool(np.isfinite(values.to_numpy()).all())
+    return bool(values.map(math.isfinite).all())
+
+
 def _can_apply_interpretation(series: pd.Series, col: str, metadata: dict) -> bool:
     """Reject unsafe combinations before any parsed view is changed."""
     decision = metadata.get("decision")
@@ -438,16 +516,18 @@ def _can_apply_interpretation(series: pd.Series, col: str, metadata: dict) -> bo
         return False
     if pd.api.types.is_numeric_dtype(series):
         observed = series.dropna()
-        if not observed.map(math.isfinite).all() or observed.map(lambda value: abs(float(value)) > 2**53 - 1).any():
+        if not _numeric_values_are_finite(observed) or observed.map(lambda value: abs(float(value)) > 2**53 - 1).any():
             return False
         if math.fsum(abs(float(value)) for value in observed) > 2**53 - 1:
             return False
-    values = series.dropna().astype(str).str.strip()
+    values = _map_distinct_text(series.dropna().astype(str), lambda value: value.strip())
     header_currencies = tokens & {"usd", "eur"}
     if header_currencies and header_currencies != {unit.lower()}:
         return False
     if unit in {"USD", "EUR"}:
-        explicit_units = values.str.match(r"^(?:USD|EUR)\s+")
+        explicit_units = _map_distinct_text(
+            values, lambda value: re.match(r"^(?:USD|EUR)\s+", value) is not None
+        )
         if unit.lower() not in tokens and not explicit_units.all():
             return False
     if policy == "parse_currency_decimal":
@@ -455,61 +535,90 @@ def _can_apply_interpretation(series: pd.Series, col: str, metadata: dict) -> bo
             return False
         # A symbol alone does not establish currency identity. Require source evidence.
         header_unit = unit.lower() in _column_tokens(col)
-        explicit_units = values.str.match(r"^(?:USD|EUR)\s+")
+        explicit_units = _map_distinct_text(
+            values, lambda value: re.match(r"^(?:USD|EUR)\s+", value) is not None
+        )
         if not header_unit and not explicit_units.all():
             return False
         other = "EUR" if unit == "USD" else "USD"
-        if values.str.contains(other, regex=False).any():
+        if _map_distinct_text(values, lambda value: other in value).any():
             return False
-        symbols = {ch for value in values for ch in value if unicodedata.category(ch) == "Sc"}
+        unique_values = _distinct_text_values(values)
+        symbol_values = values.array if unique_values is None else unique_values
+        symbols = {
+            ch for value in symbol_values for ch in value
+            if unicodedata.category(ch) == "Sc"
+        }
         if not symbols.issubset({"$"} if unit == "USD" else {"€"}):
             return False
         return True
     if policy == "parse_percent_to_ratio":
-        return unit == "ratio" and values.str.endswith("%").all()
+        return unit == "ratio" and _map_distinct_text(
+            values, lambda value: value.endswith("%")
+        ).all()
     if policy == "preserve_numeric_value":
         return pd.api.types.is_numeric_dtype(series)
     if policy in {"parse_decimal", "preserve_nulls_parse_numeric"}:
-        return not values.map(_contains_currency_symbol).any() and not values.str.endswith("%").any()
+        return not _map_distinct_text(
+            values, _contains_currency_symbol
+        ).any() and not _map_distinct_text(values, lambda value: value.endswith("%")).any()
     return False
 
 
 def _parse_interpreted_numeric(series: pd.Series, col: str, decision: dict):
     if decision["parsing_policy"] == "parse_percent_to_ratio":
-        values = series.dropna().astype(str).str.strip().str[:-1].str.strip()
-        if not values.map(lambda value: bool(_PLAIN_NUMBER.fullmatch(value))).all():
+        values = _map_distinct_text(series.dropna().astype(str), lambda value: value.strip())
+        values = _map_distinct_text(values, lambda value: value[:-1].strip())
+        if not _map_distinct_text(
+            values, lambda value: bool(_PLAIN_NUMBER.fullmatch(value))
+        ).all():
             return None, None, f"Could not safely parse '{col}' percentage text; retained source values"
         def ratio(token):
             with localcontext() as context:
                 context.prec = max(28, len(token) + 2)
                 return float(Decimal(token) / 100)
-        return values.map(ratio), "percentage", f"Converted '{col}' from percentage text to decimal"
+        return _map_distinct_text(values, ratio), "percentage", f"Converted '{col}' from percentage text to decimal"
     if decision["parsing_policy"] != "parse_currency_decimal":
         return _parse_numeric_text(series, col, allow_metric_name=True)
-    values = series.dropna().astype(str).str.strip()
-    normalized = values.str.replace(r"^(?:USD|EUR)\s+", "", regex=True).map(_strip_currency_symbols)
-    if not normalized.map(lambda value: bool(_PLAIN_NUMBER.fullmatch(value) or _US_GROUPED_NUMBER.fullmatch(value))).all():
+    values = _map_distinct_text(series.dropna().astype(str), lambda value: value.strip())
+    normalized = _map_distinct_text(
+        values,
+        lambda value: _strip_currency_symbols(re.sub(r"^(?:USD|EUR)\s+", "", value)),
+    )
+    if not _map_distinct_text(
+        normalized,
+        lambda value: bool(_PLAIN_NUMBER.fullmatch(value) or _US_GROUPED_NUMBER.fullmatch(value)),
+    ).all():
         return None, None, f"Could not safely parse '{col}' currency text; retained source values"
-    parsed = pd.to_numeric(normalized.str.replace(",", "", regex=False), errors="raise")
+    normalized = _map_distinct_text(normalized, lambda value: value.replace(",", ""))
+    parsed = pd.to_numeric(normalized, errors="raise")
     return parsed, "currency", f"Converted '{col}' from currency text to numeric with verified currency identity"
 
 
 def _interpreted_numbers_are_lossless(original: pd.Series, converted: pd.Series, decision: dict) -> bool:
     """Reject rounding and quantities outside JavaScript's exact integer range."""
     magnitude_sum = Decimal(0)
+    policy = decision["parsing_policy"]
+
+    def normalize_token(token: str) -> str:
+        if policy == "parse_currency_decimal":
+            token = re.sub(r"^(?:USD|EUR)\s+", "", token)
+            token = _strip_currency_symbols(token)
+        if policy == "parse_percent_to_ratio":
+            token = token[:-1].strip()
+        return token.replace(",", "")
+
+    tokens = iter(_map_distinct_text(
+        _map_distinct_text(original.dropna().astype(str), lambda value: value.strip()),
+        normalize_token,
+    ).tolist())
     for source, value in zip(original.tolist(), converted.tolist()):
         if pd.isna(source):
             if not pd.isna(value):
                 return False
             continue
-        token = str(source).strip()
-        if decision["parsing_policy"] == "parse_currency_decimal":
-            token = re.sub(r"^(?:USD|EUR)\s+", "", token)
-            token = _strip_currency_symbols(token)
-        percent = decision["parsing_policy"] == "parse_percent_to_ratio"
-        if percent:
-            token = token[:-1].strip()
-        token = token.replace(",", "")
+        token = next(tokens)
+        percent = policy == "parse_percent_to_ratio"
         try:
             with localcontext() as context:
                 context.prec = max(28, len(token) + 2)
@@ -527,14 +636,25 @@ def _interpreted_numbers_are_lossless(original: pd.Series, converted: pd.Series,
 
 def _expand_parsed_values(original: pd.Series, parsed: pd.Series, missing_value) -> pd.Series:
     """Reinsert parsed non-null values by position while preserving source nulls."""
-    positions = [position for position, present in enumerate(original.notna().to_numpy()) if present]
-    expanded = [missing_value] * len(original)
-    for position, value in zip(positions, parsed.to_list()):
-        expanded[position] = value
-    return pd.Series(expanded, index=original.index)
+    present = original.notna().to_numpy()
+    positions = np.flatnonzero(present)
+    if len(positions) == len(original):
+        values = parsed.array.copy()
+    elif pd.api.types.is_integer_dtype(parsed.dtype):
+        # A floating NaN would coerce large integers to float and lose precision.
+        bits = parsed.dtype.itemsize * 8
+        integer_type = "UInt" if pd.api.types.is_unsigned_integer_dtype(parsed.dtype) else "Int"
+        values = pd.array([pd.NA] * len(original), dtype=f"{integer_type}{bits}")
+        values[positions] = parsed.array
+    else:
+        values = pd.array([missing_value] * len(original), dtype=parsed.dtype)
+        values[positions] = parsed.array
+    return pd.Series(values, index=original.index)
 
 
-def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str, int], dict[str, str], dict[str, str]]:
+def clean_dataframe(
+    df: pd.DataFrame, *, interpret_columns: bool = True
+) -> tuple[pd.DataFrame, list[str], dict[str, int], dict[str, str], dict[str, str]]:
     """
     Apply loss-aware type normalization and extract metadata without imputing.
     Returns: (cleaned_df, cleaning_actions, missing_counts, column_formats, semantic_types)
@@ -551,8 +671,16 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
     source_missing = [int(df.iloc[:, index].isna().sum()) for index in range(len(original_cols))]
 
     # Optional semantic suggestions cannot control the deterministic column keys.
+    headers = [str(col) for col in original_cols]
     llm_start = perf_counter()
-    llm_columns = llm_enrich_columns([str(col) for col in original_cols], df)
+    if interpret_columns:
+        llm_columns = llm_enrich_columns(headers, df)
+    else:
+        llm_columns = [
+            {"original": header, "clean": legacy_normalize_header(header),
+             "format": None, "semantic_type": None}
+            for header in headers
+        ]
     llm_end = perf_counter()
     print(f"LLM Schema Mapping Time: {llm_end - llm_start:.2f}s")
     renamed = [(o, n) for o, n in zip(original_cols, new_cols) if o != n]
@@ -593,15 +721,16 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             original = df[col]
             if decision and decision["role"] == "temporal":
                 parsed, fmt, action = None, None, None
-            elif decision:
+            else:
                 try:
-                    parsed, fmt, action = _parse_interpreted_numeric(original, col, decision)
-                    if parsed is not None and not parsed.map(math.isfinite).all():
+                    if decision:
+                        parsed, fmt, action = _parse_interpreted_numeric(original, col, decision)
+                    else:
+                        parsed, fmt, action = _parse_numeric_text(original, col)
+                    if parsed is not None and not _numeric_values_are_finite(parsed):
                         parsed, fmt, action = None, None, f"Could not safely parse '{col}' as finite numbers; retained source values"
                 except (ValueError, TypeError, OverflowError):
                     parsed, fmt, action = None, None, f"Could not safely parse '{col}' as representable numbers; retained source values"
-            else:
-                parsed, fmt, action = _parse_numeric_text(original, col)
             if action:
                 cleaning_actions.append(action)
             if parsed is not None:
@@ -614,7 +743,12 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
                 if fmt:
                     column_formats[col] = fmt
                 continue
-            if fmt is None and not action and (not decision or decision["role"] == "temporal"):
+            if (
+                fmt is None
+                and not action
+                and (not decision or decision["role"] == "temporal")
+                and not _is_identifier_name(col)
+            ):
                 parsed_dates, date_action = _parse_date_text(original, col)
                 if date_action:
                     cleaning_actions.append(date_action)
@@ -637,7 +771,9 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             if inferred != "number" or pd.api.types.is_numeric_dtype(series):
                 column_formats[col] = inferred
             values = series.dropna().astype(str)
-            if col not in column_formats and len(values) and values.map(_contains_currency_symbol).any():
+            if col not in column_formats and len(values) and _map_distinct_text(
+                values, _contains_currency_symbol
+            ).any():
                 column_formats[col] = "currency"
 
     for col, candidate in llm_semantic_candidates.items():

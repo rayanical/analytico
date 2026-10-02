@@ -24,8 +24,9 @@ class IngestionMeasurement:
     standard library cannot supply the high-water mark.
     """
 
-    def __init__(self, endpoint):
+    def __init__(self, endpoint, *, includes_csv=False):
         self.endpoint = endpoint
+        self.includes_csv = includes_csv
         self.phases = {}
         self.rows = None
         self.columns = None
@@ -54,7 +55,7 @@ class IngestionMeasurement:
             "memory_scope": "process_lifetime_high_water",
             "timing_scope": (
                 "handler_parse_through_storage_excludes_transfer_and_serialization"
-                if "csv_parse" in self.phases else
+                if self.includes_csv or "csv_parse" in self.phases else
                 "dataframe_ingestion_through_storage_excludes_csv_parse_transfer_and_serialization"
             ),
         }

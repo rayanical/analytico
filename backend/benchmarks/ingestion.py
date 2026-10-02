@@ -14,10 +14,10 @@ from time import perf_counter
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
-WORKLOADS = {"small": (10_000, 5), "wide": (10_000, 50), "million": (1_000_000, 5)}
+WORKLOADS = {"small": (10_000, 5), "wide": (10_000, 50), "million": (1_000_000, 5), "unique": (1_000_000, 5)}
 
 
-def worker(source, name):
+def worker(source, name, engine="dataframe"):
     # Set again after dotenv initialization; this benchmark never calls providers.
     import core.config  # noqa: F401
     os.environ["OPENAI_API_KEY"] = ""
@@ -29,11 +29,16 @@ def worker(source, name):
     from utils.dataframe_utils import read_csv_fast
 
     start = perf_counter()
-    frame = read_csv_fast(source)
-    parsed = perf_counter()
     telemetry = io.StringIO()
     with contextlib.redirect_stdout(telemetry):
-        uploaded = ingest_dataframe(frame, "synthetic.csv", "/benchmark")
+        if engine == "dataframe":
+            frame = read_csv_fast(source)
+            parsed = perf_counter()
+            uploaded = ingest_dataframe(frame, "synthetic.csv", "/benchmark")
+        else:
+            from services.csv_ingestion import ingest_csv
+            parsed = start
+            uploaded = ingest_csv(source, "synthetic.csv", "/benchmark", engine=engine, defer_enrichment=False)
     ingested = perf_counter()
     measurement = next((json.loads(line) for line in telemetry.getvalue().splitlines()
                         if line.startswith('{') and '"ingestion_performance"' in line), {})
@@ -56,20 +61,28 @@ def worker(source, name):
         peak_bytes = int(rss if sys.platform == "darwin" else rss * 1024)
     except ImportError:
         peak_bytes = None
-    return {"workload": name, "rows": len(frame), "columns": len(frame.columns),
-            "csv_parse_seconds": parsed - start, "ingestion_seconds": ingested - parsed,
+    retained = None if hasattr(dataset, "disk") else int(dataset.df.memory_usage(deep=True).sum()
+                                                        + dataset.raw_df.memory_usage(deep=True).sum())
+    disk_bytes = sum(path.stat().st_size for path in dataset.disk.path.rglob("*") if path.is_file()) if hasattr(dataset, "disk") else 0
+    selected_engine = "disk" if hasattr(dataset, "disk") else "pandas"
+    parse_seconds = (parsed - start) if engine == "dataframe" else measurement.get("phase_seconds", {}).get("csv_parse")
+    dataset.close()
+    return {"workload": name, "engine": engine, "rows": uploaded.row_count, "columns": len(uploaded.columns),
+            "selected_engine": selected_engine,
+            "csv_parse_seconds": parse_seconds,
+            "ingestion_seconds": ingested - start - parse_seconds if parse_seconds is not None else None,
             "parse_and_ingestion_seconds": ingested - start,
             "ingestion_phase_seconds": measurement.get("phase_seconds"),
             "chart_cold_seconds": cold_seconds, "chart_warm_median_seconds": statistics.median(warm_times),
             "process_peak_rss_bytes": peak_bytes,
-            "retained_frame_bytes": int(dataset.df.memory_usage(deep=True).sum()
-                                        + dataset.raw_df.memory_usage(deep=True).sum()),
+            "retained_frame_bytes": retained, "retained_disk_bytes": disk_bytes,
             "result": result.model_dump()}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workloads", nargs="+", choices=WORKLOADS, default=list(WORKLOADS))
+    parser.add_argument("--workloads", nargs="+", choices=WORKLOADS, default=["small", "wide", "million"])
+    parser.add_argument("--engine", choices=["dataframe", "pandas", "disk", "auto"], default="dataframe")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--worker", type=Path, help=argparse.SUPPRESS)
@@ -78,7 +91,7 @@ def main():
     if args.repeats < 1 or args.repeats > 10:
         parser.error("--repeats must be between 1 and 10")
     if args.worker:
-        print(json.dumps(worker(args.worker, args.name), allow_nan=False))
+        print(json.dumps(worker(args.worker, args.name, args.engine), allow_nan=False))
         return
     results = []
     with tempfile.TemporaryDirectory(prefix="analytico-benchmark-") as directory:
@@ -90,14 +103,16 @@ def main():
             with source.open("w", encoding="utf-8") as stream:
                 stream.write(",".join(headers) + "\n")
                 for index in range(rows):
-                    values = [f"group_{index % 10}", str(index % 1001), str(index % 71),
+                    values = [f"group_{index % 10}", str(index if name == "unique" else index % 1001), str(index if name == "unique" else index % 71),
                               str(index % 97), f"label_{index % 23}"]
                     values += [str((index + i) % 1001) for i in range(columns - 5)]
                     stream.write(",".join(values) + "\n")
             for trial in range(args.repeats):
                 child = subprocess.run([sys.executable, str(Path(__file__).resolve()),
-                                        "--worker", str(source), "--name", name],
-                                       capture_output=True, text=True, check=True)
+                                        "--worker", str(source), "--name", name, "--engine", args.engine],
+                                       capture_output=True, text=True)
+                if child.returncode:
+                    raise RuntimeError(f"Offline benchmark {name} failed:\n{child.stderr}")
                 result = json.loads(child.stdout)
                 result["trial"] = trial + 1
                 results.append(result)

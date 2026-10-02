@@ -98,6 +98,29 @@ export interface UploadResponse {
   default_chart: DefaultChart | null;
   suggestions: string[];
   summary?: string | null;
+  enrichment_status?: EnrichmentStatus;
+}
+
+export type EnrichmentStatus = 'pending' | 'running' | 'done' | 'error' | 'disabled';
+
+/** Optional model suggestions that remain separate from active column types. */
+export interface InterpretationProposal {
+  role: SemanticType;
+  unit: string;
+  parsing_policy: string;
+  recommended_aggregation: string;
+  needs_clarification: boolean;
+}
+
+export interface EnrichmentStatusResponse {
+  dataset_id: string;
+  version?: string | null;
+  status: EnrichmentStatus;
+  progress: number;
+  summary: string | null;
+  interpretation_proposals: Record<string, InterpretationProposal>;
+  error: string | null;
+  reason?: string | null;
 }
 
 /** Dataset metadata retained in local storage between visits. */
@@ -112,6 +135,8 @@ export interface DatasetState {
   defaultChart: DefaultChart | null;
   suggestions: string[];
   summary?: string | null;
+  enrichmentStatus?: EnrichmentStatus;
+  interpretationProposals?: Record<string, InterpretationProposal>;
 }
 
 // Filter configuration

@@ -48,14 +48,15 @@ def _generate_business_summary(filename: str, df: pd.DataFrame) -> Optional[str]
         )
         content = summary_resp.choices[0].message.content
         summary = content.strip() if content else None
-    except Exception as e:
-        print(f"Summary generation failed: {e}")
+    except Exception:
+        print("Summary generation unavailable")
     return summary
 
 
 def ingest_dataframe(
     df: pd.DataFrame, filename: str, endpoint_name: str,
     measurement: Optional[IngestionMeasurement] = None,
+    defer_enrichment: bool = False,
 ) -> UploadResponse:
     """Run ingestion; callers parsing CSV supply their already-started measurement."""
     scope = nullcontext(measurement) if measurement is not None else IngestionMeasurement(endpoint_name)
@@ -64,7 +65,10 @@ def ingest_dataframe(
         with metrics.phase("raw_copy"):
             raw_df = df.copy(deep=True)
         with metrics.phase("data_cleaning"):
-            df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df)
+            if defer_enrichment:
+                df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df, interpret_columns=False)
+            else:
+                df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df)
         with metrics.phase("column_statistics"):
             column_stats = compute_column_statistics(df)
         with metrics.phase("semantic_detection"):
@@ -80,7 +84,7 @@ def ingest_dataframe(
         quality = max(0, 100 - (missing_total / max(total_cells, 1) * 100))
 
         with metrics.phase("llm_summary"):
-            summary = _generate_business_summary(filename, df)
+            summary = None if defer_enrichment else _generate_business_summary(filename, df)
         with metrics.phase("chart_metadata"):
             default_chart = generate_default_chart(df, col_types, column_stats)
             suggestions = generate_dynamic_suggestions(df, col_types, col_formats)
@@ -99,4 +103,69 @@ def ingest_dataframe(
                 suggestions=suggestions, summary=summary, column_stats=column_stats,
             )
             store_dataset(ds_info)
+        if defer_enrichment:
+            response.enrichment_status = queue_dataset_enrichment(ds_info, raw_df)
         return response
+
+
+def queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = None) -> str:
+    """Optional setup failure cannot invalidate a successfully ingested dataset."""
+    try:
+        return _queue_dataset_enrichment(dataset, source_frame)
+    except Exception:
+        from services.enrichment_service import disable_enrichment
+        return disable_enrichment(dataset.id, dataset.cache_version, "unavailable")["status"]
+
+
+def _queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = None) -> str:
+    """Queue bounded source context; jobs never change the dataset's parsed view."""
+    from services.enrichment_service import enqueue_enrichment, manager
+    from modules.data_janitor import _interpretation_input
+    from modules.column_interpretation import interpret_column
+    from storage import DATASETS
+
+    provider = os.getenv("COLUMN_INTERPRETER", "off").strip().lower()
+    has_summary_key = bool(os.getenv("OPENAI_API_KEY", "").strip())
+    key_name = "AI_GATEWAY_API_KEY" if provider == "jev" else "OPENAI_API_KEY"
+    has_interpreter_key = provider in {"luna", "jev"} and bool(os.getenv(key_name, "").strip())
+    if not has_summary_key and not has_interpreter_key:
+        return manager.disable(dataset.id, dataset.cache_version, "not_configured")["status"]
+
+    summary_frame = dataset.sample_frame(3).iloc[:, :20].copy(deep=True)
+    payloads = []
+    if has_interpreter_key:
+        if source_frame is not None:
+            headers = [str(column) for column in source_frame.columns]
+            payloads = [(str(dataset.column_names[index]), _interpretation_input(header, source_frame.iloc[:, index], headers))
+                        for index, header in enumerate(headers[:12])]
+        else:
+            payloads = dataset.disk.interpretation_inputs(limit=12)
+    dataset_id, version, filename = dataset.id, dataset.cache_version, dataset.filename
+
+    def work():
+        current = DATASETS.get(dataset_id)
+        if current is None or current.cache_version != version:
+            return {"summary": None, "interpretation_proposals": {}}
+        summary = _generate_business_summary(filename, summary_frame) if has_summary_key else None
+        proposals = {}
+        from time import perf_counter
+        started = perf_counter()
+        for column, payload in payloads:
+            if perf_counter() - started >= 12:
+                break
+            result = interpret_column(payload, provider=provider, use_cache=True)
+            proposals[column] = {
+                "status": result.status, "runtime_status": "clarification",
+                "provider": result.provider or provider, "model": result.model,
+                "prompt_version": result.prompt_version, "latency_ms": result.latency_ms,
+                "usage": result.usage, "error_code": result.error_code,
+                "cache_hit": result.cache_hit,
+                "decision": result.decision.model_dump() if result.decision else None,
+            }
+            if result.status in {"disabled", "unavailable", "error"}:
+                break
+        if has_summary_key and not summary and not proposals:
+            raise RuntimeError("Optional enrichment unavailable")
+        return {"summary": summary, "interpretation_proposals": proposals}
+
+    return enqueue_enrichment(dataset_id, version, work)["status"]
