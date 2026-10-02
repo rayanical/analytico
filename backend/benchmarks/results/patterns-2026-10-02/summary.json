@@ -1,0 +1,464 @@
+{
+  "scope": "Two fresh-process sequential trials per arm, same complete ingestion/profile/chart work. Floating outputs compare at rel_tol=1e-10 abs_tol=1e-8; integers and strings exact. Ready excludes staging, transfer, NLP and render. Peak RSS includes imports, chart and background AI. Wide forced disk; others normal auto threshold. Native is benchmark-only.",
+  "results": [
+    {
+      "dataset": "taxi",
+      "strategy": "current",
+      "luna": false,
+      "trials": 2,
+      "engine": "disk",
+      "rows": 1068755,
+      "columns": 20,
+      "ready_seconds": {
+        "median": 20.063521604519337,
+        "min": 19.359104792005382,
+        "max": 20.767938417033292
+      },
+      "loader_seconds": {
+        "median": 8.197448166494723,
+        "min": 8.138313208008185,
+        "max": 8.256583124981262
+      },
+      "chart_seconds": {
+        "median": 0.010647688002791256,
+        "min": 0.010491417022421956,
+        "max": 0.010803958983160555
+      },
+      "complete_seconds": {
+        "median": 20.07422570855124,
+        "min": 19.369652625056915,
+        "max": 20.778798792045563
+      },
+      "ai_remaining_seconds": {
+        "median": 0.010704104031901807,
+        "min": 0.010547833051532507,
+        "max": 0.010860375012271106
+      },
+      "peak_rss_bytes": {
+        "median": 331669504.0,
+        "min": 326959104,
+        "max": 336379904
+      }
+    },
+    {
+      "dataset": "taxi",
+      "strategy": "native",
+      "luna": false,
+      "trials": 2,
+      "engine": "disk",
+      "rows": 1068755,
+      "columns": 20,
+      "ready_seconds": {
+        "median": 14.313404104032088,
+        "min": 13.175473666051403,
+        "max": 15.451334542012773
+      },
+      "loader_seconds": {
+        "median": 3.2838988539297134,
+        "min": 3.250575832906179,
+        "max": 3.3172218749532476
+      },
+      "chart_seconds": {
+        "median": 0.01031135453376919,
+        "min": 0.010066375019960105,
+        "max": 0.010556334047578275
+      },
+      "complete_seconds": {
+        "median": 14.32377197954338,
+        "min": 13.185597375035286,
+        "max": 15.461946584051475
+      },
+      "ai_remaining_seconds": {
+        "median": 0.010367875511292368,
+        "min": 0.010123708983883262,
+        "max": 0.010612042038701475
+      },
+      "peak_rss_bytes": {
+        "median": 295706624.0,
+        "min": 295370752,
+        "max": 296042496
+      }
+    },
+    {
+      "dataset": "taxi",
+      "strategy": "native",
+      "luna": true,
+      "trials": 2,
+      "engine": "disk",
+      "rows": 1068755,
+      "columns": 20,
+      "ready_seconds": {
+        "median": 13.926376832998358,
+        "min": 13.775916374986991,
+        "max": 14.076837291009724
+      },
+      "loader_seconds": {
+        "median": 3.411517354485113,
+        "min": 3.324466999969445,
+        "max": 3.498567709000781
+      },
+      "chart_seconds": {
+        "median": 0.011621812474913895,
+        "min": 0.011561874998733401,
+        "max": 0.011681749951094389
+      },
+      "complete_seconds": {
+        "median": 25.563515958550852,
+        "min": 25.111778250080533,
+        "max": 26.01525366702117
+      },
+      "ai_remaining_seconds": {
+        "median": 11.637139125552494,
+        "min": 11.03494095907081,
+        "max": 12.239337292034179
+      },
+      "peak_rss_bytes": {
+        "median": 306405376.0,
+        "min": 291946496,
+        "max": 320864256
+      },
+      "proposal_status_counts": [
+        {
+          "ok": 9,
+          "uncertain": 11
+        },
+        {
+          "ok": 9,
+          "uncertain": 11
+        }
+      ]
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "current",
+      "luna": false,
+      "trials": 2,
+      "engine": "pandas",
+      "rows": 1704,
+      "columns": 6,
+      "ready_seconds": {
+        "median": 0.0513531455071643,
+        "min": 0.0510017080232501,
+        "max": 0.051704582991078496
+      },
+      "loader_seconds": {
+        "median": 0.0,
+        "min": 0,
+        "max": 0
+      },
+      "chart_seconds": {
+        "median": 0.0027634375146590173,
+        "min": 0.0013823340414091945,
+        "max": 0.00414454098790884
+      },
+      "complete_seconds": {
+        "median": 0.05415327096125111,
+        "min": 0.05242191697470844,
+        "max": 0.05588462494779378
+      },
+      "ai_remaining_seconds": {
+        "median": 0.0028001254540868104,
+        "min": 0.001420208951458335,
+        "max": 0.004180041956715286
+      },
+      "peak_rss_bytes": {
+        "median": 141213696.0,
+        "min": 141180928,
+        "max": 141246464
+      }
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "native",
+      "luna": false,
+      "trials": 2,
+      "engine": "pandas",
+      "rows": 1704,
+      "columns": 6,
+      "ready_seconds": {
+        "median": 0.051303062529768795,
+        "min": 0.051208583055995405,
+        "max": 0.051397542003542185
+      },
+      "loader_seconds": {
+        "median": 0.0,
+        "min": 0,
+        "max": 0
+      },
+      "chart_seconds": {
+        "median": 0.0014233954716473818,
+        "min": 0.0013796249404549599,
+        "max": 0.0014671660028398037
+      },
+      "complete_seconds": {
+        "median": 0.052762708452064544,
+        "min": 0.05262287496589124,
+        "max": 0.052902541938237846
+      },
+      "ai_remaining_seconds": {
+        "median": 0.0014596459222957492,
+        "min": 0.0014142919098958373,
+        "max": 0.001504999934695661
+      },
+      "peak_rss_bytes": {
+        "median": 141090816.0,
+        "min": 140935168,
+        "max": 141246464
+      }
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "native",
+      "luna": true,
+      "trials": 2,
+      "engine": "pandas",
+      "rows": 1704,
+      "columns": 6,
+      "ready_seconds": {
+        "median": 0.0528535625198856,
+        "min": 0.05260179203469306,
+        "max": 0.05310533300507814
+      },
+      "loader_seconds": {
+        "median": 0.0,
+        "min": 0,
+        "max": 0
+      },
+      "chart_seconds": {
+        "median": 0.0026320834294892848,
+        "min": 0.00243104191031307,
+        "max": 0.0028331249486654997
+      },
+      "complete_seconds": {
+        "median": 4.378970438032411,
+        "min": 3.8540476670023054,
+        "max": 4.903893209062517
+      },
+      "ai_remaining_seconds": {
+        "median": 4.326116875512525,
+        "min": 3.8009423339972273,
+        "max": 4.851291417027824
+      },
+      "peak_rss_bytes": {
+        "median": 164225024.0,
+        "min": 164216832,
+        "max": 164233216
+      },
+      "proposal_status_counts": [
+        {
+          "uncertain": 4,
+          "ok": 2
+        },
+        {
+          "ok": 2,
+          "uncertain": 4
+        }
+      ]
+    },
+    {
+      "dataset": "million",
+      "strategy": "current",
+      "luna": false,
+      "trials": 2,
+      "engine": "disk",
+      "rows": 1000000,
+      "columns": 5,
+      "ready_seconds": {
+        "median": 2.9270006669685245,
+        "min": 2.909087499952875,
+        "max": 2.944913833984174
+      },
+      "loader_seconds": {
+        "median": 1.012622979003936,
+        "min": 1.0101143330102786,
+        "max": 1.0151316249975935
+      },
+      "chart_seconds": {
+        "median": 0.003452103934250772,
+        "min": 0.003346332930959761,
+        "max": 0.003557874937541783
+      },
+      "complete_seconds": {
+        "median": 2.9304875629604794,
+        "min": 2.9126804169500247,
+        "max": 2.948294708970934
+      },
+      "ai_remaining_seconds": {
+        "median": 0.0034868959919549525,
+        "min": 0.0033808749867603183,
+        "max": 0.0035929169971495867
+      },
+      "peak_rss_bytes": {
+        "median": 275808256.0,
+        "min": 275791872,
+        "max": 275824640
+      }
+    },
+    {
+      "dataset": "million",
+      "strategy": "native",
+      "luna": false,
+      "trials": 2,
+      "engine": "disk",
+      "rows": 1000000,
+      "columns": 5,
+      "ready_seconds": {
+        "median": 2.229664666519966,
+        "min": 2.1795167500386015,
+        "max": 2.2798125830013305
+      },
+      "loader_seconds": {
+        "median": 0.7031820000265725,
+        "min": 0.7018089999910444,
+        "max": 0.7045550000621006
+      },
+      "chart_seconds": {
+        "median": 0.0035517290234565735,
+        "min": 0.003485957975499332,
+        "max": 0.003617500071413815
+      },
+      "complete_seconds": {
+        "median": 2.2332554374588653,
+        "min": 2.1830402499763295,
+        "max": 2.283470624941401
+      },
+      "ai_remaining_seconds": {
+        "median": 0.003590770938899368,
+        "min": 0.0035234999377280474,
+        "max": 0.0036580419400706887
+      },
+      "peak_rss_bytes": {
+        "median": 231374848.0,
+        "min": 230670336,
+        "max": 232079360
+      }
+    },
+    {
+      "dataset": "wide",
+      "strategy": "current",
+      "luna": false,
+      "trials": 2,
+      "engine": "disk",
+      "rows": 10000,
+      "columns": 50,
+      "ready_seconds": {
+        "median": 0.6868041039560921,
+        "min": 0.684641791973263,
+        "max": 0.6889664159389213
+      },
+      "loader_seconds": {
+        "median": 0.16123343806248158,
+        "min": 0.16026183404028416,
+        "max": 0.162205042084679
+      },
+      "chart_seconds": {
+        "median": 0.0013631664915010333,
+        "min": 0.0013527079718187451,
+        "max": 0.0013736250111833215
+      },
+      "complete_seconds": {
+        "median": 0.6882567499415018,
+        "min": 0.6860861249733716,
+        "max": 0.6904273749096319
+      },
+      "ai_remaining_seconds": {
+        "median": 0.0014526459854096174,
+        "min": 0.0014443330001085997,
+        "max": 0.0014609589707106352
+      },
+      "peak_rss_bytes": {
+        "median": 200638464.0,
+        "min": 200261632,
+        "max": 201015296
+      }
+    },
+    {
+      "dataset": "wide",
+      "strategy": "native",
+      "luna": false,
+      "trials": 2,
+      "engine": "disk",
+      "rows": 10000,
+      "columns": 50,
+      "ready_seconds": {
+        "median": 0.5926970415166579,
+        "min": 0.5895690000616014,
+        "max": 0.5958250829717144
+      },
+      "loader_seconds": {
+        "median": 0.054840249998960644,
+        "min": 0.05407745798584074,
+        "max": 0.05560304201208055
+      },
+      "chart_seconds": {
+        "median": 0.001465937471948564,
+        "min": 0.0014538329560309649,
+        "max": 0.0014780419878661633
+      },
+      "complete_seconds": {
+        "median": 0.5942587290192023,
+        "min": 0.5911454580491409,
+        "max": 0.5973719999892637
+      },
+      "ai_remaining_seconds": {
+        "median": 0.0015616875025443733,
+        "min": 0.0015469170175492764,
+        "max": 0.0015764579875394702
+      },
+      "peak_rss_bytes": {
+        "median": 193650688.0,
+        "min": 193216512,
+        "max": 194084864
+      }
+    },
+    {
+      "dataset": "wide",
+      "strategy": "native",
+      "luna": true,
+      "trials": 2,
+      "engine": "disk",
+      "rows": 10000,
+      "columns": 50,
+      "ready_seconds": {
+        "median": 0.5760766869643703,
+        "min": 0.5726101659238338,
+        "max": 0.5795432080049068
+      },
+      "loader_seconds": {
+        "median": 0.05276593752205372,
+        "min": 0.052422208013013005,
+        "max": 0.05310966703109443
+      },
+      "chart_seconds": {
+        "median": 0.001984229020308703,
+        "min": 0.0019457499729469419,
+        "max": 0.0020227080676704645
+      },
+      "complete_seconds": {
+        "median": 19.553350520436652,
+        "min": 19.1001644579228,
+        "max": 20.006536582950503
+      },
+      "ai_remaining_seconds": {
+        "median": 18.97727383347228,
+        "min": 18.520621249917895,
+        "max": 19.43392641702667
+      },
+      "peak_rss_bytes": {
+        "median": 223854592.0,
+        "min": 223723520,
+        "max": 223985664
+      },
+      "proposal_status_counts": [
+        {
+          "uncertain": 48,
+          "ok": 2
+        },
+        {
+          "uncertain": 48,
+          "ok": 2
+        }
+      ]
+    }
+  ]
+}

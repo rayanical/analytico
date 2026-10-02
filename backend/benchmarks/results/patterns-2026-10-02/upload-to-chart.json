@@ -1,0 +1,357 @@
+{
+  "results": [
+    {
+      "dataset": "taxi",
+      "strategy": "current",
+      "luna": true,
+      "rows": 1068755,
+      "model": "gpt-6-luna",
+      "preview_seconds": 1.372623291099444,
+      "ready_seconds": 18.806437541963533,
+      "question_seconds": 3.1785452920012176,
+      "total_processing_seconds": 23.357606125064194,
+      "result": "chart",
+      "axes": [
+        "payment_type",
+        [
+          "tip_amount"
+        ]
+      ],
+      "data": [
+        {
+          "payment_type": 1,
+          "tip_amount": 929290.9300001089
+        },
+        {
+          "payment_type": null,
+          "tip_amount": 297271.0899999988
+        },
+        {
+          "payment_type": 2,
+          "tip_amount": 0.0
+        },
+        {
+          "payment_type": 5,
+          "tip_amount": 0.0
+        },
+        {
+          "payment_type": 4,
+          "tip_amount": -88.22
+        },
+        {
+          "payment_type": 3,
+          "tip_amount": -132.42999999999986
+        }
+      ],
+      "aggregation": "sum",
+      "trial": 1
+    },
+    {
+      "dataset": "taxi",
+      "strategy": "current",
+      "luna": true,
+      "rows": 1068755,
+      "model": "gpt-6-luna",
+      "preview_seconds": 3.64927016699221,
+      "ready_seconds": 18.928743666037917,
+      "question_seconds": 1.620963874971494,
+      "total_processing_seconds": 24.19897770800162,
+      "result": "chart",
+      "axes": [
+        "payment_type",
+        [
+          "tip_amount"
+        ]
+      ],
+      "data": [
+        {
+          "payment_type": 1,
+          "tip_amount": 929290.9300001089
+        },
+        {
+          "payment_type": null,
+          "tip_amount": 297271.0899999988
+        },
+        {
+          "payment_type": 2,
+          "tip_amount": 0.0
+        },
+        {
+          "payment_type": 5,
+          "tip_amount": 0.0
+        },
+        {
+          "payment_type": 4,
+          "tip_amount": -88.22
+        },
+        {
+          "payment_type": 3,
+          "tip_amount": -132.42999999999986
+        }
+      ],
+      "aggregation": "sum",
+      "trial": 2
+    },
+    {
+      "dataset": "taxi",
+      "strategy": "native",
+      "luna": true,
+      "rows": 1068755,
+      "model": "gpt-6-luna",
+      "preview_seconds": 2.218380249920301,
+      "ready_seconds": 13.01385566603858,
+      "question_seconds": 1.3711914169834927,
+      "total_processing_seconds": 16.603427332942374,
+      "result": "chart",
+      "axes": [
+        "payment_type",
+        [
+          "tip_amount"
+        ]
+      ],
+      "data": [
+        {
+          "payment_type": 1,
+          "tip_amount": 929290.9300001049
+        },
+        {
+          "payment_type": null,
+          "tip_amount": 297271.0899999989
+        },
+        {
+          "payment_type": 2,
+          "tip_amount": 0.0
+        },
+        {
+          "payment_type": 5,
+          "tip_amount": 0.0
+        },
+        {
+          "payment_type": 4,
+          "tip_amount": -88.22
+        },
+        {
+          "payment_type": 3,
+          "tip_amount": -132.42999999999984
+        }
+      ],
+      "aggregation": "sum",
+      "trial": 1
+    },
+    {
+      "dataset": "taxi",
+      "strategy": "native",
+      "luna": true,
+      "rows": 1068755,
+      "model": "gpt-6-luna",
+      "preview_seconds": 1.3768031250219792,
+      "ready_seconds": 13.624176959041506,
+      "question_seconds": 1.5868843749631196,
+      "total_processing_seconds": 16.587864459026605,
+      "result": "chart",
+      "axes": [
+        "payment_type",
+        [
+          "tip_amount"
+        ]
+      ],
+      "data": [
+        {
+          "payment_type": 1,
+          "tip_amount": 929290.9300001049
+        },
+        {
+          "payment_type": null,
+          "tip_amount": 297271.0899999997
+        },
+        {
+          "payment_type": 2,
+          "tip_amount": 0.0
+        },
+        {
+          "payment_type": 5,
+          "tip_amount": 0.0
+        },
+        {
+          "payment_type": 4,
+          "tip_amount": -88.22
+        },
+        {
+          "payment_type": 3,
+          "tip_amount": -132.42999999999984
+        }
+      ],
+      "aggregation": "sum",
+      "trial": 2
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "current",
+      "luna": true,
+      "rows": 1704,
+      "model": "gpt-6-luna",
+      "preview_seconds": 0.04294195806141943,
+      "ready_seconds": 0.04770308395382017,
+      "question_seconds": 1.3692944999784231,
+      "total_processing_seconds": 1.4599395419936627,
+      "result": "chart",
+      "axes": [
+        "continent",
+        [
+          "life_exp"
+        ]
+      ],
+      "data": [
+        {
+          "continent": "Oceania",
+          "life_exp": 74.32620833333333
+        },
+        {
+          "continent": "Europe",
+          "life_exp": 71.90368611111111
+        },
+        {
+          "continent": "Americas",
+          "life_exp": 64.65873666666667
+        },
+        {
+          "continent": "Asia",
+          "life_exp": 60.064903232323225
+        },
+        {
+          "continent": "Africa",
+          "life_exp": 48.86533012820513
+        }
+      ],
+      "aggregation": "mean",
+      "trial": 1
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "current",
+      "luna": true,
+      "rows": 1704,
+      "model": "gpt-6-luna",
+      "preview_seconds": 0.04393504199106246,
+      "ready_seconds": 0.04744337499141693,
+      "question_seconds": 2.0581265829969198,
+      "total_processing_seconds": 2.149504999979399,
+      "result": "chart",
+      "axes": [
+        "continent",
+        [
+          "life_exp"
+        ]
+      ],
+      "data": [
+        {
+          "continent": "Oceania",
+          "life_exp": 74.32620833333333
+        },
+        {
+          "continent": "Europe",
+          "life_exp": 71.90368611111111
+        },
+        {
+          "continent": "Americas",
+          "life_exp": 64.65873666666667
+        },
+        {
+          "continent": "Asia",
+          "life_exp": 60.064903232323225
+        },
+        {
+          "continent": "Africa",
+          "life_exp": 48.86533012820513
+        }
+      ],
+      "aggregation": "mean",
+      "trial": 2
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "native",
+      "luna": true,
+      "rows": 1704,
+      "model": "gpt-6-luna",
+      "preview_seconds": 0.042284749913960695,
+      "ready_seconds": 0.04829895799048245,
+      "question_seconds": 1.3886539590312168,
+      "total_processing_seconds": 1.47923766693566,
+      "result": "chart",
+      "axes": [
+        "continent",
+        [
+          "life_exp"
+        ]
+      ],
+      "data": [
+        {
+          "continent": "Oceania",
+          "life_exp": 74.32620833333333
+        },
+        {
+          "continent": "Europe",
+          "life_exp": 71.90368611111111
+        },
+        {
+          "continent": "Americas",
+          "life_exp": 64.65873666666667
+        },
+        {
+          "continent": "Asia",
+          "life_exp": 60.064903232323225
+        },
+        {
+          "continent": "Africa",
+          "life_exp": 48.86533012820513
+        }
+      ],
+      "aggregation": "mean",
+      "trial": 1
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "native",
+      "luna": true,
+      "rows": 1704,
+      "model": "gpt-6-luna",
+      "preview_seconds": 0.04279066703747958,
+      "ready_seconds": 0.04798966692760587,
+      "question_seconds": 2.015537916100584,
+      "total_processing_seconds": 2.1063182500656694,
+      "result": "chart",
+      "axes": [
+        "continent",
+        [
+          "life_exp"
+        ]
+      ],
+      "data": [
+        {
+          "continent": "Oceania",
+          "life_exp": 74.32620833333333
+        },
+        {
+          "continent": "Europe",
+          "life_exp": 71.90368611111111
+        },
+        {
+          "continent": "Americas",
+          "life_exp": 64.65873666666667
+        },
+        {
+          "continent": "Asia",
+          "life_exp": 60.064903232323225
+        },
+        {
+          "continent": "Africa",
+          "life_exp": 48.86533012820513
+        }
+      ],
+      "aggregation": "mean",
+      "trial": 2
+    }
+  ],
+  "scope": "Two fresh processes per arm. Stage import, automatic confirm, then immediate GPT-6 Luna natural-language chart with production background enrichment active. Excludes browser transfer, speaking/typing/thinking, serialization and rendering. Both axes and aggregation independently checked against requested charts; chart values compare at rel_tol=1e-10 abs_tol=1e-8."
+}
