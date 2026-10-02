@@ -26,6 +26,17 @@ New production data-ready medians were 20.92 seconds for taxi, 0.050 seconds for
 
 The twelve new timing runs issued 196 column calls and twelve summaries. Column outcomes: 48 actionable, 148 uncertain, zero provider failures. Classification tokens were 208,662 input and 7,809 output; the standard-rate estimate is $0.02477, excluding summaries whose helper does not expose token usage. This is not observed billing; see the [previous benchmark's pricing source](dataset-ai-latency-2026-10-02.md).
 
+## Upload to first natural-language chart
+
+A follow-up measured the actual local staging → confirmation ingestion → immediate `run_query` path with production background enrichment enabled. Two repeats per dataset in one process, GPT-6 Luna, provider/filesystem caches and network uncontrolled. All four requests returned nonempty charts. Questions were total taxi tips by payment type and average Gapminder life expectancy by continent.
+
+| Dataset | Staging and preview | Confirmed ingestion | Question to chart response | Total processing |
+| --- | ---: | ---: | ---: | ---: |
+| Taxi, 133 MiB | 2.48–3.60 s | 18.67–19.00 s | 1.10–1.87 s | 23.35–23.37 s |
+| Gapminder, 80 KiB | 0.051–0.059 s | 0.047–0.048 s | 1.19–1.66 s | 1.29–1.76 s |
+
+These totals exclude browser file transfer/multipart parsing, user confirmation/thinking/typing/speaking and browser rendering. They are backend processing observations for two simple grouped-chart questions, not full browser wall-time or a guarantee for arbitrary questions. Chat becomes enabled as soon as the dataset is ready; it does not depend on completion of background enrichment. Results: `backend/benchmarks/results/parallel-ai-2026-10-02/upload-to-chart.json`.
+
 ## Cautious hybrid experiment
 
 The benchmark-only `hybrid_cautious` strategy routes numeric columns when distinct counts are small, values are nearly unique, leading-zero lexemes appear, or source samples are not finite plain decimals. It also routes categorical, identifier and unknown roles. Thresholds are heuristics, not calibrated semantic confidence; no dataset names or keyword regex were added. The production worker uses all columns and does not call this gate.
