@@ -131,6 +131,38 @@ class InterpretationIngestionTests(unittest.TestCase):
         self.assertEqual(types["measurement"], "unknown")
         self.assertEqual(formats["measurement"], "general")
 
+    def test_percent_scaling_avoids_intermediate_binary_rounding(self):
+        values = ["0.07%", "0.7%", "1.15%", None]
+        row = interpreted_row("share", unit="ratio", parsing_policy="parse_percent_to_ratio", recommended_aggregation="mean")
+        cleaned, _, _, _, types = self.clean(pd.DataFrame({"share": values}), row)
+        self.assertEqual(cleaned.share.iloc[:3].tolist(), [0.0007, 0.007, 0.0115])
+        self.assertEqual(types["share"], "metric")
+        self.assertTrue(pd.isna(cleaned.share.iloc[3]))
+
+    def test_high_precision_currency_and_conflicting_native_unit_require_review(self):
+        cases = [("amount_usd", ["$0.123456789012345678", "$0.2"],
+                  interpreted_row("amount_usd", unit="USD", parsing_policy="parse_currency_decimal")),
+                 ("amount_usd", [10.0, 20.0],
+                  interpreted_row("amount_usd", unit="none", parsing_policy="preserve_numeric_value")),
+                 ("measurement", [-9223372036854775808, -12],
+                  interpreted_row("measurement", parsing_policy="preserve_numeric_value"))]
+        for name, values, row in cases:
+            with self.subTest(name=name, values=values):
+                cleaned, _, _, _, types = self.clean(pd.DataFrame({name: values}), row)
+                self.assertEqual(cleaned[name].tolist(), values)
+                self.assertEqual(types[name], "unknown")
+
+    def test_large_integer_totals_require_review_before_profiles_or_charts(self):
+        # Each observation is exact, but the total cannot be represented exactly by JS.
+        for values, policy in [(["4503599627370496", "4503599627370496"], "parse_decimal"),
+                               ([4503599627370496, 4503599627370496], "preserve_numeric_value")]:
+            with self.subTest(policy=policy):
+                row = interpreted_row("measurement", parsing_policy=policy)
+                cleaned, _, _, formats, types = self.clean(pd.DataFrame({"measurement": values}), row)
+                self.assertEqual(cleaned.measurement.tolist(), values)
+                self.assertEqual(types["measurement"], "unknown")
+                self.assertEqual(auto_profile(cleaned, types, formats)["top_metrics"], [])
+
     def test_ai_plan_cannot_use_unreviewed_column(self):
         frame = pd.DataFrame({"group": ["A", "B"], "amount": ["$10", "$20"]})
         row = interpreted_row("amount", unit="unknown", needs_clarification=True)

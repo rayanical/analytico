@@ -7,6 +7,7 @@ import os
 import math
 import re
 import unicodedata
+from decimal import Decimal, InvalidOperation, localcontext
 from time import perf_counter
 from typing import Optional
 
@@ -48,7 +49,7 @@ UNIVERSAL_CURRENCY_KEYWORDS = {
 }
 IDENTIFIER_HINT_KEYWORDS = {
     "id", "code", "zip", "zipcode", "postal", "phone", "key", "identifier",
-    "ssn", "account", "serial", "reference", "ref",
+    "ssn", "account", "serial", "reference", "ref", "sequence",
 }
 
 
@@ -85,8 +86,17 @@ def _column_tokens(col_name: str) -> set[str]:
     return set(re.findall(r"[a-z0-9]+", str(col_name).lower()))
 
 
+def _has_split_id_token(col_name: str) -> bool:
+    tokens = re.findall(r"[a-z0-9]+", str(col_name).lower())
+    entity_names = {"customer", "account", "person", "user", "record", "order", "invoice",
+                    "product", "employee", "transaction", "item", "row", "entity"}
+    if any(token == entity + "id" for token in tokens for entity in entity_names):
+        return True
+    return any(left == "i" and right == "d" for left, right in zip(tokens, tokens[1:]))
+
+
 def _is_identifier_name(col_name: str) -> bool:
-    return bool(_column_tokens(col_name) & IDENTIFIER_HINT_KEYWORDS)
+    return bool(_column_tokens(col_name) & IDENTIFIER_HINT_KEYWORDS) or _has_split_id_token(col_name)
 
 
 def _is_date_name(col_name: str) -> bool:
@@ -413,19 +423,29 @@ def _can_apply_interpretation(series: pd.Series, col: str, metadata: dict) -> bo
     if role in {"identifier", "categorical"}:
         return policy in {"preserve_lexeme", "preserve_source"} and aggregation in {"count", "none"}
     if role == "temporal":
-        return policy == "parse_unambiguous_date" and unit == "calendar_date" and aggregation == "none"
+        return (not _is_identifier_name(col) and policy == "parse_unambiguous_date"
+                and unit == "calendar_date" and aggregation == "none")
     if role != "metric" or aggregation not in {"sum", "mean"}:
         return False
     tokens = _column_tokens(col)
-    if tokens & (IDENTIFIER_HINT_KEYWORDS - {"account"}):
+    if tokens & (IDENTIFIER_HINT_KEYWORDS - {"account"}) or _has_split_id_token(col):
         return False
     if "account" in tokens and ("balance" not in tokens or unit not in {"USD", "EUR"}):
         return False
     if series.dropna().empty or _has_leading_zero_identifiers(series):
         return False
-    if pd.api.types.is_numeric_dtype(series) and not series.dropna().map(math.isfinite).all():
+    if pd.api.types.is_bool_dtype(series):
         return False
+    if pd.api.types.is_numeric_dtype(series):
+        observed = series.dropna()
+        if not observed.map(math.isfinite).all() or observed.map(lambda value: abs(float(value)) > 2**53 - 1).any():
+            return False
+        if math.fsum(abs(float(value)) for value in observed) > 2**53 - 1:
+            return False
     values = series.dropna().astype(str).str.strip()
+    header_currencies = tokens & {"usd", "eur"}
+    if header_currencies and header_currencies != {unit.lower()}:
+        return False
     if unit in {"USD", "EUR"}:
         explicit_units = values.str.match(r"^(?:USD|EUR)\s+")
         if unit.lower() not in tokens and not explicit_units.all():
@@ -455,6 +475,15 @@ def _can_apply_interpretation(series: pd.Series, col: str, metadata: dict) -> bo
 
 
 def _parse_interpreted_numeric(series: pd.Series, col: str, decision: dict):
+    if decision["parsing_policy"] == "parse_percent_to_ratio":
+        values = series.dropna().astype(str).str.strip().str[:-1].str.strip()
+        if not values.map(lambda value: bool(_PLAIN_NUMBER.fullmatch(value))).all():
+            return None, None, f"Could not safely parse '{col}' percentage text; retained source values"
+        def ratio(token):
+            with localcontext() as context:
+                context.prec = max(28, len(token) + 2)
+                return float(Decimal(token) / 100)
+        return values.map(ratio), "percentage", f"Converted '{col}' from percentage text to decimal"
     if decision["parsing_policy"] != "parse_currency_decimal":
         return _parse_numeric_text(series, col, allow_metric_name=True)
     values = series.dropna().astype(str).str.strip()
@@ -463,6 +492,37 @@ def _parse_interpreted_numeric(series: pd.Series, col: str, decision: dict):
         return None, None, f"Could not safely parse '{col}' currency text; retained source values"
     parsed = pd.to_numeric(normalized.str.replace(",", "", regex=False), errors="raise")
     return parsed, "currency", f"Converted '{col}' from currency text to numeric with verified currency identity"
+
+
+def _interpreted_numbers_are_lossless(original: pd.Series, converted: pd.Series, decision: dict) -> bool:
+    """Reject rounding and quantities outside JavaScript's exact integer range."""
+    magnitude_sum = Decimal(0)
+    for source, value in zip(original.tolist(), converted.tolist()):
+        if pd.isna(source):
+            if not pd.isna(value):
+                return False
+            continue
+        token = str(source).strip()
+        if decision["parsing_policy"] == "parse_currency_decimal":
+            token = re.sub(r"^(?:USD|EUR)\s+", "", token)
+            token = _strip_currency_symbols(token)
+        percent = decision["parsing_policy"] == "parse_percent_to_ratio"
+        if percent:
+            token = token[:-1].strip()
+        token = token.replace(",", "")
+        try:
+            with localcontext() as context:
+                context.prec = max(28, len(token) + 2)
+                expected = Decimal(token) / (100 if percent else 1)
+            actual = Decimal(str(value))
+            if (not actual.is_finite() or abs(actual) > 2**53 - 1 or actual != expected):
+                return False
+            magnitude_sum += abs(actual)
+            if magnitude_sum > 2**53 - 1:
+                return False
+        except (InvalidOperation, ValueError, OverflowError):
+            return False
+    return True
 
 
 def _expand_parsed_values(original: pd.Series, parsed: pd.Series, missing_value) -> pd.Series:
@@ -545,11 +605,16 @@ def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str
             if action:
                 cleaning_actions.append(action)
             if parsed is not None:
-                df[col] = _expand_parsed_values(original, parsed, float("nan"))
+                converted = _expand_parsed_values(original, parsed, float("nan"))
+                if decision and not _interpreted_numbers_are_lossless(original, converted, decision):
+                    semantic_types[col] = "unknown"
+                    cleaning_actions.append(f"Column '{col}' needs interpretation review; numeric precision would be lost")
+                    continue
+                df[col] = converted
                 if fmt:
                     column_formats[col] = fmt
                 continue
-            if fmt is None and not action:
+            if fmt is None and not action and (not decision or decision["role"] == "temporal"):
                 parsed_dates, date_action = _parse_date_text(original, col)
                 if date_action:
                     cleaning_actions.append(date_action)

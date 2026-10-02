@@ -5,7 +5,7 @@ import json
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from core.config import OPENAI_MODEL, SYSTEM_PROMPT, get_openai_client
+from core.config import OPENAI_MODEL, chat_completion_options, SYSTEM_PROMPT, get_openai_client
 from models import AggregateRequest, ChartResponse, FilterConfig, QueryPlan, QueryRequest
 from services.aggregation_service import run_aggregate
 from services.response_builders import safe_empty_chart_response
@@ -63,8 +63,7 @@ Use the supplied schema exactly. For unsupported calculations, return a clarific
                     "schema": _QUERY_PLAN_SCHEMA,
                 },
             },
-            temperature=0,
-            max_tokens=800,
+            **chat_completion_options(800, 0),
         )
     except HTTPException:
         raise

@@ -98,3 +98,7 @@ This single small run does not establish production accuracy or a Jev/Luna winne
 A Gateway key was configured in the ignored local environment file and the same fifteen-case run was attempted. Every request failed before a decision was returned. A diagnostic synthetic request returned HTTP 403 with `RestrictedModelsError`: the Gateway account requires paid credits to access `typesafe-ai/jev`. No account upgrade or credit purchase was performed.
 
 The [failed-run report](../backend/evals/results/jev-access-blocked-2026-10-01.json) preserves sanitized failures. These are access failures, not incorrect model predictions; there is no valid Jev accuracy or inference-latency measurement yet. After enabling paid Gateway access, rerun the Jev command above to obtain the comparison.
+
+## Luna improvement cycle
+
+The original fifteen cases now serve as a development set. `backend/evals/interpretation_holdout.json` adds thirty independently authored cases. Pass that file through `--cases`; Luna reasoning comparisons use `--reasoning-effort none` (default) or `low`. Live reports record the requested effort and the effort used by the adapter. See [the improvement results](luna-improvement-results-2026-10-01.md) for all measured runs and safety replay checks.

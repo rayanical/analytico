@@ -9,6 +9,7 @@ import json
 import math
 import os
 import sys
+from functools import partial
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -34,6 +35,7 @@ KNOWN_ERROR_CODES = {
     "invalid_input",
     "invalid_provider",
     "invalid_model",
+    "invalid_reasoning_effort",
     "missing_api_key",
     "request_timeout",
     "provider_unavailable",
@@ -124,6 +126,7 @@ def _result_row(
     decision: dict[str, Any] | None = None,
     model: Any = None,
     prompt_version: Any = None,
+    reasoning_effort: Any = None,
     latency_ms: Any = None,
     usage: Any = None,
     confidence: Any = None,
@@ -155,6 +158,7 @@ def _result_row(
             "provider": resolved_provider if isinstance(resolved_provider, str) and resolved_provider else provider,
             "model": model if isinstance(model, str) and model else None,
             "prompt_version": prompt_version if isinstance(prompt_version, str) and prompt_version else None,
+            "reasoning_effort": reasoning_effort if reasoning_effort in {"none", "low"} else None,
             "latency_ms": safe_latency,
             "usage": _clean_usage(usage),
             "confidence": safe_confidence,
@@ -263,6 +267,7 @@ def run_live(
     interpret: Callable[..., Any] | None = None,
     *,
     api_key_available: bool = True,
+    reasoning_effort: str = "none",
 ) -> dict[str, Any]:
     """Run the adapter on leak-safe inputs; the callable seam keeps tests offline."""
     started_at = datetime.now(timezone.utc).isoformat()
@@ -276,6 +281,8 @@ def run_live(
         if interpret is None:
             try:
                 interpret = _load_interpret_column()
+                if provider == "luna":
+                    interpret = partial(interpret, reasoning_effort=reasoning_effort)
             except Exception:
                 rows = [_failed_row(case["id"], provider, "adapter_unavailable") for case in cases]
 
@@ -305,6 +312,7 @@ def run_live(
                         decision=decision,
                         model=getattr(result, "model", None),
                         prompt_version=getattr(result, "prompt_version", None),
+                        reasoning_effort=getattr(result, "reasoning_effort", None),
                         latency_ms=getattr(result, "latency_ms", None),
                         usage=getattr(result, "usage", None),
                         confidence=getattr(result, "confidence", None),
@@ -358,6 +366,7 @@ def run_live(
         "mode": "live",
         "provider_run": {
             "requested_provider": provider,
+            "requested_reasoning_effort": reasoning_effort if provider == "luna" else None,
             "resolved_providers": resolved_providers,
             "models": provider_models,
             "prompt_versions": prompt_versions,
@@ -391,6 +400,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES, help="fixture JSON path")
     parser.add_argument("--provider", choices=tuple(PROVIDER_KEYS), help="provider used in live mode")
+    parser.add_argument("--reasoning-effort", choices=("none", "low"), default="none", help="Luna reasoning experiment; runtime defaults to none")
     parser.add_argument("--live", action="store_true", help="make provider calls; omitted by default")
     parser.add_argument("--output", type=Path, help="write run report JSON to this path")
     args = parser.parse_args(argv)
@@ -423,7 +433,7 @@ def main(argv: list[str] | None = None) -> int:
         # A missing dotenv helper does not prevent use of caller-exported environment values.
         pass
     key_available = _provider_key_available(args.provider)
-    report = run_live(cases, args.provider, api_key_available=key_available)
+    report = run_live(cases, args.provider, api_key_available=key_available, reasoning_effort=args.reasoning_effort)
     _write_report(args.output, report)
     sys.stdout.write(json.dumps(report, indent=2, sort_keys=True) + "\n")
     return 1 if report["failure_count"] else 0

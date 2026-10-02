@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from fastapi import HTTPException
 
-from core.config import MAX_CHART_POINTS, OPENAI_MODEL, get_openai_client
+from core.config import MAX_CHART_POINTS, OPENAI_MODEL, chat_completion_options, get_openai_client
 from models import AggregateRequest, ChartResponse
 from modules import aggregate_data, enforce_semantic_rules, smart_group_top_n, smart_resample_dates
 from storage import get_dataset
@@ -24,6 +24,8 @@ def _json_value(value: Any):
         value = value.item()
     if isinstance(value, float) and not np.isfinite(value):
         return None
+    if type(value) is int and abs(value) > 2**53 - 1:
+        return str(value)
     if isinstance(value, (str, int, float, bool)):
         return value
     return str(value)
@@ -147,8 +149,7 @@ Computed chart rows:
                     {"role": "system", "content": "You are a concise data analyst. Use only the supplied computed results."},
                     {"role": "user", "content": prompt},
                 ],
-                max_tokens=120,
-                temperature=0.3,
+                **chat_completion_options(120, 0.3),
             )
             analysis = (analysis_response.choices[0].message.content or "").strip() or None
         except HTTPException:

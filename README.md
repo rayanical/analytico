@@ -11,7 +11,7 @@ Analytico is a local-first analytics application that takes users from CSV explo
 - **Backend:** Python, FastAPI, Pandas
 - **Frontend:** TypeScript, Next.js, Tailwind CSS
 - **Visualization:** Recharts, Framer Motion, react-grid-layout
-- **AI:** optional OpenAI integration (default model: GPT-4o-mini)
+- **AI:** optional OpenAI integration (default model: GPT-6 Luna)
 - **Export:** html-to-image + jsPDF
 
 ---
@@ -153,3 +153,5 @@ python3 backend/evals/evaluate_interpretation.py --predictions backend/evals/bas
 ```
 
 See [benchmark instructions](docs/interpretation-benchmark.md) for scoring future Jev/Luna predictions and regenerating the offline baseline. See [dependency audit](docs/dependency-audit-2026-10-01.md) for package changes and residual findings. The [original repository audit](docs/production-readiness-audit-2026-10-01.md) is a historical pre-fix document; [completed fixes](docs/local-safety-fixes-2026-10-01.md) records the verified implementation.
+
+The latest [Luna improvement results](docs/luna-improvement-results-2026-10-01.md) include independent holdout runs and deterministic safety regressions.

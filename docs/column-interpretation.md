@@ -10,7 +10,7 @@ Keep keys in ignored `backend/.env`. Start with `backend/.env.example`; restart 
 - `COLUMN_INTERPRETER=luna` uses `OPENAI_API_KEY` and the Responses API. `COLUMN_INTERPRETER_MODEL` defaults to `gpt-6-luna`; outputs use a strict JSON schema, with response storage disabled.
 - `COLUMN_INTERPRETER=jev` uses `AI_GATEWAY_API_KEY` and Vercel's evaluation endpoint, pinned to `typesafe-ai/jev` and the TypeSafe provider.
 
-`OPENAI_MODEL` separately controls the existing chart planner and business descriptions. Setting interpretation to off does not disable those features or their outbound requests. Ingestion summaries still run automatically when an OpenAI key is configured. A per-dataset sharing control and key-management UI remain follow-ups.
+`OPENAI_MODEL` separately controls chart planning and business descriptions; it now defaults to `gpt-6-luna` too. These chat calls explicitly use no reasoning and bounded completion budgets. Setting interpretation to off does not disable those features or their outbound requests. Ingestion summaries still run automatically when an OpenAI key is configured. A per-dataset sharing control and key-management UI remain follow-ups.
 
 ## Bounds and runtime safety
 
@@ -22,8 +22,12 @@ An opted-in column with a failed, uncertain, skipped, contradictory, or unsuppor
 
 Accepted metric parsing checks every non-null value. Leading-zero identifiers are protected. Currency parsing currently supports USD and EUR with explicit source evidence; a dollar symbol alone is insufficient. Ambiguous date order and mixed number conventions remain unparsed. Weighted rates, basis-point conversion, and last-by-entity aggregation are represented in the interpretation contract but are not runtime operations yet.
 
+Numeric parsing additionally rejects loss of source precision and quantities or possible totals beyond JavaScript’s safe integer range. Large integer identifiers are serialized as exact strings for browser/filter round trips.
+
 Upload column metadata exposes provider/model, prompt version, status, runtime acceptance, latency, reported token usage, sanitized failure code, and the proposed decision. Jev probabilities are separate from optional native confidence. They are not calibrated accuracy estimates. Metadata is currently visible through the API; there is no dedicated review editor yet.
 
 ## Evaluation
 
 See [the interpretation benchmark](interpretation-benchmark.md) for dry-run and explicitly opted-in live commands. The report records actual predictions, accuracy against fifteen synthetic cases, latency, usage, and provider failures. Cost stays unknown unless the provider reports it. This fixture is an initial regression set, not sufficient evidence to choose a production default.
+
+See [the latest Luna improvement results](luna-improvement-results-2026-10-01.md) for the frozen prompt, repeated holdout outcomes, reasoning comparison, and remaining limits.

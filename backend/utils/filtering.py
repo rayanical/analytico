@@ -1,6 +1,7 @@
 """Filtering and column validation utilities."""
 
 import difflib
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 import pandas as pd
@@ -35,6 +36,22 @@ def _as_numeric(value, column: str) -> float:
     return number
 
 
+def _as_integer_operand(value, column: str):
+    """Keep integer keys and fractional boundaries exact instead of coercing to float."""
+    if isinstance(value, bool):
+        raise FilterValidationError(f"Filter for '{column}' requires a numeric value.")
+    try:
+        token = str(value)
+        if len(token) > 512:
+            raise ValueError("Numeric operand too long")
+        number = Decimal(token)
+        if not number.is_finite() or abs(number.adjusted()) > 512:
+            raise ValueError("Numeric operand out of range")
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise FilterValidationError(f"Filter for '{column}' requires a finite numeric value.") from exc
+    return int(number) if number == number.to_integral_value() else number
+
+
 def _as_datetime(value, series: pd.Series, column: str) -> pd.Timestamp:
     try:
         stamp = pd.Timestamp(value)
@@ -60,6 +77,8 @@ def _coerce_value(series: pd.Series, value, column: str):
         if type(value) is not bool:
             raise FilterValidationError(f"Filter for '{column}' requires a boolean value.")
         return value
+    if pd.api.types.is_integer_dtype(series):
+        return _as_integer_operand(value, column)
     if pd.api.types.is_numeric_dtype(series):
         return _as_numeric(value, column)
     if isinstance(value, (dict, list, tuple, set)) or value is None:
@@ -80,7 +99,9 @@ def _comparison_mask(series: pd.Series, operator: str, value, column: str) -> pd
         raise FilterValidationError(f"Operator '{operator}' requires a numeric or date column ('{column}').")
 
     compare_value = _coerce_value(series, value, column)
-    if is_numeric:
+    if pd.api.types.is_integer_dtype(series):
+        left = series.astype(object)
+    elif is_numeric:
         left = pd.to_numeric(series, errors="coerce")
     elif is_datetime:
         left = series
@@ -117,7 +138,9 @@ def _apply_one(filtered: pd.DataFrame, f: FilterConfig, applied: list[str]) -> p
     if f.values is not None:
         includes_null = any(value is None for value in f.values)
         normalized = [_coerce_value(series, value, f.column) for value in f.values if value is not None]
-        if pd.api.types.is_numeric_dtype(series):
+        if pd.api.types.is_integer_dtype(series):
+            left = series.astype(object)
+        elif pd.api.types.is_numeric_dtype(series):
             left = pd.to_numeric(series, errors="coerce")
         elif pd.api.types.is_datetime64_any_dtype(series):
             left = series

@@ -25,7 +25,7 @@ def _generate_business_summary(filename: str, df: pd.DataFrame) -> Optional[str]
 
     summary = None
     try:
-        from core.config import OPENAI_MODEL, get_openai_client
+        from core.config import OPENAI_MODEL, chat_completion_options, get_openai_client
 
         client = get_openai_client()
         sample = df.head(3).iloc[:, :20].to_string(max_colwidth=50)
@@ -42,8 +42,7 @@ def _generate_business_summary(filename: str, df: pd.DataFrame) -> Optional[str]
                 {"role": "system", "content": "You are a data analyst. Be concise. No preamble."},
                 {"role": "user", "content": summary_prompt},
             ],
-            max_tokens=100,
-            temperature=0.3,
+            **chat_completion_options(100, 0.3),
             timeout=8.0,
         )
         content = summary_resp.choices[0].message.content
