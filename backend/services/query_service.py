@@ -46,7 +46,10 @@ Row count: {row_count}
 Exact column names: {json.dumps(df.columns.tolist())}
 Preferred measures: {json.dumps(preferred_metrics)}
 Preferred date columns: {json.dumps(preferred_dates)}
+Reviewed column schema: {json.dumps(getattr(dataset, 'column_schema', []), ensure_ascii=False)}
 
+Use reviewed units and aggregation recommendations. Do not invent units or weights.
+If a requested measure explicitly has aggregation=none, ask for clarification.
 Use the supplied schema exactly. For unsupported calculations, return a clarification plan."""
 
     try:
@@ -90,6 +93,11 @@ Use the supplied schema exactly. For unsupported calculations, return a clarific
         return _clarification(plan.clarification or "Please clarify the calculation you want to see.")
 
     assert plan.x_axis_key is not None
+    blocked_measures = [item["column"] for item in getattr(dataset, "column_schema", [])
+                        if item.get("aggregation") == "none" and item["column"] in plan.y_axis_keys]
+    if blocked_measures:
+        return _clarification("The reviewed schema marks these columns as not aggregatable: "
+                              + ", ".join(blocked_measures) + ". Review their column settings first.")
     all_requested_columns = [plan.x_axis_key, *plan.y_axis_keys, *(item.column for item in plan.filters)]
     valid, missing, _ = validate_columns(df, all_requested_columns)
     if not valid:

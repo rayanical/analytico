@@ -61,6 +61,7 @@ function isInterpretationProposal(value: unknown): boolean {
 export function isDatasetState(value: unknown): value is DatasetState {
   return isRecord(value)
     && typeof value.datasetId === 'string'
+    && (value.version === undefined || typeof value.version === 'string')
     && typeof value.filename === 'string'
     && typeof value.rowCount === 'number'
     && Array.isArray(value.columns) && value.columns.every(isColumnSummary)

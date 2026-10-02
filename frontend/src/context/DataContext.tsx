@@ -128,6 +128,7 @@ function isChartResponse(value: unknown): value is ChartResponse {
 
 function isHistoryItem(value: unknown): value is HistoryItem {
   if (!isRecord(value) || typeof value.id !== 'string' || typeof value.datasetId !== 'string'
+    || (value.datasetVersion !== undefined && typeof value.datasetVersion !== 'string')
     || typeof value.query !== 'string' || !isChartResponse(value.chartResponse)) return false;
   const timestamp = new Date(value.timestamp as string | number | Date);
   return Number.isFinite(timestamp.getTime());
@@ -242,6 +243,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [storageReady, setStorageReady] = useState(false);
   const [datasetRevision, setDatasetRevision] = useState(0);
   const datasetIdRef = useRef<string | null>(null);
+  const datasetVersionRef = useRef<string | null>(null);
   const datasetRevisionRef = useRef(0);
   const queryRequestIdRef = useRef(0);
   const activeQueryControllerRef = useRef<AbortController | null>(null);
@@ -341,6 +343,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
           if (validation === 'valid') {
             datasetIdRef.current = parsedDataset.datasetId;
+            datasetVersionRef.current = parsedDataset.version ?? null;
             setDatasetInternal(parsedDataset);
           } else if (validation === 'expired') {
             removeStorage(DATASET_KEY);
@@ -356,13 +359,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setDataset = useCallback((state: DatasetState | null) => {
+    const sameDataset = state !== null && datasetIdRef.current === state.datasetId;
+    const nextVersion = state?.version ?? null;
+    const schemaChanged = sameDataset
+      && datasetVersionRef.current !== nextVersion
+      && (datasetVersionRef.current !== null || nextVersion !== null);
+
     activeQueryControllerRef.current?.abort();
     activeQueryControllerRef.current = null;
     datasetRevisionRef.current += 1;
     setDatasetRevision(datasetRevisionRef.current);
     queryRequestIdRef.current += 1;
     datasetIdRef.current = state?.datasetId ?? null;
+    datasetVersionRef.current = nextVersion;
     setDatasetInternal(state);
+    if (schemaChanged && state) {
+      dashboardTouchedIdsRef.current.add(state.datasetId);
+      setDashboardStore(prev => ({ ...prev, [state.datasetId]: [] }));
+    }
     setEnrichment(state ? {
       dataset_id: state.datasetId,
       status: state.enrichmentStatus ?? 'disabled',
@@ -515,6 +529,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const entry: HistoryItem = {
       id: crypto.randomUUID(),
       datasetId,
+      ...(datasetVersionRef.current ? { datasetVersion: datasetVersionRef.current } : {}),
       query,
       chartResponse: response,
       timestamp: new Date(),
@@ -524,7 +539,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCurrentHistoryId(entry.id);
   }, []);
   const selectFromHistory = useCallback((item: HistoryItem) => {
-    if (!dataset || item.datasetId !== dataset.datasetId) return;
+    if (!dataset || item.datasetId !== dataset.datasetId || item.datasetVersion !== dataset.version) return;
     invalidateQuery();
     setCurrentChart(item.chartResponse);
     setCurrentHistoryId(item.id);
@@ -540,7 +555,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     setCurrentHistoryId(null);
   }, [dataset]);
-  const visibleHistory = dataset ? history.filter(item => item.datasetId === dataset.datasetId) : [];
+  const visibleHistory = dataset
+    ? history
+      .filter(item => item.datasetId === dataset.datasetId)
+      .map(item => ({ ...item, isStale: item.datasetVersion !== dataset.version }))
+    : [];
   const dashboardWidgets = dataset ? (dashboardStore[dataset.datasetId] ?? []) : [];
   const dashboardUiState = dataset ? (dashboardUiStore[dataset.datasetId] ?? DEFAULT_DASHBOARD_UI) : DEFAULT_DASHBOARD_UI;
 

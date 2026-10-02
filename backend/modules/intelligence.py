@@ -56,6 +56,9 @@ def detect_semantic_type(
 
 
 def _accepted_metric_decision(df: pd.DataFrame, column: str) -> Optional[dict]:
+    for item in df.attrs.get("column_schema", []):
+        if item.get("column") == column and item.get("aggregation") is not None:
+            return {"recommended_aggregation": item["aggregation"]}
     metadata = df.attrs.get("column_interpretations", {}).get(column, {})
     decision = metadata.get("decision")
     if (metadata.get("runtime_status") == "applied" and decision
@@ -80,6 +83,7 @@ def generate_default_chart(
     metric_cols = [
         c for c, t in column_types.items()
         if t == SemanticType.METRIC and pd.api.types.is_numeric_dtype(df[c])
+        and (_accepted_metric_decision(df, c) or {}).get("recommended_aggregation") != "none"
     ]
     
     if not metric_cols:
@@ -173,6 +177,9 @@ def auto_profile(
     column_formats = column_formats or {}
     
     for col in metric_cols[:3]:  # Top 3 metrics
+        decision = _accepted_metric_decision(df, col)
+        if decision and decision["recommended_aggregation"] in {"none", "count"}:
+            continue
         series = df[col].dropna()
         if len(series) == 0:
             continue

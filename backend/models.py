@@ -4,6 +4,24 @@ import math
 from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, model_validator
+from modules.import_policy import ImportSettings, ColumnOverride
+
+
+class ImportPreviewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    settings: ImportSettings
+
+
+class ImportConfirmRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    settings: Optional[ImportSettings] = None
+    column_overrides: list[ColumnOverride] = Field(default_factory=list, max_length=256)
+
+
+class SchemaApplyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_version: StrictStr = Field(min_length=1, max_length=128)
+    column_overrides: list[ColumnOverride] = Field(max_length=256)
 
 
 Aggregation = Literal["sum", "mean", "median", "count", "min", "max"]
@@ -95,6 +113,8 @@ class UploadResponse(BaseModel):
     suggestions: list[str]
     summary: Optional[str] = None
     enrichment_status: Literal["pending", "running", "done", "error", "disabled"] = "disabled"
+    version: Optional[str] = None
+    column_schema: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class FilterConfig(BaseModel):

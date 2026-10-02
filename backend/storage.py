@@ -75,7 +75,11 @@ class DatasetInfo:
         return self.df.head(limit)
 
     def close(self) -> None:
-        """In-memory datasets have no external resources to release."""
+        """Release a retained original CSV owned by this dataset, if present."""
+        owner = getattr(self, "_source_owner", None)
+        if owner is not None:
+            owner.cleanup()
+            self._source_owner = None
 
     def touch(self):
         self.last_accessed = datetime.now()
@@ -95,6 +99,7 @@ class DiskDatasetInfo:
         self.id = str(uuid.uuid4())
         self.cache_version = str(uuid.uuid4())
         self.disk = disk
+        self.disk.cache_version = self.cache_version
         self.filename = filename
         self.column_types = disk.column_types
         self.column_formats = disk.column_formats
@@ -193,3 +198,15 @@ def store_dataset(ds_info: DatasetInfo | DiskDatasetInfo) -> str:
 
         DATASETS[ds_info.id] = ds_info
         return ds_info.id
+
+
+def replace_dataset(dataset_id: str, staged_dataset, expected_version: str):
+    """Atomically publish a validated replacement, preserving the public ID."""
+    with _DATASETS_LOCK:
+        current = get_dataset(dataset_id)
+        if current.cache_version != expected_version:
+            raise HTTPException(409, "The dataset changed. Refresh the column review before applying edits.")
+        staged_dataset.id = dataset_id
+        DATASETS[dataset_id] = staged_dataset
+        _retire_dataset(current)
+        return staged_dataset

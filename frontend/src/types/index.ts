@@ -101,6 +101,96 @@ export interface UploadResponse {
   enrichment_status?: EnrichmentStatus;
 }
 
+export type ImportDelimiter = ',' | ';' | '\t' | '|';
+export type ImportEncoding = 'utf-8-sig' | 'utf-8' | 'cp1252' | 'utf-16';
+export type DecimalSeparator = 'auto' | '.' | ',';
+export type GroupingSeparator = ',' | '.' | ' ' | null;
+export type DateOrder = 'auto' | 'ymd' | 'dmy' | 'mdy';
+
+/** Parsing options used while previewing or confirming an imported file. */
+export interface ImportSettings {
+  delimiter: ImportDelimiter;
+  encoding: ImportEncoding;
+  decimal_separator: DecimalSeparator;
+  grouping_separator: GroupingSeparator;
+  date_order: DateOrder;
+  null_values: string[];
+}
+
+export interface ImportPreviewColumn {
+  name: string;
+  original_name: string;
+  dtype: string;
+  semantic_type: SemanticType;
+  format: ColumnFormat;
+  sample_values: unknown[];
+}
+
+/** Staged import preview. Rows are a sample; full-file validation runs on confirmation. */
+export interface ImportPreviewResponse {
+  import_id: string;
+  filename: string;
+  settings: ImportSettings;
+  columns: ImportPreviewColumn[];
+  raw_rows: (string | null)[][];
+  parsed_rows: Record<string, unknown>[];
+  warnings: string[];
+  sample_row_count: number;
+  sample_complete: boolean;
+  can_confirm: boolean;
+}
+
+export type ParseAs = 'auto' | 'text' | 'number' | 'date';
+export type ColumnAggregation = 'sum' | 'mean' | 'count' | 'none';
+
+export interface DatasetColumnSchema {
+  column: string;
+  original_name: string;
+  parse_as?: ParseAs;
+  role: SemanticType | null;
+  format: ColumnFormat | null;
+  unit: string | null;
+  aggregation: ColumnAggregation | null;
+  provenance: string;
+  status?: string;
+}
+
+export interface ColumnSchemaOverride {
+  column: string;
+  parse_as?: ParseAs;
+  role?: SemanticType | null;
+  format?: ColumnFormat | null;
+  unit?: string | null;
+  aggregation?: ColumnAggregation | null;
+}
+
+export interface DatasetColumnProposalDecision {
+  role?: SemanticType;
+  unit?: string;
+  parsing_policy?: string;
+  recommended_aggregation?: string;
+  needs_clarification?: boolean;
+}
+
+export interface DatasetColumnProposal {
+  status?: string;
+  decision?: DatasetColumnProposalDecision | null;
+}
+
+export interface DatasetSchemaResponse {
+  dataset_id: string;
+  version: string;
+  settings: ImportSettings;
+  columns: DatasetColumnSchema[];
+  preview: {
+    columns: string[];
+    rows: Record<string, unknown>[];
+  };
+  proposals: Record<string, DatasetColumnProposal>;
+}
+
+export type VersionedUploadResponse = UploadResponse & { version: string; column_schema?: DatasetColumnSchema[] };
+
 export type EnrichmentStatus = 'pending' | 'running' | 'done' | 'error' | 'disabled';
 
 /** Optional model suggestions that remain separate from active column types. */
@@ -126,6 +216,7 @@ export interface EnrichmentStatusResponse {
 /** Dataset metadata retained in local storage between visits. */
 export interface DatasetState {
   datasetId: string;
+  version?: string;
   filename: string;
   rowCount: number;
   columns: ColumnSummary[];
@@ -249,6 +340,9 @@ export type AggregationType = 'sum' | 'mean' | 'median' | 'count' | 'min' | 'max
 export interface HistoryItem {
   id: string;
   datasetId: string;
+  datasetVersion?: string;
+  /** Derived by DataContext; prior-schema charts are retained but disabled. */
+  isStale?: boolean;
   query: string;
   chartResponse: ChartResponse;
   timestamp: Date;

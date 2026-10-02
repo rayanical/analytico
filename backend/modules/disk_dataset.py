@@ -27,8 +27,13 @@ from models import (
     DefaultChart, DrillDownRequest, MetricSummary, TimeRange, UploadResponse,
 )
 from modules.column_statistics import ColumnStatistics
+from modules.import_policy import (
+    ColumnOverride, ImportSettings, parse_locale_numbers, policy_date_formats,
+    read_csv_headers, reader_options, resolve_column_policy, validate_csv_structure,
+    prepare_numeric_source,
+)
 from modules.data_janitor import (
-    DATE_FORMAT_CANDIDATES, UNIVERSAL_CURRENCY_KEYWORDS, _column_tokens,
+    UNIVERSAL_CURRENCY_KEYWORDS, _column_tokens,
     _is_date_name, _is_identifier_name, _unique_normalized_headers,
 )
 from utils.filtering import FilterValidationError, resolve_effective_limit
@@ -140,14 +145,6 @@ def _copy_source(
     return total
 
 
-def _source_headers(path: Path) -> list[str]:
-    with path.open("r", encoding="utf-8-sig", newline="") as source_file:
-        try:
-            return next(csv.reader(source_file))
-        except StopIteration:
-            return []
-
-
 def _date_expr(column: str, fmt: str) -> str:
     if fmt == "ISO8601":
         return f"TRY_CAST({column} AS TIMESTAMP)"
@@ -233,6 +230,11 @@ class DiskDataset:
         self._plans: dict[str, _Plan] = {}
         self._clean_to_raw: dict[str, str] = {}
         self._max_rows = DEFAULT_MAX_ROWS
+        self.import_settings = ImportSettings()
+        self.column_overrides: list[ColumnOverride] = []
+        self.column_schema: list[dict[str, Any]] = []
+        self._column_policies: dict[str, dict[str, Any]] = {}
+        self._schema_provenance: dict[str, str] = {}
 
     @classmethod
     def from_csv(
@@ -244,6 +246,8 @@ class DiskDataset:
         temp_root: str | Path | None = None,
         max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
         max_rows: int = DEFAULT_MAX_ROWS,
+        import_settings: ImportSettings | dict[str, Any] | None = None,
+        column_overrides: list[ColumnOverride | dict[str, Any]] | None = None,
     ) -> "DiskDataset":
         """Copy and ingest a CSV using the current reader's exact parser options."""
         if type(chunk_size) is not int or not 1 <= chunk_size <= MAX_CHUNK_SIZE:
@@ -260,6 +264,11 @@ class DiskDataset:
         dataset = cls()
         dataset.filename = Path(filename).name or "dataset.csv"
         dataset._max_rows = max_rows
+        dataset.import_settings = ImportSettings.model_validate(import_settings or {})
+        dataset.column_overrides = [
+            item if isinstance(item, ColumnOverride) else ColumnOverride.model_validate(item)
+            for item in (column_overrides or [])
+        ]
         try:
             dataset._temporary_directory = tempfile.TemporaryDirectory(
                 prefix="analytico-dataset-", dir=str(temp_root) if temp_root else None,
@@ -272,7 +281,13 @@ class DiskDataset:
             spill_path.mkdir(mode=0o700)
             _copy_source(source, dataset.raw_source_path, max_file_bytes)
             try:
-                dataset.original_headers = _source_headers(dataset.raw_source_path)
+                validate_csv_structure(
+                    dataset.raw_source_path, dataset.import_settings,
+                    max_rows=max_rows, max_columns=MAX_COLUMNS,
+                )
+                dataset.original_headers = read_csv_headers(
+                    dataset.raw_source_path, dataset.import_settings,
+                )
             except (UnicodeDecodeError, csv.Error):
                 dataset.original_headers = []
             os.chmod(dataset.raw_source_path, 0o400)
@@ -307,21 +322,16 @@ class DiskDataset:
 
     def _ingest_csv_chunks(self, requested_chunk_size: int) -> None:
         self._ensure_open()
+        options = reader_options(self.import_settings)
         try:
-            header = pd.read_csv(
-                self.source_path, engine="c", dtype=str, keep_default_na=False,
-                na_values=[""], low_memory=False, nrows=0,
-            )
+            header = pd.read_csv(self.source_path, nrows=0, **options)
             headers = header.columns.tolist()
         except pd.errors.EmptyDataError as error:
             raise ValueError("The CSV file is empty.") from error
         self._initialize_source_table(headers)
         chunk_size = min(requested_chunk_size, max(1, 250_000 // len(headers)))
         try:
-            chunks = pd.read_csv(
-                self.source_path, engine="c", dtype=str, keep_default_na=False,
-                na_values=[""], low_memory=False, chunksize=chunk_size,
-            )
+            chunks = pd.read_csv(self.source_path, chunksize=chunk_size, **options)
             for chunk in chunks:
                 self._append_chunk(chunk)
         except pd.errors.EmptyDataError as error:
@@ -605,16 +615,124 @@ class DiskDataset:
             kind, expression, dtype, display_format, action=action, attempted=True,
         )
 
+    def _configured_number_plan(
+        self,
+        raw: str,
+        clean: str,
+        counts: dict[str, int],
+        *,
+        force: bool,
+    ) -> Optional[_Plan]:
+        """Use the shared strict parser in bounded chunks, then build a SQL cast."""
+        settings = self.import_settings
+        decimal = getattr(settings, "decimal_separator", "auto")
+        grouping = getattr(settings, "grouping_separator", None)
+        if not force and decimal == "auto" and grouping is None:
+            return None
+
+        cursor = self._connection.execute(f"SELECT {_q(raw)} FROM source_data")
+        integer_only = True
+        minimum: int | None = None
+        maximum: int | None = None
+        saw_value = False
+        policy = self._column_policies[clean]
+        markers = set()
+        percent_modes = set()
+        while True:
+            rows = cursor.fetchmany(DEFAULT_CHUNK_SIZE)
+            if not rows:
+                break
+            series = pd.Series([row[0] for row in rows], dtype=object)
+            if series.notna().sum() == 0:
+                continue
+            numeric_source, percent_text = prepare_numeric_source(
+                series, policy["format"], policy["unit"], markers=markers,
+            )
+            percent_modes.add(percent_text)
+            if len(percent_modes) > 1:
+                raise ValueError(f"Column '{clean}' mixes percent suffixes and plain numbers.")
+            parsed = parse_locale_numbers(numeric_source, decimal, grouping)
+            if parsed is None:
+                if force:
+                    raise ValueError(f"Column '{clean}' contains values that cannot be parsed safely as numbers.")
+                return None
+            nonnull = parsed.dropna()
+            if nonnull.empty:
+                continue
+            saw_value = True
+            if pd.api.types.is_integer_dtype(parsed.dtype):
+                chunk_min = int(nonnull.min())
+                chunk_max = int(nonnull.max())
+                minimum = chunk_min if minimum is None else min(minimum, chunk_min)
+                maximum = chunk_max if maximum is None else max(maximum, chunk_max)
+            else:
+                integer_only = False
+
+        if not saw_value:
+            if force:
+                raise ValueError(f"Column '{clean}' has no non-null values to parse as numbers.")
+            return None
+
+        if integer_only:
+            assert minimum is not None and maximum is not None
+            if minimum < -(2**63) or maximum > 2**64 - 1 or (minimum < 0 and maximum > 2**63 - 1):
+                if force:
+                    raise ValueError(f"Values in '{clean}' exceed the supported exact integer range.")
+                return None
+            unsigned = minimum >= 0 and maximum > 2**63 - 1
+            kind, dtype, cast = (
+                ("unsigned", "uint64", "UBIGINT") if unsigned
+                else ("integer", "int64", "BIGINT")
+            )
+        else:
+            kind, dtype, cast = "number", "float64", "DOUBLE"
+
+        if (not integer_only or True in percent_modes) and minimum is not None and maximum is not None and max(abs(minimum), abs(maximum)) > 2**53 - 1:
+            if force:
+                raise ValueError(f"Column '{clean}' would lose integer precision when represented as decimals.")
+            return None
+
+        column = _q(raw)
+        trimmed = f"TRIM({column})"
+        normalized = trimmed
+        if policy["format"] == "currency":
+            normalized = f"TRIM(REGEXP_REPLACE({normalized}, {_literal(_CURRENCY_CLASS)}, '', 'g'))"
+            normalized = f"REGEXP_REPLACE({normalized}, '^[A-Z]{{3}}\\s+', '')"
+        percent_text = True in percent_modes and policy["format"] == "percentage"
+        if percent_text:
+            normalized = f"TRIM(REPLACE({normalized}, '%', ''))"
+        if decimal == "auto" and grouping is None:
+            normalized = f"REPLACE({normalized}, ',', '')"
+        elif grouping and not (decimal == "auto" and grouping == "."):
+            normalized = f"REPLACE({normalized}, {_literal(grouping)}, '')"
+        if decimal not in {"auto", "."}:
+            normalized = f"REPLACE({normalized}, {_literal(decimal)}, '.')"
+        expression = f"TRY_CAST({normalized} AS {cast})"
+        if percent_text:
+            expression = f"({expression} / 100.0)"
+            kind, dtype = "number", "float64"
+
+        return _Plan(
+            kind, expression, dtype, policy["format"] or "number",
+            action=f"Parsed '{clean}' using configured number separators",
+            attempted=True,
+        )
+
     def _date_plan(
         self, raw: str, clean: str, first_values: list[Optional[str]], nonnull: int,
+        *, date_order: str = "auto", force: bool = False,
     ) -> tuple[Optional[_Plan], Optional[str]]:
         if nonnull == 0:
+            if force:
+                raise ValueError(f"Column '{clean}' has no non-null values to parse as dates.")
             return None, None
         sample = pd.Series(first_values[:100], dtype=object)
         if sample.empty:
+            if force:
+                raise ValueError(f"Column '{clean}' has no values to parse as dates.")
             return None, None
         candidates: list[str] = []
-        for fmt in DATE_FORMAT_CANDIDATES:
+        for fmt in policy_date_formats(date_order):
             try:
                 parsed_sample = pd.to_datetime(sample, format=fmt, errors="coerce")
             except (TypeError, ValueError, OverflowError):
@@ -622,6 +740,8 @@ class DiskDataset:
             if parsed_sample.notna().all():
                 candidates.append(fmt)
         if not candidates:
+            if force:
+                raise ValueError(f"Could not parse values in '{clean}' as dates using {date_order} order.")
             if _is_date_name(clean):
                 return None, f"Could not safely parse non-null values in '{clean}' as date; retained source values"
             return None, None
@@ -630,9 +750,13 @@ class DiskDataset:
         precision_loss = int(self._connection.execute(
             f"SELECT COUNT(*) FILTER (WHERE {column} IS NOT NULL AND ("
             f"REGEXP_MATCHES(TRIM({column}), '[Zz]$|[+-][0-9]{{2}}:?[0-9]{{2}}$') OR "
-            f"REGEXP_MATCHES(TRIM({column}), '\\\\.[0-9]{{7,}}'))) FROM source_data"
+            f"REGEXP_MATCHES(TRIM({column}), '[.][0-9]{{7,}}'))) FROM source_data"
         ).fetchone()[0] or 0)
         if precision_loss:
+            if force:
+                raise ValueError(
+                    f"Could not parse '{clean}' without losing timezone or submicrosecond precision."
+                )
             return None, (
                 f"Could not safely parse '{clean}' as date without losing timezone or "
                 "submicrosecond precision; retained source values"
@@ -660,9 +784,13 @@ class DiskDataset:
             if int(row[1 + index] or 0) == total
         ]
         if not valid:
+            if force:
+                raise ValueError(f"Could not parse all non-null values in '{clean}' as dates.")
             return None, f"Could not safely parse all non-null values in '{clean}' as date; retained source values"
         for pair_index, (left, right) in enumerate(pairs):
             if left in valid and right in valid and int(row[1 + len(candidates) + pair_index] or 0):
+                if force:
+                    raise ValueError(f"Date order is ambiguous for column '{clean}'.")
                 return None, f"Could not safely parse '{clean}' as date: ambiguous date order; retained source values"
         selected = valid[0]
         return _Plan(
@@ -680,6 +808,13 @@ class DiskDataset:
             for index, raw in enumerate(self._raw_columns, start=1):
                 if row[index] is not None and len(first_values[raw]) < 100:
                     first_values[raw].append(row[index])
+
+        # Empty leading rows must not hide valid dates later in the source.
+        for raw in self._raw_columns:
+            if not first_values[raw]:
+                first_values[raw] = [row[0] for row in self._connection.execute(
+                    f"SELECT {_q(raw)} FROM source_data WHERE {_q(raw)} IS NOT NULL ORDER BY _row_ordinal LIMIT 100"
+                ).fetchall()]
 
         stats: dict[str, dict[str, int]] = {}
         # DuckDB keeps aggregate state for every projected column. Small
@@ -700,6 +835,18 @@ class DiskDataset:
         if renamed_count:
             self.cleaning_actions.append(f"Normalized {renamed_count} column headers")
 
+        override_names = [override.column for override in self.column_overrides]
+        if len(override_names) != len(set(override_names)):
+            raise ValueError("More than one column override targets the same column.")
+        missing_overrides = sorted(set(override_names) - set(self.columns))
+        if missing_overrides:
+            raise ValueError(f"Column override does not match a column: '{missing_overrides[0]}'.")
+
+        default_settings = ImportSettings().model_dump(mode="python")
+        configured_settings = self.import_settings.model_dump(mode="python") != default_settings
+
+        override_columns = set(override_names)
+
         typed_select = [_q("_row_ordinal")]
         for raw, clean in zip(self._raw_columns, self.columns):
             counts = stats[raw]
@@ -710,29 +857,77 @@ class DiskDataset:
                 self.cleaning_actions.append(
                     f"Preserved {missing} source missing values as null in '{clean}'"
                 )
-            plan = self._numeric_plan(raw, clean, counts)
-            if plan is not None and plan.kind == "text" and plan.action is None and not plan.attempted:
-                if not _is_identifier_name(clean):
-                    date_plan, date_action = self._date_plan(raw, clean, first_values[raw], counts["nonnull"])
-                    if date_plan is not None:
-                        plan = date_plan
-                    elif date_action:
-                        plan.action = date_action
-            if plan is None:
-                # Identifier labels commonly contain compact YYYYMMDD-like
-                # values; preserve them unless their name explicitly means time.
-                if _is_identifier_name(clean) and not _is_date_name(clean):
-                    date_plan, date_action = None, None
-                else:
-                    date_plan, date_action = self._date_plan(
-                        raw, clean, first_values[raw], counts["nonnull"]
+            policy = resolve_column_policy(clean, self.import_settings, self.column_overrides)
+            self._column_policies[clean] = policy
+            parse_as = policy["parse_as"]
+            role = policy["role"]
+            if role == "identifier" and parse_as in {"number", "date"}:
+                raise ValueError(f"Column '{clean}' has conflicting identifier and {parse_as} policies.")
+
+            plan: Optional[_Plan]
+            date_action: Optional[str] = None
+            if parse_as == "text" or policy["format"] == "identifier" or (parse_as == "auto" and role in {"identifier", "categorical"}):
+                plan = _Plan("text", _q(raw), "object")
+            elif parse_as == "number" or role == "metric" or policy["format"] in {"number", "currency", "percentage"}:
+                plan = self._configured_number_plan(raw, clean, counts, force=True)
+            elif parse_as == "date" or role == "temporal" or policy["format"] == "date":
+                plan, date_action = self._date_plan(
+                    raw, clean, first_values[raw], counts["nonnull"],
+                    date_order=policy["date_order"], force=True,
+                )
+            else:
+                plan = None
+                if (self.import_settings.decimal_separator != "auto" or self.import_settings.grouping_separator) and (_is_identifier_name(clean) or counts["leading_zero"]):
+                    plan = _Plan("text", _q(raw), "object")
+                elif self.import_settings.decimal_separator != "auto" or self.import_settings.grouping_separator:
+                    plan = self._configured_number_plan(raw, clean, counts, force=False)
+                    if plan is None and counts["numeric_like"]:
+                        # A confirmed locale setting takes precedence over the
+                        # automatic US-style guess for separator-looking text.
+                        plan = _Plan("text", _q(raw), "object")
+                if plan is None and policy["date_order"] != "auto":
+                    plan, date_action = self._date_plan(
+                        raw, clean, first_values[raw], counts["nonnull"],
+                        date_order=policy["date_order"],
                     )
-                plan = date_plan or _Plan("text", _q(raw), "object", action=date_action)
+                if plan is None:
+                    plan = self._numeric_plan(raw, clean, counts)
+                    if plan is not None and plan.kind == "text" and plan.action is None and not plan.attempted:
+                        if not _is_identifier_name(clean) and policy["date_order"] == "auto":
+                            date_plan, date_action = self._date_plan(
+                                raw, clean, first_values[raw], counts["nonnull"],
+                                date_order="auto",
+                            )
+                            if date_plan is not None:
+                                plan = date_plan
+                    if plan is None:
+                        if (
+                            (_is_identifier_name(clean) and not _is_date_name(clean))
+                            or policy["date_order"] != "auto"
+                        ):
+                            date_plan = None
+                        else:
+                            date_plan, date_action = self._date_plan(
+                                raw, clean, first_values[raw], counts["nonnull"],
+                                date_order="auto",
+                            )
+                        plan = date_plan or _Plan("text", _q(raw), "object", action=date_action)
+
+            if plan is None:
+                plan = _Plan("text", _q(raw), "object", action=date_action)
+            if role == "metric" and plan.kind not in {"integer", "unsigned", "number"}:
+                raise ValueError(f"Column '{clean}' has role 'metric' but cannot be parsed safely as numbers.")
+            if role == "temporal" and plan.kind != "date":
+                raise ValueError(f"Column '{clean}' has role 'temporal' but cannot be parsed safely as dates.")
+            if policy["format"] in {"currency", "percentage", "number"} and plan.kind not in {"integer", "unsigned", "number", "currency", "percentage"}:
+                raise ValueError(f"Column '{clean}' requires numeric values for its format.")
+            if policy["format"] == "date" and plan.kind != "date":
+                raise ValueError(f"Column '{clean}' requires date values for its format.")
             if plan.action:
                 self.cleaning_actions.append(plan.action)
             self._plans[clean] = plan
             self.column_dtypes[clean] = plan.dtype
-            self.column_formats[clean] = self._format_for_column(clean, plan)
+            self.column_formats[clean] = policy["format"] or self._format_for_column(clean, plan)
             typed_select.append(f"{plan.expression} AS {_q(clean)}")
 
         self._connection.execute(
@@ -752,7 +947,29 @@ class DiskDataset:
             self.sample_values[clean] = sample_values
             numeric_year = self._numeric_year(clean)
             self.column_stats[clean] = ColumnStatistics(unique_count, sample_values, numeric_year)
-            self.column_types[clean] = self._semantic_type(clean)
+            policy = self._column_policies[clean]
+            resolved_role = policy["role"] or self._semantic_type(clean)
+            self.column_types[clean] = resolved_role
+            field_provenance = policy.get("provenance", {})
+            if clean in override_columns or any(value == "user" for value in field_provenance.values()):
+                provenance = "override"
+            elif configured_settings:
+                provenance = "import_settings"
+            else:
+                provenance = "inference"
+            self._schema_provenance[clean] = provenance
+            self.column_schema.append({
+                "column": clean,
+                "original_name": self.original_headers[len(self.column_schema)]
+                if len(self.original_headers) > len(self.column_schema) else self.parsed_headers[len(self.column_schema)],
+                "parse_as": policy["parse_as"],
+                "role": resolved_role,
+                "format": self.column_formats[clean],
+                "unit": policy["unit"],
+                "aggregation": policy["aggregation"],
+                "provenance": provenance,
+                "status": "confirmed" if provenance == "override" else "suggested",
+            })
         self._build_profile_and_suggestions()
 
     def _format_for_column(self, column: str, plan: _Plan) -> str:
@@ -816,6 +1033,7 @@ class DiskDataset:
             column for column in self.columns
             if self.column_types[column] == "metric"
             and self._plans[column].kind in {"integer", "unsigned", "number", "percentage", "currency"}
+            and self._column_policies[column].get("aggregation") != "none"
         ]
         temporal_columns = [
             column for column in self.columns
@@ -825,19 +1043,19 @@ class DiskDataset:
         categorical_columns = [
             column for column in self.columns if self.column_types[column] == "categorical"
         ]
+        profile_metric_columns = [
+            column for column in metric_columns
+            if self._metric_profile_aggregation(column) in {"sum", "mean"}
+        ]
         top_metrics: list[dict[str, Any]] = []
-        for column in metric_columns[:3]:
+        for column in profile_metric_columns[:3]:
             qcolumn = _q(column)
             total, average, minimum, maximum = self._connection.execute(
                 f"SELECT SUM({qcolumn}), AVG({qcolumn}), MIN({qcolumn}), MAX({qcolumn}) FROM typed_data"
             ).fetchone()
             if average is None:
                 continue
-            aggregation = (
-                "mean"
-                if self._non_additive_metric(column, self.column_formats[column])
-                else "sum"
-            )
+            aggregation = self._metric_profile_aggregation(column)
             top_metrics.append({
                 "name": column,
                 "total": float(total) if total is not None else 0.0,
@@ -863,13 +1081,13 @@ class DiskDataset:
         }
 
         default_chart = None
-        if metric_columns:
-            metric = metric_columns[0]
-            aggregation = (
-                "mean"
-                if self._non_additive_metric(metric, self.column_formats[metric])
-                else "sum"
-            )
+        chart_metrics = [
+            (column, self._metric_chart_aggregation(column))
+            for column in metric_columns
+            if self._metric_chart_aggregation(column) is not None
+        ]
+        if chart_metrics:
+            metric, aggregation = chart_metrics[0]
             axis = temporal_columns[0] if temporal_columns else None
             chart_type = "line"
             if axis is None and categorical_columns:
@@ -905,6 +1123,24 @@ class DiskDataset:
                 sample_values=sample_values,
             ))
         self.column_summaries = summaries
+
+    def _metric_profile_aggregation(self, column: str) -> Optional[str]:
+        """Return an aggregation supported by the summary model, if any."""
+        explicit = self._column_policies[column].get("aggregation")
+        if explicit in {"count", "none"}:
+            return None
+        if explicit in {"sum", "mean"}:
+            return explicit
+        return "mean" if self._non_additive_metric(column, self.column_formats[column]) else "sum"
+
+    def _metric_chart_aggregation(self, column: str) -> Optional[str]:
+        """Honor all supported chart aggregations and omit explicitly disabled metrics."""
+        explicit = self._column_policies[column].get("aggregation")
+        if explicit == "none":
+            return None
+        if explicit in {"sum", "mean", "count"}:
+            return explicit
+        return "mean" if self._non_additive_metric(column, self.column_formats[column]) else "sum"
 
     @staticmethod
     def _build_suggestions(

@@ -108,6 +108,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
             {history.map((item: HistoryItem, index: number) => (
               <motion.button
                 key={item.id}
+                disabled={item.isStale}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
@@ -118,8 +119,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                   currentHistoryId === item.id
                     ? 'bg-primary/10 border border-primary/30'
                     : 'hover:bg-white/[0.03]'
-                }`}
-                title={!isOpen ? item.chartResponse.title : undefined}
+                } ${item.isStale ? 'cursor-not-allowed opacity-50' : ''}`}
+                title={!isOpen ? (item.isStale ? 'Saved chart from an older column schema' : item.chartResponse.title) : undefined}
               >
                 {isOpen ? (
                   <div className="flex items-start gap-3">
@@ -129,6 +130,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                         <p className="truncate text-sm font-medium text-foreground">
                           {item.chartResponse.title}
                         </p>
+                        {item.isStale && <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">Old schema</span>}
                         {item.isManual ? (
                           <Wrench className="h-3 w-3 text-muted-foreground" />
                         ) : (

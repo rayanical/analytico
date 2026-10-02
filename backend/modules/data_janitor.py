@@ -14,6 +14,13 @@ from typing import Callable, Optional
 import numpy as np
 import pandas as pd
 
+from modules.import_policy import (
+    ColumnOverride,
+    ImportSettings,
+    apply_column_policy,
+    unsupported_date_reason,
+)
+
 # Master list of candidate date formats for fast C-vectorized parsing.
 # Order matters: most common/high-signal formats are first.
 DATE_FORMAT_CANDIDATES = [
@@ -421,6 +428,10 @@ def _parse_date_text(series: pd.Series, col: str) -> tuple[Optional[pd.Series], 
     if values.empty:
         return None, None
 
+    unsupported = unsupported_date_reason(values)
+    if unsupported:
+        return None, f"Could not safely parse '{col}' as date: {unsupported} retained as text"
+
     sample = values.head(100)
     candidates: list[tuple[str, pd.Series]] = []
     for fmt in DATE_FORMAT_CANDIDATES:
@@ -653,13 +664,20 @@ def _expand_parsed_values(original: pd.Series, parsed: pd.Series, missing_value)
 
 
 def clean_dataframe(
-    df: pd.DataFrame, *, interpret_columns: bool = True
+    df: pd.DataFrame,
+    interpret_columns: bool = True,
+    *,
+    import_settings: Optional[ImportSettings] = None,
+    column_overrides: Optional[list[ColumnOverride]] = None,
 ) -> tuple[pd.DataFrame, list[str], dict[str, int], dict[str, str], dict[str, str]]:
     """
     Apply loss-aware type normalization and extract metadata without imputing.
     Returns: (cleaned_df, cleaning_actions, missing_counts, column_formats, semantic_types)
     """
-    df = df.copy(deep=True)
+    if import_settings is not None and not isinstance(import_settings, ImportSettings):
+        import_settings = ImportSettings.model_validate(import_settings)
+    original_headers = list(df.attrs.get("original_headers", []))
+    df = df.copy(deep=False)
     cleaning_actions = []
     missing_counts = {}
     column_formats = {}
@@ -668,6 +686,11 @@ def clean_dataframe(
     # Count source nulls before parsing, using stable normalized schema keys.
     original_cols = df.columns.tolist()
     new_cols = _unique_normalized_headers([str(col) for col in original_cols])
+    source_names = original_headers if len(original_headers) == len(original_cols) else [str(col) for col in original_cols]
+    original_names = {
+        normalized: str(original)
+        for normalized, original in zip(new_cols, source_names)
+    }
     source_missing = [int(df.iloc[:, index].isna().sum()) for index in range(len(original_cols))]
 
     # Optional semantic suggestions cannot control the deterministic column keys.
@@ -688,6 +711,14 @@ def clean_dataframe(
         cleaning_actions.append(f"Normalized {len(renamed)} column headers")
     df.columns = new_cols
 
+    df, column_schema = apply_column_policy(
+        df,
+        import_settings,
+        column_overrides,
+        original_names=original_names,
+    )
+    schema_by_column = {item["column"]: item for item in column_schema}
+
     for col, count in zip(new_cols, source_missing):
         if count:
             missing_counts[col] = count
@@ -707,6 +738,25 @@ def clean_dataframe(
     # Parse complete columns only when every non-null value has one safe interpretation.
     pandas_processing_start = perf_counter()
     for col in df.columns:
+        policy = schema_by_column[col]
+        manual_role = policy["role"]
+        parse_as = policy["parse_as"]
+        manual_format = policy["format"]
+        if (
+            parse_as in {"text", "number", "date"}
+            or manual_role is not None
+            or manual_format is not None
+        ):
+            if manual_role is not None:
+                semantic_types[col] = manual_role
+            if parse_as == "date" or manual_role == "temporal" or manual_format == "date":
+                column_formats[col] = "date"
+            elif parse_as == "number" or manual_role == "metric" or manual_format in {"number", "currency", "percentage"}:
+                column_formats[col] = manual_format or detect_column_format(df[col], col)
+            elif manual_format:
+                column_formats[col] = manual_format
+            continue
+
         metadata = interpretations.get(col)
         decision = metadata.get("decision") if metadata else None
         if metadata and not _can_apply_interpretation(df[col], col, metadata):
@@ -725,8 +775,10 @@ def clean_dataframe(
                 try:
                     if decision:
                         parsed, fmt, action = _parse_interpreted_numeric(original, col, decision)
-                    else:
+                    elif not import_settings or import_settings.decimal_separator == "auto":
                         parsed, fmt, action = _parse_numeric_text(original, col)
+                    else:
+                        parsed, fmt, action = None, None, None
                     if parsed is not None and not _numeric_values_are_finite(parsed):
                         parsed, fmt, action = None, None, f"Could not safely parse '{col}' as finite numbers; retained source values"
                 except (ValueError, TypeError, OverflowError):
@@ -748,6 +800,7 @@ def clean_dataframe(
                 and not action
                 and (not decision or decision["role"] == "temporal")
                 and not _is_identifier_name(col)
+                and (not import_settings or import_settings.date_order == "auto")
             ):
                 parsed_dates, date_action = _parse_date_text(original, col)
                 if date_action:
@@ -762,8 +815,16 @@ def clean_dataframe(
 
     for col in df.columns:
         series = df[col]
+        column_policy = schema_by_column[col]
         if pd.api.types.is_datetime64_any_dtype(series):
             column_formats[col] = "date"
+        elif column_policy["role"] == "metric" or column_policy["parse_as"] == "number":
+            inferred = detect_column_format(series, col)
+            column_formats[col] = "number" if inferred == "identifier" else inferred
+        elif column_policy["role"] == "identifier":
+            column_formats[col] = "identifier"
+        elif column_policy["role"] == "unknown":
+            column_formats[col] = "general"
         elif _is_identifier_name(col) and not any(kw in col.lower() for kw in UNIVERSAL_CURRENCY_KEYWORDS):
             column_formats[col] = "identifier"
         elif col not in column_formats:
@@ -810,5 +871,30 @@ def clean_dataframe(
             column_formats[col] = {"USD": "currency", "EUR": "currency", "ratio": "percentage"}.get(decision["unit"], "number")
         else:
             column_formats[col] = "general"
+
+    # Explicit formats override name-based and interpretation suggestions.
+    for col, item in schema_by_column.items():
+        if item["format"] is not None:
+            column_formats[col] = item["format"]
+
+    # User roles take precedence over interpretation suggestions and name hints.
+    for col, item in schema_by_column.items():
+        if item["role"] is not None:
+            semantic_types[col] = item["role"]
+        if item["format"] is not None:
+            column_formats[col] = item["format"]
+
+    # Complete one shared schema record per final, normalized column.
+    for item in column_schema:
+        col = item["column"]
+        if item["role"] is None:
+            item["role"] = semantic_types.get(col)
+        if item["format"] is None:
+            item["format"] = column_formats.get(col)
+        if item["provenance"] == "inference" and (
+            item["role"] is not None or item["format"] is not None
+        ):
+            item["status"] = "suggested"
+    df.attrs["column_schema"] = column_schema
 
     return df, cleaning_actions, missing_counts, column_formats, semantic_types

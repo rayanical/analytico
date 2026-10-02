@@ -9,6 +9,11 @@ import type {
   AggregateRequest,
   DrillDownRequest,
   EnrichmentStatusResponse,
+  ImportPreviewResponse,
+  ImportSettings,
+  DatasetSchemaResponse,
+  ColumnSchemaOverride,
+  VersionedUploadResponse,
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -101,6 +106,98 @@ export async function uploadCSV(file: File): Promise<UploadResponse> {
       },
     });
 
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/** Stage a CSV and return a parsing preview before creating a dataset. */
+export async function previewImport(file: File, settings?: ImportSettings): Promise<ImportPreviewResponse> {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (settings) formData.append('settings', JSON.stringify(settings));
+    const response = await api.post<ImportPreviewResponse>('/imports/preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/** Stage a built-in demo dataset through the same review flow as file uploads. */
+export async function previewDemoImport(dataset: 'taxi' | 'gapminder'): Promise<ImportPreviewResponse> {
+  try {
+    const response = await api.post<ImportPreviewResponse>('/imports/demo', null, { params: { dataset } });
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/** Re-parse a staged upload with edited settings; the original file stays on the server. */
+export async function updateImportPreview(importId: string, settings: ImportSettings): Promise<ImportPreviewResponse> {
+  try {
+    const response = await api.post<ImportPreviewResponse>(
+      `/imports/${encodeURIComponent(importId)}/preview`,
+      { settings },
+    );
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/** Confirm a staged import and create a versioned dataset. */
+export async function confirmImport(
+  importId: string,
+  settings: ImportSettings,
+): Promise<VersionedUploadResponse> {
+  try {
+    const response = await api.post<VersionedUploadResponse>(
+      `/imports/${encodeURIComponent(importId)}/confirm`,
+      { settings, column_overrides: [] },
+    );
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/** Discard a staged import without creating a dataset. */
+export async function cancelImport(importId: string): Promise<void> {
+  try {
+    await api.delete(`/imports/${encodeURIComponent(importId)}`);
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/** Fetch active parse settings, schema, preview rows, and advisory proposals. */
+export async function getDatasetSchema(datasetId: string, signal?: AbortSignal): Promise<DatasetSchemaResponse> {
+  try {
+    const response = await api.get<DatasetSchemaResponse>(`/datasets/${encodeURIComponent(datasetId)}/schema`, { signal });
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+  }
+}
+
+/** Apply reviewed column settings against the version the user inspected. */
+export async function applyDatasetSchema(
+  datasetId: string,
+  expectedVersion: string,
+  columnOverrides: ColumnSchemaOverride[],
+  signal?: AbortSignal,
+): Promise<VersionedUploadResponse> {
+  try {
+    const response = await api.post<VersionedUploadResponse>(
+      `/datasets/${encodeURIComponent(datasetId)}/schema`,
+      { expected_version: expectedVersion, column_overrides: columnOverrides },
+      { signal },
+    );
     return response.data;
   } catch (error) {
     handleApiError(error);

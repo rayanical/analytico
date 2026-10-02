@@ -20,10 +20,11 @@ Analytico is a local-first analytics application that takes users from CSV explo
 
 ### 1) Data Ingestion
 
-- CSV upload with conservative parsing and profiling.
+- CSV uploads open a local sample preview with editable delimiters, encodings, number/date conventions, and missing-value tokens. Confirmation validates the full file before registration.
 - Included Gapminder demo; optional taxi demo when its CSV is installed.
 - Stable column names and conservative format detection for numeric, currency, percentage, and date fields.
-- Missing observations remain null; ingestion retains the original data separately from the parsed view.
+- Missing observations remain null; ingestion retains the original CSV bytes separately from the parsed view for the current session.
+- Review column parsing, roles, units, formats, and aggregation; applying edits rebuilds from source and invalidates charts from the previous schema version.
 
 ### 2) AI + Manual Charting
 
@@ -64,10 +65,11 @@ Analytico is a local-first analytics application that takes users from CSV explo
 ## Typical Workflow
 
 1. Upload a CSV or load the included Gapminder demo.
-2. Ask a question in chat or build a chart manually.
-3. Refine with filters and drilldown.
-4. Pin charts to Dashboard and arrange layout.
-5. Export the dashboard as a PDF report.
+2. Check the original and parsed sample, adjust settings if needed, then confirm the import.
+3. Review column choices, then ask a question in chat or build a chart manually.
+4. Refine with filters and drilldown.
+5. Pin charts to Dashboard and arrange layout.
+6. Export the dashboard as a PDF report.
 
 ---
 

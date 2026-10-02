@@ -16,7 +16,7 @@ from modules import (
 from models import UploadResponse
 from modules.column_statistics import compute_column_statistics
 from services.response_builders import build_upload_response
-from storage import DatasetInfo, store_dataset
+from storage import DatasetInfo, store_dataset, replace_dataset
 from utils.pipeline_logging import IngestionMeasurement
 
 
@@ -57,6 +57,8 @@ def ingest_dataframe(
     df: pd.DataFrame, filename: str, endpoint_name: str,
     measurement: Optional[IngestionMeasurement] = None,
     defer_enrichment: bool = False,
+    import_settings=None, column_overrides=None, source_owner=None,
+    source_path=None, replacement=None, enqueue_enrichment: bool = True,
 ) -> UploadResponse:
     """Run ingestion; callers parsing CSV supply their already-started measurement."""
     scope = nullcontext(measurement) if measurement is not None else IngestionMeasurement(endpoint_name)
@@ -65,10 +67,13 @@ def ingest_dataframe(
         with metrics.phase("raw_copy"):
             raw_df = df.copy(deep=True)
         with metrics.phase("data_cleaning"):
+            policy_options = {}
+            if import_settings is not None or column_overrides:
+                policy_options = dict(import_settings=import_settings, column_overrides=column_overrides)
             if defer_enrichment:
-                df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df, interpret_columns=False)
+                df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df, interpret_columns=False, **policy_options)
             else:
-                df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df)
+                df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df, **policy_options)
         with metrics.phase("column_statistics"):
             column_stats = compute_column_statistics(df)
         with metrics.phase("semantic_detection"):
@@ -76,6 +81,9 @@ def ingest_dataframe(
                 col: llm_col_types.get(col) or detect_semantic_type(df, col, column_stats)
                 for col in df.columns
             }
+            for item in df.attrs.get("column_schema", []):
+                item["role"] = col_types[item["column"]]
+                item["format"] = col_formats.get(item["column"], "general")
         with metrics.phase("data_profiling"):
             profile = auto_profile(df, col_types, col_formats, column_stats=column_stats)
 
@@ -96,14 +104,30 @@ def ingest_dataframe(
                 column_types=col_types, column_formats=col_formats, profile=profile,
                 default_chart=default_chart, suggestions=suggestions, summary=summary,
             )
+            ds_info.import_settings = import_settings
+            ds_info.column_overrides = column_overrides or []
+            ds_info.column_schema = df.attrs.get("column_schema", [])
+            ds_info._source_owner = source_owner
+            ds_info.source_path = source_path
+            if replacement:
+                ds_info.id = replacement[0]
             response = build_upload_response(
                 ds_info=ds_info, df=df, col_types=col_types, col_formats=col_formats,
                 missing_counts=missing_counts, cleaning_actions=cleaning_actions,
                 quality=quality, profile=profile, default_chart=default_chart,
                 suggestions=suggestions, summary=summary, column_stats=column_stats,
             )
-            store_dataset(ds_info)
-        if defer_enrichment:
+            if replacement:
+                try:
+                    replace_dataset(replacement[0], ds_info, replacement[1])
+                except Exception:
+                    ds_info.close()
+                    raise
+            else:
+                store_dataset(ds_info)
+            response.version = ds_info.cache_version
+            response.column_schema = ds_info.column_schema
+        if defer_enrichment and enqueue_enrichment:
             response.enrichment_status = queue_dataset_enrichment(ds_info, raw_df)
         return response
 

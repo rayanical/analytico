@@ -1,14 +1,18 @@
 """Ingestion-related API routes."""
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from pydantic import ValidationError
 import pandas as pd
 
 from core.config import DEMO_DATASETS
-from models import UploadResponse
+from models import UploadResponse, ImportPreviewRequest, ImportConfirmRequest, SchemaApplyRequest
+from modules.import_policy import ImportSettings, CSVStructureError
 from services.csv_ingestion import ingest_csv
 from services.enrichment_service import get_enrichment_status
 from storage import get_dataset
 from utils.errors import friendly_ingestion_error_message
+from services.import_preview import stage_import, preview_import, confirm_import, cancel_import
+from services.schema_review import get_schema, apply_schema
 
 router = APIRouter()
 
@@ -38,6 +42,8 @@ def _ingest(source, filename: str, endpoint: str):
         raise HTTPException(status_code=400, detail="Empty CSV.")
     except HTTPException:
         raise
+    except CSVStructureError as error:
+        raise HTTPException(413 if error.limit_exceeded else 400, str(error)) from error
     except Exception as error:
         status, detail = friendly_ingestion_error_message(error)
         raise HTTPException(status_code=status, detail=detail) from error
@@ -60,3 +66,49 @@ def load_demo_dataset(dataset: str = Query(default="taxi")):
     if not demo_path.exists():
         raise HTTPException(status_code=500, detail=f"Demo dataset file not found: {filename}")
     return _ingest(demo_path, filename, "/load-demo")
+
+
+@router.post("/imports/preview")
+def stage_csv_preview(file: UploadFile = File(...), settings: str | None = Form(default=None)):
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(400, "Please choose a CSV file.")
+    try:
+        selected = ImportSettings.model_validate_json(settings) if settings else None
+    except ValidationError as error:
+        raise HTTPException(422, "Invalid import settings.") from error
+    return stage_import(file.file, file.filename, selected)
+
+
+@router.post("/imports/demo")
+def stage_demo_preview(dataset: str = Query(default="gapminder")):
+    demo = DEMO_DATASETS.get(dataset)
+    if demo is None:
+        raise HTTPException(400, "Unknown demo dataset.")
+    if not demo["path"].exists():
+        raise HTTPException(404, "This demo CSV is not installed locally.")
+    return stage_import(demo["path"], demo["filename"])
+
+
+@router.post("/imports/{import_id}/preview")
+def refresh_csv_preview(import_id: str, request: ImportPreviewRequest):
+    return preview_import(import_id, request.settings)
+
+
+@router.post("/imports/{import_id}/confirm", response_model=UploadResponse)
+def confirm_csv_preview(import_id: str, request: ImportConfirmRequest):
+    return confirm_import(import_id, request.settings, request.column_overrides)
+
+
+@router.delete("/imports/{import_id}")
+def cancel_csv_preview(import_id: str):
+    return cancel_import(import_id)
+
+
+@router.get("/datasets/{dataset_id}/schema")
+def review_dataset_schema(dataset_id: str):
+    return get_schema(dataset_id)
+
+
+@router.post("/datasets/{dataset_id}/schema", response_model=UploadResponse)
+def apply_dataset_schema(dataset_id: str, request: SchemaApplyRequest):
+    return apply_schema(dataset_id, request.expected_version, request.column_overrides)

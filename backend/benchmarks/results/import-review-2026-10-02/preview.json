@@ -1,0 +1,26 @@
+{
+  "ai_enabled": false,
+  "includes_local_source_copy": true,
+  "excludes_browser_transfer": true,
+  "trials": [
+    {
+      "seconds": 0.05776658304966986,
+      "bytes": 26212409,
+      "preview_rows": 20,
+      "sample_complete": false
+    },
+    {
+      "seconds": 0.0836839999537915,
+      "bytes": 26212409,
+      "preview_rows": 20,
+      "sample_complete": false
+    },
+    {
+      "seconds": 0.0763129589613527,
+      "bytes": 26212409,
+      "preview_rows": 20,
+      "sample_complete": false
+    }
+  ],
+  "median_seconds": 0.0763129589613527
+}

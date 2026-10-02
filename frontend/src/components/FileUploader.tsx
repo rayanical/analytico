@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileSpreadsheet, AlertCircle, Loader2, Database, Sparkles, AlertTriangle, TrendingUp, Info } from 'lucide-react';
 import { useData } from '@/context/DataContext';
-import { uploadCSV, loadDemoDataset, aggregateData } from '@/lib/api';
-import { UploadResponse } from '@/types';
+import { previewImport, previewDemoImport, updateImportPreview, confirmImport, cancelImport, aggregateData } from '@/lib/api';
+import { ImportPreviewResponse, ImportSettings, VersionedUploadResponse } from '@/types';
 import { toast } from 'sonner';
 import { CleaningReportDrawer } from '@/components/CleaningReportDrawer';
 import { formatValue } from '@/lib/formatValue';
+import { ImportPreview } from '@/components/ImportPreview';
+import { ColumnReview } from '@/components/ColumnReview';
 
 type DemoDataset = 'taxi' | 'gapminder';
 
@@ -24,14 +26,24 @@ export function FileUploader() {
   const { dataset, setDataset, setCurrentChart, addToHistory, setIsUploading, isUploading, clearData, beginQuery, isCurrentQuery, finishQuery } = useData();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportPreviewResponse | null>(null);
+  const [previewAction, setPreviewAction] = useState<'recheck' | 'confirm' | 'cancel' | null>(null);
+  const [previewActionError, setPreviewActionError] = useState<string | null>(null);
+  const [isColumnReviewOpen, setIsColumnReviewOpen] = useState(false);
   const [isCleaningReportOpen, setIsCleaningReportOpen] = useState(false);
   const [isQualityInfoOpen, setIsQualityInfoOpen] = useState(false);
   const uploadRequestRef = useRef(0);
+  const stagedImportRef = useRef<string | null>(null);
+  useEffect(() => () => {
+    uploadRequestRef.current += 1;
+    if (stagedImportRef.current) void cancelImport(stagedImportRef.current).catch(() => {});
+  }, []);
 
-  const applyUploadResponse = useCallback(async (response: UploadResponse, uploadRequestId: number) => {
+  const applyUploadResponse = useCallback(async (response: VersionedUploadResponse, uploadRequestId: number) => {
     if (uploadRequestRef.current !== uploadRequestId) return;
     setDataset({
       datasetId: response.dataset_id,
+      version: response.version,
       filename: response.filename,
       rowCount: response.row_count,
       columns: response.columns,
@@ -92,12 +104,19 @@ export function FileUploader() {
     if (!file) return;
 
     setUploadError(null);
+    setPreviewActionError(null);
+    setImportPreview(null);
     setIsUploading(true);
     const uploadRequestId = ++uploadRequestRef.current;
 
     try {
-      const response = await uploadCSV(file);
-      await applyUploadResponse(response, uploadRequestId);
+      const response = await previewImport(file);
+      if (uploadRequestRef.current === uploadRequestId) {
+        stagedImportRef.current = response.import_id;
+        setImportPreview(response);
+      } else {
+        void cancelImport(response.import_id).catch(() => {});
+      }
     } catch (error) {
       if (uploadRequestRef.current === uploadRequestId) {
         const message = error instanceof Error ? error.message : 'Upload failed';
@@ -105,19 +124,26 @@ export function FileUploader() {
         toast.error(message);
       }
     } finally {
-      setIsUploading(false);
+      if (uploadRequestRef.current === uploadRequestId) setIsUploading(false);
     }
-  }, [setIsUploading, applyUploadResponse]);
+  }, [setIsUploading]);
 
   const handleDemoLoad = useCallback(async (dataset: DemoDataset) => {
     setUploadError(null);
+    setPreviewActionError(null);
+    setImportPreview(null);
     setIsDemoLoading(true);
     setIsUploading(true);
     const uploadRequestId = ++uploadRequestRef.current;
 
     try {
-      const response = await loadDemoDataset(dataset);
-      await applyUploadResponse(response, uploadRequestId);
+      const response = await previewDemoImport(dataset);
+      if (uploadRequestRef.current === uploadRequestId) {
+        stagedImportRef.current = response.import_id;
+        setImportPreview(response);
+      } else {
+        void cancelImport(response.import_id).catch(() => {});
+      }
     } catch (error) {
       if (uploadRequestRef.current === uploadRequestId) {
         const message = error instanceof Error ? error.message : 'Demo load failed';
@@ -125,10 +151,85 @@ export function FileUploader() {
         toast.error(message);
       }
     } finally {
-      setIsDemoLoading(false);
+      if (uploadRequestRef.current === uploadRequestId) {
+        setIsDemoLoading(false);
+        setIsUploading(false);
+      }
+    }
+  }, [setIsUploading]);
+
+  const handleRecheckPreview = useCallback(async (settings: ImportSettings) => {
+    if (!importPreview || previewAction) return;
+    const requestId = uploadRequestRef.current;
+    const importId = importPreview.import_id;
+    setPreviewAction('recheck');
+    setPreviewActionError(null);
+    try {
+      const updated = await updateImportPreview(importId, settings);
+      if (uploadRequestRef.current === requestId && importId === updated.import_id) setImportPreview(updated);
+    } catch (error) {
+      if (uploadRequestRef.current === requestId) setPreviewActionError(error instanceof Error ? error.message : 'Could not recheck the sample.');
+    } finally {
+      if (uploadRequestRef.current === requestId) setPreviewAction(null);
+    }
+  }, [importPreview, previewAction]);
+
+  const handleConfirmPreview = useCallback(async (settings: ImportSettings) => {
+    if (!importPreview || previewAction || !importPreview.can_confirm) return;
+    const requestId = uploadRequestRef.current;
+    setPreviewAction('confirm');
+    setPreviewActionError(null);
+    try {
+      const response = await confirmImport(importPreview.import_id, settings);
+      if (uploadRequestRef.current !== requestId) return;
+      stagedImportRef.current = null;
+      setImportPreview(null);
+      setIsColumnReviewOpen(true);
+      await applyUploadResponse(response, requestId);
+    } catch (error) {
+      if (uploadRequestRef.current === requestId) setPreviewActionError(error instanceof Error ? error.message : 'Could not confirm this import.');
+    } finally {
+      if (uploadRequestRef.current === requestId) setPreviewAction(null);
+    }
+  }, [importPreview, previewAction, applyUploadResponse]);
+
+  const handleCancelPreview = useCallback(async () => {
+    if (!importPreview || previewAction) return;
+    const stagedImportId = importPreview.import_id;
+    stagedImportRef.current = null;
+    const requestId = ++uploadRequestRef.current;
+    setPreviewAction('cancel');
+    setIsUploading(true);
+    setImportPreview(null);
+    setPreviewActionError(null);
+    try {
+      await cancelImport(stagedImportId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not remove the staged upload.';
+      setUploadError(message);
+      toast.error(message);
+    } finally {
+      if (uploadRequestRef.current === requestId) {
+        setPreviewAction(null);
+        setIsUploading(false);
+      }
+    }
+  }, [importPreview, previewAction, setIsUploading]);
+
+  const handleSchemaApplied = useCallback(async (response: VersionedUploadResponse, previousVersion?: string) => {
+    const uploadRequestId = ++uploadRequestRef.current;
+    setIsUploading(true);
+    try {
+      await applyUploadResponse(response, uploadRequestId);
+      if (previousVersion !== response.version) {
+        toast.message('Column schema updated', {
+          description: 'Dashboard snapshots from the previous schema were cleared. History entries from that version are marked old and disabled.',
+        });
+      }
+    } finally {
       setIsUploading(false);
     }
-  }, [setIsUploading, applyUploadResponse]);
+  }, [applyUploadResponse, setIsUploading]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop, accept: { 'text/csv': ['.csv'] }, maxFiles: 1, disabled: isUploading || isDemoLoading,
@@ -169,6 +270,13 @@ export function FileUploader() {
                     className="rounded-md border border-border/60 bg-card/40 px-2 py-0.5 text-xs font-medium text-foreground hover:border-primary/40 hover:bg-primary/10"
                   >
                     View Cleaning Report
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsColumnReviewOpen(true)}
+                    className="rounded-md border border-border/60 bg-card/40 px-2 py-0.5 text-xs font-medium text-foreground hover:border-primary/40 hover:bg-primary/10"
+                  >
+                    Review columns
                   </button>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -214,7 +322,7 @@ export function FileUploader() {
                 )}
               </div>
             </div>
-            <button onClick={() => { uploadRequestRef.current += 1; clearData(); }} className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-white">
+            <button onClick={() => { uploadRequestRef.current += 1; setIsColumnReviewOpen(false); clearData(); }} className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-white">
               Upload New
             </button>
           </div>
@@ -225,6 +333,29 @@ export function FileUploader() {
           dataHealth={dataHealth}
           rowCount={dataset.rowCount}
           columnCount={dataset.columns.length}
+        />
+        <ColumnReview
+          open={isColumnReviewOpen}
+          datasetId={dataset.datasetId}
+          datasetVersion={dataset.version}
+          onClose={() => setIsColumnReviewOpen(false)}
+          onApplied={handleSchemaApplied}
+        />
+      </motion.div>
+    );
+  }
+
+  if (importPreview) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="w-full">
+        <ImportPreview
+          key={`${importPreview.import_id}:${JSON.stringify(importPreview.settings)}`}
+          preview={importPreview}
+          busy={previewAction !== null}
+          actionError={previewActionError}
+          onRecheck={handleRecheckPreview}
+          onConfirm={handleConfirmPreview}
+          onCancel={handleCancelPreview}
         />
       </motion.div>
     );
@@ -240,8 +371,8 @@ export function FileUploader() {
           {isUploading ? (
             <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="font-medium">Processing dataset...</p>
-              <p className="text-xs text-muted-foreground animate-pulse">Please wait, preparing your dashboard...</p>
+              <p className="font-medium">Preparing import preview…</p>
+              <p className="text-xs text-muted-foreground animate-pulse">Checking the file before creating a dataset.</p>
             </motion.div>
           ) : uploadError ? (
             <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
@@ -259,8 +390,8 @@ export function FileUploader() {
                 <Upload className="h-7 w-7 text-primary" />
               </div>
               <div>
-                <p className="font-medium">Drop any CSV — we&apos;ll handle the rest</p>
-                <p className="mt-1 text-sm text-muted-foreground">Auto-clean, profile, and generate instant insights</p>
+                <p className="font-medium">Drop a CSV to review its parsing</p>
+                <p className="mt-1 text-sm text-muted-foreground">Preview a sample and adjust separators before importing</p>
               </div>
             </motion.div>
           )}
