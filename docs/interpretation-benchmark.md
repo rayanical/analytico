@@ -91,4 +91,10 @@ The baseline adapter snapshot uses the actual current backend functions rather t
 - Latency: p50 1,213.9 ms, p95 2,117.01 ms, measured end to end over fifteen requests.
 - Reported usage: 17,821 input and 623 output tokens. Actual billed cost was not returned and remains unknown.
 
-This single small run does not establish production accuracy or a Jev/Luna winner. Jev live testing remains pending a local `AI_GATEWAY_API_KEY`; mocked contract validation does not measure model quality. Interpretation stays off by default. A wider fixture set and an interpretation review UI should precede default-on ingestion.
+This single small run does not establish production accuracy or a Jev/Luna winner. Jev live testing is blocked by the Gateway account’s free-tier access restriction; mocked contract validation does not measure model quality. Interpretation stays off by default. A wider fixture set and an interpretation review UI should precede default-on ingestion.
+
+### Jev access attempt
+
+A Gateway key was configured in the ignored local environment file and the same fifteen-case run was attempted. Every request failed before a decision was returned. A diagnostic synthetic request returned HTTP 403 with `RestrictedModelsError`: the Gateway account requires paid credits to access `typesafe-ai/jev`. No account upgrade or credit purchase was performed.
+
+The [failed-run report](../backend/evals/results/jev-access-blocked-2026-10-01.json) preserves sanitized failures. These are access failures, not incorrect model predictions; there is no valid Jev accuracy or inference-latency measurement yet. After enabling paid Gateway access, rerun the Jev command above to obtain the comparison.

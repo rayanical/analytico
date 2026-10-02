@@ -1,0 +1,326 @@
+{
+  "failure_count": 15,
+  "metrics": {
+    "latency_ms": {
+      "p50_ms": 243.8,
+      "p95_ms": 785.99,
+      "quantile_method": "linear interpolation over sorted samples (type 7)",
+      "samples": 15
+    },
+    "usage": {
+      "cost": {
+        "currency": null,
+        "reported_cases": 0,
+        "status": "unknown",
+        "total": null,
+        "total_cases": 15
+      },
+      "tokens": {
+        "input_tokens": {
+          "reported_cases": 0,
+          "total": null,
+          "total_cases": 15
+        },
+        "output_tokens": {
+          "reported_cases": 0,
+          "total": null,
+          "total_cases": 15
+        },
+        "total_tokens": {
+          "derived_cases": 0,
+          "reported_cases": 0,
+          "total": null,
+          "total_cases": 15
+        }
+      }
+    }
+  },
+  "mode": "live",
+  "provider_run": {
+    "models": [
+      "typesafe-ai/jev"
+    ],
+    "prompt_versions": [
+      "column-interpretation-v1"
+    ],
+    "requested_provider": "jev",
+    "resolved_providers": [
+      "typesafe-ai"
+    ],
+    "started_at_utc": "2026-10-02T03:04:54.441120+00:00"
+  },
+  "results": [
+    {
+      "case_id": "id.leading_zero",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 1102.6,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "currency.usd_explicit",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 650.3,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "currency.dollar_symbol_without_code",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 329.9,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "currency.mixed_codes",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 256.3,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "percentage.equal_weight_average",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 174.6,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "percentage.basis_points",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 258.3,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "balance.latest_per_account",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 204.5,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "balance.account_token_false_positive",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 255.1,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "date.ambiguous_day_month",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 186.4,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "number.mixed_locale_formats",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 229.8,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "unit.unknown_measurement",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 181.2,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "missing.numeric_metric",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 182.1,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "unknown.all_missing_column",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 254.7,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "rate.weighted_with_counts",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 186.8,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    },
+    {
+      "case_id": "rate.denominator_missing",
+      "decision": null,
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": "provider_http_error",
+        "latency_ms": 243.8,
+        "model": "typesafe-ai/jev",
+        "prompt_version": "column-interpretation-v1",
+        "provider": "typesafe-ai",
+        "usage": {}
+      },
+      "status": "error"
+    }
+  ],
+  "schema_version": 1,
+  "scoring": {
+    "cases": 15,
+    "clarification": {
+      "accuracy": null,
+      "false_negative_missed": 0,
+      "false_positive_unnecessary": 0,
+      "gold_clarification_cases": 7,
+      "missed_clarification_rate": null,
+      "precision": null,
+      "recall": null,
+      "scored": 0,
+      "scored_gold_clarification_cases": 0,
+      "scored_gold_no_clarification_cases": 0,
+      "true_positive": 0,
+      "unnecessary_clarification_rate": null
+    },
+    "complete_decision_coverage": 0.0,
+    "complete_decisions": 0,
+    "exact_decision_accuracy": null,
+    "exact_decisions": 0,
+    "per_field": {
+      "needs_clarification": {
+        "accuracy": null,
+        "correct": 0,
+        "coverage": 0.0,
+        "scored": 0
+      },
+      "parsing_policy": {
+        "accuracy": null,
+        "correct": 0,
+        "coverage": 0.0,
+        "scored": 0
+      },
+      "recommended_aggregation": {
+        "accuracy": null,
+        "correct": 0,
+        "coverage": 0.0,
+        "scored": 0
+      },
+      "role": {
+        "accuracy": null,
+        "correct": 0,
+        "coverage": 0.0,
+        "scored": 0
+      },
+      "unit": {
+        "accuracy": null,
+        "correct": 0,
+        "coverage": 0.0,
+        "scored": 0
+      }
+    },
+    "predicted_cases": 0,
+    "prediction_coverage": 0.0,
+    "wrong_auto_decisions": {
+      "auto_decisions": 0,
+      "count": 0,
+      "rate": null,
+      "rule": "An auto decision is wrong if clarification was required, an action field is missing, or any supplied action field differs from expected."
+    }
+  }
+}
