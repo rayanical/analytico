@@ -1,7 +1,7 @@
 """Dataset ingestion orchestration service."""
 
 import os
-from time import perf_counter
+from contextlib import nullcontext
 from typing import Optional
 
 import pandas as pd
@@ -14,9 +14,10 @@ from modules import (
     generate_dynamic_suggestions,
 )
 from models import UploadResponse
+from modules.column_statistics import compute_column_statistics
 from services.response_builders import build_upload_response
 from storage import DatasetInfo, store_dataset
-from utils.pipeline_logging import print_pipeline_timing
+from utils.pipeline_logging import IngestionMeasurement
 
 
 def _generate_business_summary(filename: str, df: pd.DataFrame) -> Optional[str]:
@@ -52,71 +53,50 @@ def _generate_business_summary(filename: str, df: pd.DataFrame) -> Optional[str]
     return summary
 
 
-def ingest_dataframe(df: pd.DataFrame, filename: str, endpoint_name: str) -> UploadResponse:
-    """Run the ingestion pipeline and return an UploadResponse."""
-    endpoint_start = perf_counter()
-    raw_df = df.copy(deep=True)
+def ingest_dataframe(
+    df: pd.DataFrame, filename: str, endpoint_name: str,
+    measurement: Optional[IngestionMeasurement] = None,
+) -> UploadResponse:
+    """Run ingestion; callers parsing CSV supply their already-started measurement."""
+    scope = nullcontext(measurement) if measurement is not None else IngestionMeasurement(endpoint_name)
+    with scope as metrics:
+        metrics.rows, metrics.columns = df.shape
+        with metrics.phase("raw_copy"):
+            raw_df = df.copy(deep=True)
+        with metrics.phase("data_cleaning"):
+            df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df)
+        with metrics.phase("column_statistics"):
+            column_stats = compute_column_statistics(df)
+        with metrics.phase("semantic_detection"):
+            col_types = {
+                col: llm_col_types.get(col) or detect_semantic_type(df, col, column_stats)
+                for col in df.columns
+            }
+        with metrics.phase("data_profiling"):
+            profile = auto_profile(df, col_types, col_formats, column_stats=column_stats)
 
-    t2 = perf_counter()
-    df, cleaning_actions, missing_counts, col_formats, llm_col_types = clean_dataframe(df)
-    t3 = perf_counter()
+        total_cells = len(df) * len(df.columns)
+        missing_total = sum(missing_counts.values())
+        quality = max(0, 100 - (missing_total / max(total_cells, 1) * 100))
 
-    col_types = {
-        col: llm_col_types.get(col) or detect_semantic_type(df, col)
-        for col in df.columns
-    }
+        with metrics.phase("llm_summary"):
+            summary = _generate_business_summary(filename, df)
+        with metrics.phase("chart_metadata"):
+            default_chart = generate_default_chart(df, col_types, column_stats)
+            suggestions = generate_dynamic_suggestions(df, col_types, col_formats)
 
-    t4 = perf_counter()
-    profile = auto_profile(df, col_types, col_formats)
-    t5 = perf_counter()
-
-    total_cells = len(df) * len(df.columns)
-    missing_total = sum(missing_counts.values())
-    quality = max(0, 100 - (missing_total / max(total_cells, 1) * 100))
-
-    t6 = perf_counter()
-    summary = _generate_business_summary(filename, df)
-    t7 = perf_counter()
-
-    default_chart = generate_default_chart(df, col_types)
-    suggestions = generate_dynamic_suggestions(df, col_types, col_formats)
-
-    ds_info = DatasetInfo(
-        df=df,
-        raw_df=raw_df,
-        filename=filename,
-        cleaning_actions=cleaning_actions,
-        missing_counts=missing_counts,
-        column_types=col_types,
-        column_formats=col_formats,
-        profile=profile,
-        default_chart=default_chart,
-        suggestions=suggestions,
-        summary=summary,
-    )
-    response = build_upload_response(
-        ds_info=ds_info,
-        df=df,
-        col_types=col_types,
-        col_formats=col_formats,
-        missing_counts=missing_counts,
-        cleaning_actions=cleaning_actions,
-        quality=quality,
-        profile=profile,
-        default_chart=default_chart,
-        suggestions=suggestions,
-        summary=summary,
-    )
-    store_dataset(ds_info)
-
-    t8 = perf_counter()
-    durations = {
-        "csv_ingestion": t2 - endpoint_start,
-        "data_cleaning": t3 - t2,
-        "data_profiling": t5 - t4,
-        "llm_summary": t7 - t6,
-        "total": t8 - endpoint_start,
-    }
-    print_pipeline_timing(endpoint_name, durations)
-
-    return response
+        with metrics.phase("response_and_storage"):
+            ds_info = DatasetInfo(
+                df=df, raw_df=raw_df, filename=filename,
+                cleaning_actions=cleaning_actions, missing_counts=missing_counts,
+                column_types=col_types, column_formats=col_formats, profile=profile,
+                default_chart=default_chart, suggestions=suggestions, summary=summary,
+            )
+            response = build_upload_response(
+                ds_info=ds_info, df=df, col_types=col_types, col_formats=col_formats,
+                missing_counts=missing_counts, cleaning_actions=cleaning_actions,
+                quality=quality, profile=profile, default_chart=default_chart,
+                suggestions=suggestions, summary=summary, column_stats=column_stats,
+            )
+            store_dataset(ds_info)
+        return response

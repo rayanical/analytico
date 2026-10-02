@@ -167,14 +167,14 @@ def llm_enrich_columns(headers: list[str], df: pd.DataFrame) -> list[dict]:
             row["interpretation"] = {"status": "skipped", "runtime_status": "clarification",
                                      "provider": provider, "decision": None}
             continue
-        result = interpret_column(_interpretation_input(header, df.iloc[:, index], headers))
+        result = interpret_column(_interpretation_input(header, df.iloc[:, index], headers), use_cache=True)
         decision = result.decision.model_dump() if result.decision is not None else None
         row["interpretation"] = {
             "status": result.status, "runtime_status": "clarification",
             "provider": result.provider or provider, "model": result.model,
             "prompt_version": result.prompt_version, "latency_ms": result.latency_ms,
             "usage": result.usage, "confidence": result.confidence,
-            "error_code": result.error_code, "decision": decision,
+            "error_code": result.error_code, "cache_hit": result.cache_hit, "decision": decision,
         }
         unavailable = result.status in {"unavailable", "disabled", "error"}
         if decision is not None:

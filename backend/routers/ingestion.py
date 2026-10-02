@@ -9,6 +9,7 @@ from services.ingestion_service import ingest_dataframe
 from storage import get_dataset
 from utils.dataframe_utils import read_csv_fast
 from utils.errors import friendly_ingestion_error_message
+from utils.pipeline_logging import IngestionMeasurement
 
 router = APIRouter()
 
@@ -31,10 +32,12 @@ def upload_csv(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Please upload a CSV file.")
 
     try:
-        df = read_csv_fast(file.file)
-        if df.empty:
-            raise HTTPException(status_code=400, detail="CSV is empty.")
-        return ingest_dataframe(df, file.filename, endpoint_name="/upload")
+        with IngestionMeasurement("/upload") as measurement:
+            with measurement.phase("csv_parse"):
+                df = read_csv_fast(file.file)
+            if df.empty:
+                raise HTTPException(status_code=400, detail="CSV is empty.")
+            return ingest_dataframe(df, file.filename, endpoint_name="/upload", measurement=measurement)
     except pd.errors.EmptyDataError:
         raise HTTPException(status_code=400, detail="Empty CSV.")
     except HTTPException:
@@ -57,10 +60,12 @@ def load_demo_dataset(dataset: str = Query(default="taxi")):
         raise HTTPException(status_code=500, detail=f"Demo dataset file not found: {filename}")
 
     try:
-        df = read_csv_fast(demo_path)
-        if df.empty:
-            raise HTTPException(status_code=400, detail="CSV is empty.")
-        return ingest_dataframe(df, filename, endpoint_name="/load-demo")
+        with IngestionMeasurement("/load-demo") as measurement:
+            with measurement.phase("csv_parse"):
+                df = read_csv_fast(demo_path)
+            if df.empty:
+                raise HTTPException(status_code=400, detail="CSV is empty.")
+            return ingest_dataframe(df, filename, endpoint_name="/load-demo", measurement=measurement)
     except pd.errors.EmptyDataError:
         raise HTTPException(status_code=400, detail="Empty CSV.")
     except HTTPException:

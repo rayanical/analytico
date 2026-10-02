@@ -1,5 +1,7 @@
 # Opt-in column interpretation
 
+Ingestion reuses bounded interpretation decisions keyed by the exact input, provider, model, prompt version, reasoning effort, and credential fingerprint. Every cache hit still undergoes full-column validation. The adapter and live evaluations bypass caching by default; see [cache limits and performance validation](performance-improvements-2026-10-02.md).
+
 Column interpretation proposes a role, unit, parsing policy, aggregation, and whether clarification is needed. It cannot rename columns, execute code, impute observations, or authorize arbitrary calculations. The parsed view still requires deterministic evidence from the full column. The original frame remains stored separately.
 
 ## Local configuration

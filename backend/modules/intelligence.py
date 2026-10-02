@@ -6,6 +6,8 @@ Semantic detection, auto-analysis, chart generation, and profiling
 from typing import Optional
 import pandas as pd
 
+from modules.column_statistics import ColumnStatisticsMap
+
 
 class SemanticType:
     METRIC = "metric"
@@ -14,7 +16,11 @@ class SemanticType:
     CATEGORICAL = "categorical"
 
 
-def detect_semantic_type(df: pd.DataFrame, col: str) -> str:
+def detect_semantic_type(
+    df: pd.DataFrame,
+    col: str,
+    column_stats: Optional[ColumnStatisticsMap] = None,
+) -> str:
     """Detect semantic type of a column"""
     series = df[col]
     tokens = set(col.lower().split("_"))
@@ -30,20 +36,20 @@ def detect_semantic_type(df: pd.DataFrame, col: str) -> str:
     # Numeric columns
     if pd.api.types.is_numeric_dtype(series):
         if "year" in tokens:
-            years = series.dropna()
-            if len(years) and years.map(lambda value: float(value).is_integer() and 1000 <= value <= 2200).all():
+            if _is_numeric_year(series, col, column_stats):
                 return SemanticType.TEMPORAL
-        unique_ratio = series.nunique() / max(len(series), 1)
+        unique_count = _unique_count(series, col, column_stats)
+        unique_ratio = unique_count / max(len(series), 1)
         # High cardinality numeric = likely metric
         if unique_ratio > 0.5:
             return SemanticType.METRIC
         # Low cardinality numeric = could be categorical
-        if series.nunique() < 20:
+        if unique_count < 20:
             return SemanticType.CATEGORICAL
         return SemanticType.METRIC
-    
+
     # Non-numeric with low cardinality = categorical
-    if series.nunique() < 50:
+    if _unique_count(series, col, column_stats) < 50:
         return SemanticType.CATEGORICAL
     
     return SemanticType.IDENTIFIER
@@ -58,13 +64,17 @@ def _accepted_metric_decision(df: pd.DataFrame, column: str) -> Optional[dict]:
     return None
 
 
-def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Optional[dict]:
+def generate_default_chart(
+    df: pd.DataFrame,
+    column_types: dict[str, str],
+    column_stats: Optional[ColumnStatisticsMap] = None,
+) -> Optional[dict]:
     """Generate the best default chart configuration"""
     # Find temporal, categorical, and metric columns
     temporal_cols = [
         c for c, t in column_types.items()
         if t == SemanticType.TEMPORAL
-        and (pd.api.types.is_datetime64_any_dtype(df[c]) or _is_numeric_year(df[c], c))
+        and (pd.api.types.is_datetime64_any_dtype(df[c]) or _is_numeric_year(df[c], c, column_stats))
     ]
     categorical_cols = [c for c, t in column_types.items() if t == SemanticType.CATEGORICAL]
     metric_cols = [
@@ -94,7 +104,10 @@ def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Op
     # Second best: categorical x-axis with metric y-axis
     if categorical_cols:
         # Pick categorical with reasonable cardinality
-        best_cat = min(categorical_cols, key=lambda c: abs(df[c].nunique() - 10))
+        best_cat = min(
+            categorical_cols,
+            key=lambda c: abs(_unique_count(df[c], c, column_stats) - 10),
+        )
         return {
             "x_axis_key": best_cat,
             "y_axis_keys": [metric],
@@ -107,9 +120,25 @@ def generate_default_chart(df: pd.DataFrame, column_types: dict[str, str]) -> Op
     return None
 
 
-def _is_numeric_year(series: pd.Series, col: str) -> bool:
+def _unique_count(
+    series: pd.Series,
+    col: str,
+    column_stats: Optional[ColumnStatisticsMap],
+) -> int:
+    statistics = column_stats.get(col) if column_stats is not None else None
+    return statistics.unique_count if statistics is not None else int(series.nunique())
+
+
+def _is_numeric_year(
+    series: pd.Series,
+    col: str,
+    column_stats: Optional[ColumnStatisticsMap] = None,
+) -> bool:
     if "year" not in set(str(col).lower().split("_")) or not pd.api.types.is_numeric_dtype(series):
         return False
+    statistics = column_stats.get(col) if column_stats is not None else None
+    if statistics is not None and statistics.numeric_year is not None:
+        return statistics.numeric_year
     values = series.dropna()
     return bool(len(values) and values.map(lambda value: float(value).is_integer() and 1000 <= value <= 2200).all())
 
@@ -126,6 +155,7 @@ def auto_profile(
     df: pd.DataFrame,
     column_types: dict[str, str],
     column_formats: Optional[dict[str, str]] = None,
+    column_stats: Optional[ColumnStatisticsMap] = None,
 ) -> dict:
     """Generate executive summary / auto-profile"""
     profile = {
@@ -163,7 +193,10 @@ def auto_profile(
     temporal_cols = [
         c for c, t in column_types.items()
         if t == SemanticType.TEMPORAL
-        and (pd.api.types.is_datetime64_any_dtype(df[c]) or _is_numeric_year(df[c], c))
+        and (
+            pd.api.types.is_datetime64_any_dtype(df[c])
+            or _is_numeric_year(df[c], c, column_stats)
+        )
     ]
     if temporal_cols:
         date_col = temporal_cols[0]

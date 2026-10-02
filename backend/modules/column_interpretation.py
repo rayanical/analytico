@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import math
 import os
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
 import httpx
 from pydantic import BaseModel, ConfigDict, StrictBool, ValidationError
+
+from utils.bounded_cache import BoundedTTLCache
 
 
 PROMPT_VERSION = "column-interpretation-v3"
@@ -27,6 +30,11 @@ MAX_CONTEXT_DEPTH = 8
 MAX_CONTEXT_ITEMS = 64
 MAX_CONTEXT_KEY_CHARS = 128
 MAX_CONTEXT_STRING_CHARS = 4096
+_INTERPRETATION_CACHE = BoundedTTLCache[str, "InterpretationResult"](
+    max_entries=512,
+    max_bytes=8 * 1024 * 1024,
+    ttl_seconds=60 * 60,
+)
 
 Role = Literal["identifier", "metric", "temporal", "categorical", "unknown"]
 Unit = Literal[
@@ -92,6 +100,7 @@ class InterpretationResult:
     confidence: dict[str, Any] | None = None
     error_code: str | None = None
     reasoning_effort: str | None = None
+    cache_hit: bool = False
 
 
 class _BadInput(ValueError):
@@ -163,6 +172,7 @@ def interpret_column(
     provider: str | None = None,
     transport: httpx.BaseTransport | None = None,
     reasoning_effort: Literal["none", "low"] = "none",
+    use_cache: bool = False,
 ) -> InterpretationResult:
     """Interpret a bounded column description using the configured optional provider.
 
@@ -197,6 +207,29 @@ def interpret_column(
     api_key = os.getenv(key_name, "").strip()
     if not api_key:
         return _failure("unavailable", "missing_api_key", provider=_provider_name(selected), model=model)
+
+    cache_key = None
+    if use_cache and transport is None:
+        encoded_input = json.dumps(
+            normalized_input, ensure_ascii=False, allow_nan=False, separators=(",", ":")
+        ).encode("utf-8")
+        cache_key = json.dumps(
+            {
+                "input": hashlib.sha256(encoded_input).hexdigest(),
+                "provider": selected,
+                "model": model,
+                "prompt_version": PROMPT_VERSION,
+                "reasoning_effort": reasoning_effort,
+                # Keep credentials out of cache keys while preventing a rotated
+                # credential from reusing a result authorized by the old key.
+                "credential": hashlib.sha256(api_key.encode("utf-8")).hexdigest(),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        cached = _INTERPRETATION_CACHE.get(cache_key)
+        if cached is not None:
+            return replace(cached, latency_ms=0.0, usage={}, cache_hit=True)
 
     started = time.perf_counter()
     try:
@@ -269,7 +302,7 @@ def interpret_column(
 
     actual_model = _response_model(payload) or model
     provider_metadata = payload.get("providerMetadata") if isinstance(payload, dict) else None
-    return InterpretationResult(
+    result = InterpretationResult(
         decision=decision,
         status="uncertain" if decision.needs_clarification else "ok",
         model=actual_model,
@@ -279,6 +312,9 @@ def interpret_column(
         confidence=confidence,
         reasoning_effort=reasoning_effort if selected == "luna" else None,
     )
+    if cache_key is not None:
+        _INTERPRETATION_CACHE.set(cache_key, result)
+    return result
 
 
 def _provider_name(provider: str) -> str:

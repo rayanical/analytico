@@ -62,7 +62,8 @@ class InterpretationAdversarialTests(unittest.TestCase):
     def _clean(self, frame, decisions, *, capture=None):
         original = frame.copy(deep=True)
 
-        def respond(request):
+        def respond(request, *, use_cache):
+            self.assertTrue(use_cache)
             if capture is not None:
                 capture[request["column_name"]] = request
             proposal = decisions[request["column_name"]]

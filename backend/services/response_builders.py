@@ -4,6 +4,7 @@ from typing import Optional
 
 import pandas as pd
 
+from modules.column_statistics import ColumnStatisticsMap
 from models import (
     ChartResponse,
     ColumnSummary,
@@ -17,10 +18,17 @@ from models import (
 from storage import DatasetInfo
 
 
-def get_column_summary(df: pd.DataFrame, col: str, sem_type: str, fmt: str) -> ColumnSummary:
+def get_column_summary(
+    df: pd.DataFrame,
+    col: str,
+    sem_type: str,
+    fmt: str,
+    column_stats: Optional[ColumnStatisticsMap] = None,
+) -> ColumnSummary:
     """Generate column summary for API response."""
     series = df[col]
-    unique_vals = series.dropna().unique()
+    statistics = column_stats.get(col) if column_stats is not None else None
+    unique_vals = statistics.sample_values if statistics is not None else series.dropna().unique()[:20]
     sample_vals = sorted([str(v) for v in unique_vals[:20]], key=str.lower)
     return ColumnSummary(
         name=col,
@@ -29,7 +37,7 @@ def get_column_summary(df: pd.DataFrame, col: str, sem_type: str, fmt: str) -> C
         is_datetime=pd.api.types.is_datetime64_any_dtype(series),
         semantic_type=sem_type,
         format=fmt,
-        unique_count=int(series.nunique()),
+        unique_count=(statistics.unique_count if statistics is not None else int(series.nunique())),
         sample_values=sample_vals,
         interpretation=df.attrs.get("column_interpretations", {}).get(col),
     )
@@ -47,6 +55,7 @@ def build_upload_response(
     default_chart: Optional[dict],
     suggestions: list[str],
     summary: Optional[str],
+    column_stats: Optional[ColumnStatisticsMap] = None,
 ) -> UploadResponse:
     """Build UploadResponse payload with consistent shape."""
     return UploadResponse(
@@ -54,7 +63,13 @@ def build_upload_response(
         filename=ds_info.filename,
         row_count=len(df),
         columns=[
-            get_column_summary(df, c, col_types.get(c, "unknown"), col_formats.get(c, "general"))
+            get_column_summary(
+                df,
+                c,
+                col_types.get(c, "unknown"),
+                col_formats.get(c, "general"),
+                column_stats,
+            )
             for c in df.columns
         ],
         column_formats=col_formats,

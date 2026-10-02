@@ -1,5 +1,7 @@
 """One shared execution path for manual charts and AI-planned charts."""
 
+import hashlib
+import json
 from typing import Any
 
 import numpy as np
@@ -11,7 +13,15 @@ from models import AggregateRequest, ChartResponse
 from modules import aggregate_data, enforce_semantic_rules, smart_group_top_n, smart_resample_dates
 from storage import get_dataset
 from utils.dataframe_utils import df_to_markdown
+from utils.bounded_cache import BoundedTTLCache
 from utils.filtering import FilterValidationError, apply_filters, resolve_effective_limit, validate_columns
+
+
+_CHART_CACHE = BoundedTTLCache[str, ChartResponse](
+    max_entries=256,
+    max_bytes=24 * 1024 * 1024,
+    ttl_seconds=5 * 60,
+)
 
 
 def _json_value(value: Any):
@@ -53,6 +63,57 @@ def _sort_result(result: pd.DataFrame, x_key: str, y_keys: list[str], sort_by: s
     )
 
 
+def _chart_cache_key(dataset: Any, request: AggregateRequest) -> str:
+    """Hash the dataset version and every validated request field."""
+    version = getattr(dataset, "cache_version", None)
+    dataset_id = getattr(dataset, "id", "")
+    if isinstance(version, str) and version:
+        version = f"{dataset_id}:{version}"
+    else:
+        # Test adapters and older in-process adapters may not expose a version.
+        # Object identity prevents one replacement object from inheriting a
+        # cached response; mutable adapters must provide/update cache_version.
+        version = f"{dataset_id}:{id(dataset)}:{id(dataset.df)}"
+    serialized_request = json.dumps(
+        request.model_dump(mode="json"),
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    payload = f"{version}:{serialized_request}".encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _with_analysis(chart: ChartResponse, request: AggregateRequest) -> ChartResponse:
+    """Generate fresh analysis for a chart, including when its rows were cached."""
+    summary = df_to_markdown(pd.DataFrame(chart.data).head(20), n=20)
+    prompt = f"""Analyze this computed chart result in two concise sentences.
+State what the aggregation shows and one pattern or exception visible in these values.
+Do not claim trends beyond the rows provided.
+
+X-axis: {request.x_axis_key}
+Measures: {', '.join(request.y_axis_keys)}
+Aggregation: {chart.aggregation}
+Computed chart rows:
+{summary}"""
+    try:
+        analysis_response = get_openai_client().chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a concise data analyst. Use only the supplied computed results."},
+                {"role": "user", "content": prompt},
+            ],
+            **chat_completion_options(120, 0.3),
+        )
+        analysis = (analysis_response.choices[0].message.content or "").strip() or None
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Analysis failed: {error}") from error
+    return chart.model_copy(update={"analysis": analysis}, deep=True)
+
+
 def run_aggregate(request: AggregateRequest) -> ChartResponse:
     """Validate filters, aggregate source rows once, then sort and limit."""
     ds = get_dataset(request.dataset_id)
@@ -71,6 +132,11 @@ def run_aggregate(request: AggregateRequest) -> ChartResponse:
         )
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+
+    cache_key = _chart_cache_key(ds, request)
+    cached = _CHART_CACHE.get(cache_key)
+    if cached is not None:
+        return _with_analysis(cached, request) if request.include_analysis else cached
 
     try:
         filtered, applied_filters = apply_filters(df, request.filters)
@@ -130,33 +196,6 @@ def run_aggregate(request: AggregateRequest) -> ChartResponse:
     except FilterValidationError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
 
-    analysis = None
-    if request.include_analysis:
-        summary = df_to_markdown(result.head(20), n=20)
-        prompt = f"""Analyze this computed chart result in two concise sentences.
-State what the aggregation shows and one pattern or exception visible in these values.
-Do not claim trends beyond the rows provided.
-
-X-axis: {request.x_axis_key}
-Measures: {', '.join(request.y_axis_keys)}
-Aggregation: {aggregation}
-Computed chart rows:
-{summary}"""
-        try:
-            analysis_response = get_openai_client().chat.completions.create(
-                model=OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": "You are a concise data analyst. Use only the supplied computed results."},
-                    {"role": "user", "content": prompt},
-                ],
-                **chat_completion_options(120, 0.3),
-            )
-            analysis = (analysis_response.choices[0].message.content or "").strip() or None
-        except HTTPException:
-            raise
-        except Exception as error:
-            raise HTTPException(status_code=502, detail=f"Analysis failed: {error}") from error
-
     final_warnings = list(warnings)
     interpretations = df.attrs.get("column_interpretations", {})
     review_columns = [col for col in [request.x_axis_key, *request.y_axis_keys]
@@ -166,7 +205,7 @@ Computed chart rows:
     if cap_warning and (was_capped or request.limit == 0 or (request.limit is not None and request.limit > MAX_CHART_POINTS)):
         final_warnings.append(cap_warning)
 
-    return ChartResponse(
+    chart = ChartResponse(
         data=records_to_json(result),
         x_axis_key=request.x_axis_key,
         y_axis_keys=request.y_axis_keys,
@@ -175,7 +214,7 @@ Computed chart rows:
         aggregation=aggregation,
         y_axis_label=y_axis_label,
         row_count=len(result),
-        analysis=analysis,
+        analysis=None,
         warnings=final_warnings or None,
         applied_filters=applied_filters or None,
         filters=request.filters or None,
@@ -183,3 +222,8 @@ Computed chart rows:
         time_bucket=time_bucket,
         others_label=others_label,
     )
+    response = _with_analysis(chart, request) if request.include_analysis else chart
+    # Cache only after the complete request succeeds. Analysis is per request and
+    # is always regenerated, while the deterministic chart rows remain reusable.
+    _CHART_CACHE.set(cache_key, chart)
+    return response

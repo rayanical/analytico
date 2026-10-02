@@ -60,6 +60,7 @@ export interface ColumnInterpretationMetadata {
   model?: string | null;
   prompt_version?: string | null;
   latency_ms?: number | null;
+  cache_hit?: boolean;
   usage: Record<string, unknown>;
   confidence?: Record<string, unknown> | null;
   error_code?: string | null;

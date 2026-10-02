@@ -30,6 +30,9 @@ class DatasetInfo:
         raw_df: Optional[pd.DataFrame] = None,
     ):
         self.id = str(uuid.uuid4())
+        # A newly ingested/replaced dataset always receives a new cache version,
+        # even if a caller later reuses its public ID.
+        self.cache_version = str(uuid.uuid4())
         self.df = df
         # Keep the source separately from the parsed analytics view. Ingestion
         # supplies an already detached frame; callers without one get a copy.
@@ -50,6 +53,14 @@ class DatasetInfo:
         self.summary = summary
         self.created_at = datetime.now()
         self.touch()
+
+    def invalidate_cached_results(self) -> None:
+        """Advance the data version after any in-place data or schema edit.
+
+        Internal callers that mutate ``df``, column metadata, or other inputs
+        used to build analytics must call this method before serving requests.
+        """
+        self.cache_version = str(uuid.uuid4())
     
     def touch(self):
         """Update last accessed time"""

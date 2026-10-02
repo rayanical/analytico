@@ -187,7 +187,7 @@ class InterpretationIngestionTests(unittest.TestCase):
         frame = pd.DataFrame({"amount_usd": ["$10", "$20"], "value": ["1", "2"]})
         failure = SimpleNamespace(decision=None, status="unavailable", provider="openai",
                                   model="gpt-6-luna", prompt_version="test", latency_ms=8000,
-                                  usage={}, confidence=None, error_code="request_timeout")
+                                  usage={}, confidence=None, error_code="request_timeout", cache_hit=False)
         with patch.dict(os.environ, {"COLUMN_INTERPRETER": "luna"}), patch(
             "modules.column_interpretation.interpret_column", return_value=failure
         ) as call:

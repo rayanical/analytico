@@ -68,6 +68,7 @@ class ColumnInterpretationMetadata(BaseModel):
     confidence: Optional[dict[str, Any]] = None
     error_code: Optional[str] = None
     decision: Optional[dict[str, Any]] = None
+    cache_hit: bool = False
 
 
 class ColumnSummary(BaseModel):
