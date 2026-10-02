@@ -1,0 +1,389 @@
+{
+  "model": "current_repo_offline",
+  "provenance": {
+    "python": "3.14.0",
+    "pandas": "2.3.3",
+    "source_state": "working tree at snapshot time; no commit revision asserted",
+    "provider_calls": "disabled by empty OPENAI_API_KEY"
+  },
+  "baseline_note": "Offline snapshot from clean_dataframe, detect_semantic_type, and auto_profile. OPENAI_API_KEY was forced empty. Runtime format and cleaning actions are observations; unit, parsing policy, and clarification are unsupported and intentionally omitted.",
+  "predictions": [
+    {
+      "case_id": "holdout.identifier.postal_lexeme",
+      "decision": {
+        "role": "identifier"
+      },
+      "observed": {
+        "runtime_column_format": "identifier",
+        "profile_default_aggregation": null,
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "holdout.identifier.injected_header",
+      "decision": {
+        "role": "identifier"
+      },
+      "observed": {
+        "runtime_column_format": "identifier",
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Normalized 1 column headers"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.identifier.asset_tag",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": null,
+        "profile_default_aggregation": null,
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "holdout.injection.status_value",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": null,
+        "profile_default_aggregation": null,
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "holdout.currency.dollar_without_code",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "sum"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": "sum",
+        "cleaning_actions": [
+          "Converted 'toll_amount' from currency text to numeric"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.currency.explicit_eur",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Could not safely parse 'supplier_invoice_amount' numeric text; retained source values"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.currency.mixed_gbp_jpy",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Could not safely parse 'payment_amount' numeric text; retained source values"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.currency.usd_header_evidence",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "sum"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": "sum",
+        "cleaning_actions": [
+          "Converted 'fuel_cost_usd' from currency text to numeric"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.unit.height_unknown",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "sum"
+      },
+      "observed": {
+        "runtime_column_format": "number",
+        "profile_default_aggregation": "sum",
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "holdout.unit.ratio_explicit",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "mean"
+      },
+      "observed": {
+        "runtime_column_format": "percentage",
+        "profile_default_aggregation": "mean",
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "holdout.unit.temperature_scale_unknown",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "mean"
+      },
+      "observed": {
+        "runtime_column_format": "number",
+        "profile_default_aggregation": "mean",
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "holdout.missing.null_usd_flow",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "sum"
+      },
+      "observed": {
+        "runtime_column_format": "number",
+        "profile_default_aggregation": "sum",
+        "cleaning_actions": [
+          "Preserved 1 source missing values as null in 'tax_refund_usd'"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.missing.na_amount_ambiguous",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Preserved 1 source missing values as null in 'invoice_amount'",
+          "Could not safely parse 'invoice_amount' numeric text; retained source values"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.missing.all_null_field",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": null,
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Preserved 3 source missing values as null in 'field_23'"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.missing.literal_na_category",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": null,
+        "profile_default_aggregation": null,
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "holdout.rate.weighted_by_counts",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "mean"
+      },
+      "observed": {
+        "runtime_column_format": "percentage",
+        "profile_default_aggregation": "mean",
+        "cleaning_actions": [
+          "Converted 'signup_rate' from percentage text to decimal"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.rate.no_denominator",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "mean"
+      },
+      "observed": {
+        "runtime_column_format": "percentage",
+        "profile_default_aggregation": "mean",
+        "cleaning_actions": [
+          "Converted 'defect_rate_pct' from percentage text to decimal"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.rate.equal_row_weights",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "mean"
+      },
+      "observed": {
+        "runtime_column_format": "percentage",
+        "profile_default_aggregation": "mean",
+        "cleaning_actions": [
+          "Converted 'branch_conversion_pct' from percentage text to decimal"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.stock.same_snapshot_inventory",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "sum"
+      },
+      "observed": {
+        "runtime_column_format": "number",
+        "profile_default_aggregation": "sum",
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "holdout.stock.latest_per_customer",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Could not safely parse 'customer_balance_eur' numeric text; retained source values"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.stock.time_scope_missing",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Could not safely parse 'portfolio_balance_usd' numeric text; retained source values"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.date.ambiguous_month_day",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": null,
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Could not safely parse 'service_date' as date: ambiguous date order; retained source values"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.date.iso_unambiguous",
+      "decision": {
+        "role": "temporal"
+      },
+      "observed": {
+        "runtime_column_format": "date",
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Parsed 'shipment_date' as date"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.date.month_name_unambiguous",
+      "decision": {
+        "role": "temporal"
+      },
+      "observed": {
+        "runtime_column_format": "date",
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Parsed 'subscription_started' as date"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.category.numeric_risk_band",
+      "decision": {
+        "role": "identifier"
+      },
+      "observed": {
+        "runtime_column_format": "identifier",
+        "profile_default_aggregation": null,
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "holdout.category.numeric_code_unknown",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "sum"
+      },
+      "observed": {
+        "runtime_column_format": "number",
+        "profile_default_aggregation": "sum",
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "holdout.category.binary_response_code",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": "number",
+        "profile_default_aggregation": null,
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "holdout.metric.event_count",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "sum"
+      },
+      "observed": {
+        "runtime_column_format": "number",
+        "profile_default_aggregation": "sum",
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "holdout.number.mixed_locale_text",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": null,
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Could not safely parse 'sensor_output' numeric text; retained source values"
+        ]
+      }
+    },
+    {
+      "case_id": "holdout.identifier.customer_reference",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": "identifier",
+        "profile_default_aggregation": null,
+        "cleaning_actions": []
+      }
+    }
+  ]
+}

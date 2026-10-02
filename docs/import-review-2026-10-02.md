@@ -7,7 +7,7 @@ Implemented priorities 1 and 2 from the production audit. No provider/model chan
 1. Choose a CSV or demo. The backend saves an owned local copy and reads a bounded sample (256 KiB, at most 20 data records). This step does not call an AI provider or register a dataset.
 2. Compare original and parsed values. Adjust delimiter, encoding, decimal/grouping separators, date order, and exact missing-value tokens. Recheck the saved sample before confirming changed settings.
 3. Confirm. Validate quoting, record widths, encoding, NULs and limits across the entire file before ingestion. A good sample cannot conceal a malformed later record. Failure keeps the staged source available for corrections.
-4. Review columns. Edit parsing, role, format, unit or aggregation; optionally copy a supported AI proposal into the form. Apply submits only changed fields. Reset removes explicit decisions and reruns automatic inference.
+4. Open **Review columns** when needed; the editor no longer opens automatically after import. Edit parsing, role, format, unit or aggregation; optionally copy a supported AI proposal into the form. Apply submits only changed fields. Reset removes explicit decisions and reruns automatic inference.
 5. Applying edits rebuilds from the original CSV, validates the full column, and atomically replaces the dataset under the same public ID with a new version. Failed edits leave the active version intact; stale concurrent edits return 409. Existing read leases keep the retired source alive until their readers finish. Old chart history is disabled and dashboard snapshots for the replaced version are cleared.
 
 The original and parsed preview tables show a sample, not a guarantee about every record. Full validation deliberately follows user confirmation so a wrongly guessed delimiter or locale can be corrected without rebuilding the entire dataset first.
@@ -39,7 +39,7 @@ Source retention costs temporary local disk space, including on the pandas path.
 - 195 backend tests pass, including engine parity for locales, identifiers, duplicate headers, encodings, quoted newlines, null tokens, dates and reviewed currency/percent values; failed/stale edits, reset, source ownership, version changes and late malformed records.
 - 16 offline AI evaluation tests pass. No live provider requests during validation.
 - Frontend lint, helper checks, TypeScript and production build pass.
-- Computer-use QA of the production build: demo staging → preview → confirmation → automatic column review; change population aggregation to mean; reopen and reset; verify profile changes and disabled old chart history. Screenshot: `backend/benchmarks/results/import-review-2026-10-02/column-review.jpg`.
+- Computer-use QA of the production build: demo staging → preview → confirmation → column review (the editor became manual after this QA run); change population aggregation to mean; reopen and reset; verify profile changes and disabled old chart history. Screenshot: `backend/benchmarks/results/import-review-2026-10-02/column-review.jpg`.
 - All nine benchmark chart payloads exactly match the previous committed baseline.
 
 ## Performance tradeoff

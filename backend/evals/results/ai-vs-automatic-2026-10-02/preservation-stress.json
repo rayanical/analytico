@@ -1,0 +1,27 @@
+{
+  "live_calls": 0,
+  "note": "Replay saved live predictions against complete columns with late contradictions; not additional model accuracy trials.",
+  "cases": [
+    {
+      "case": "late_mixed_currency",
+      "rows": 2001,
+      "source_preserved": true,
+      "runtime_status": "clarification",
+      "decision_source": "holdout.currency.explicit_eur"
+    },
+    {
+      "case": "late_invalid_currency",
+      "rows": 2001,
+      "source_preserved": true,
+      "runtime_status": "clarification",
+      "decision_source": "holdout.currency.explicit_eur"
+    },
+    {
+      "case": "late_submicrosecond_date",
+      "rows": 2001,
+      "source_preserved": true,
+      "runtime_status": "clarification",
+      "decision_source": "holdout.date.iso_unambiguous"
+    }
+  ]
+}

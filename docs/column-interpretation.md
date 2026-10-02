@@ -26,7 +26,7 @@ Accepted metric parsing checks every non-null value. Leading-zero identifiers ar
 
 Numeric parsing additionally rejects loss of source precision and quantities or possible totals beyond JavaScript’s safe integer range. Large integer identifiers are serialized as exact strings for browser/filter round trips.
 
-Upload column metadata exposes provider/model, prompt version, status, runtime acceptance, latency, reported token usage, sanitized failure code, and the proposed decision. Jev probabilities are separate from optional native confidence. They are not calibrated accuracy estimates. Metadata is currently visible through the API; there is no dedicated review editor yet.
+Upload column metadata exposes provider/model, prompt version, status, runtime acceptance, latency, reported token usage, sanitized failure code, and the proposed decision. Jev probabilities are separate from optional native confidence. They are not calibrated accuracy estimates. Background proposals are visible in the optional **Review columns** editor. They do not currently change the uploaded parsed view; supported proposals can be copied into the form and applied through full-source schema validation.
 
 ## Evaluation
 

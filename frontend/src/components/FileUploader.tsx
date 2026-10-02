@@ -184,7 +184,7 @@ export function FileUploader() {
       if (uploadRequestRef.current !== requestId) return;
       stagedImportRef.current = null;
       setImportPreview(null);
-      setIsColumnReviewOpen(true);
+      setIsColumnReviewOpen(false);
       await applyUploadResponse(response, requestId);
     } catch (error) {
       if (uploadRequestRef.current === requestId) setPreviewActionError(error instanceof Error ? error.message : 'Could not confirm this import.');
