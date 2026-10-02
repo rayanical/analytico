@@ -15,6 +15,37 @@ from storage import DATASETS, get_dataset, lease_dataset
 
 
 class SchemaReviewTests(unittest.TestCase):
+    def test_saved_file_settings_can_be_edited_and_failed_rebuild_keeps_version(self):
+        for engine in ['pandas', 'disk']:
+            with self.subTest(engine=engine), patch.dict(os.environ, {'ANALYTICO_INGESTION_ENGINE': engine}):
+                old, _ = self.ingest('group;amount;label\nA;1.234,56;NULL\nB;2.000,50;NA\n', engine,
+                    ImportSettings(delimiter=';'))
+                changed = apply_schema(old.dataset_id, old.version, [],
+                    ImportSettings(delimiter=';', decimal_separator=',', grouping_separator='.', null_values=['', 'NULL']))
+                frame = get_dataset(changed.dataset_id).sample_frame(10)
+                self.assertEqual(frame['amount'].tolist(), [1234.56, 2000.5])
+                self.assertEqual(frame['label'].iloc[1], 'NA')
+                self.assertEqual(get_schema(changed.dataset_id)['settings']['decimal_separator'], ',')
+                with self.assertRaises(HTTPException):
+                    apply_schema(changed.dataset_id, changed.version, [ColumnOverride(column='amount', parse_as='number')],
+                        ImportSettings(delimiter=';', decimal_separator='.'))
+                self.assertEqual(get_schema(changed.dataset_id)['version'], changed.version)
+
+    def test_separator_change_never_reuses_column_overrides_on_new_fields(self):
+        for engine in ['pandas', 'disk']:
+            with self.subTest(engine=engine), patch.dict(os.environ, {'ANALYTICO_INGESTION_ENGINE': engine}):
+                old, _ = self.ingest('code;amount\n001;12\n002;34\n', engine,
+                    overrides=[ColumnOverride(column='code_amount', parse_as='text')])
+                with self.assertRaises(HTTPException) as conflicting:
+                    apply_schema(old.dataset_id, old.version, [ColumnOverride(column='code_amount', role='identifier')],
+                        ImportSettings(delimiter=';'))
+                self.assertEqual(conflicting.exception.status_code, 422)
+                changed = apply_schema(old.dataset_id, old.version, [], ImportSettings(delimiter=';'))
+                frame = get_dataset(changed.dataset_id).sample_frame(10)
+                self.assertEqual(frame.columns.tolist(), ['code', 'amount'])
+                self.assertEqual(frame['code'].tolist(), ['001', '002'])
+                self.assertEqual(get_dataset(changed.dataset_id).column_overrides, [])
+
     def setUp(self):
         env = patch.dict(os.environ, {'OPENAI_API_KEY': '', 'COLUMN_INTERPRETER': 'off'})
         env.start()

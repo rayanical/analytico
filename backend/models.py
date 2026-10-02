@@ -22,6 +22,7 @@ class SchemaApplyRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     expected_version: StrictStr = Field(min_length=1, max_length=128)
     column_overrides: list[ColumnOverride] = Field(max_length=256)
+    settings: Optional[ImportSettings] = None
 
 
 Aggregation = Literal["sum", "mean", "median", "count", "min", "max"]

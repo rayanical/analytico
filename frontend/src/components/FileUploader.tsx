@@ -8,10 +8,9 @@ import { useData } from '@/context/DataContext';
 import { previewImport, previewDemoImport, updateImportPreview, confirmImport, cancelImport, aggregateData } from '@/lib/api';
 import { ImportPreviewResponse, ImportSettings, VersionedUploadResponse } from '@/types';
 import { toast } from 'sonner';
-import { CleaningReportDrawer } from '@/components/CleaningReportDrawer';
 import { formatValue } from '@/lib/formatValue';
 import { ImportPreview } from '@/components/ImportPreview';
-import { ColumnReview } from '@/components/ColumnReview';
+import { DataReview } from '@/components/DataReview';
 
 type DemoDataset = 'taxi' | 'gapminder';
 
@@ -29,8 +28,8 @@ export function FileUploader() {
   const [importPreview, setImportPreview] = useState<ImportPreviewResponse | null>(null);
   const [previewAction, setPreviewAction] = useState<'recheck' | 'confirm' | 'cancel' | null>(null);
   const [previewActionError, setPreviewActionError] = useState<string | null>(null);
-  const [isColumnReviewOpen, setIsColumnReviewOpen] = useState(false);
-  const [isCleaningReportOpen, setIsCleaningReportOpen] = useState(false);
+  const [isDataReviewOpen, setIsDataReviewOpen] = useState(false);
+  const [isImportReviewOpen, setIsImportReviewOpen] = useState(false);
   const [isQualityInfoOpen, setIsQualityInfoOpen] = useState(false);
   const uploadRequestRef = useRef(0);
   const stagedImportRef = useRef<string | null>(null);
@@ -99,24 +98,46 @@ export function FileUploader() {
     }
   }, [setDataset, setCurrentChart, addToHistory, beginQuery, isCurrentQuery, finishQuery]);
 
+  const importAutomatically = useCallback(async (preview: ImportPreviewResponse, requestId: number) => {
+    if (uploadRequestRef.current !== requestId) {
+      void cancelImport(preview.import_id).catch(() => {});
+      return;
+    }
+    stagedImportRef.current = preview.import_id;
+    setImportPreview(preview);
+    if (!preview.can_confirm) {
+      setUploadError('This file needs a parsing change. Open Review data to adjust its settings.');
+      return;
+    }
+    try {
+      const response = await confirmImport(preview.import_id, preview.settings);
+      if (uploadRequestRef.current !== requestId) return;
+      stagedImportRef.current = null;
+      setImportPreview(null);
+      await applyUploadResponse(response, requestId);
+    } catch (error) {
+      if (uploadRequestRef.current === requestId) {
+        setUploadError(error instanceof Error ? error.message : 'The file could not be prepared.');
+      }
+    }
+  }, [applyUploadResponse]);
+
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
 
     setUploadError(null);
     setPreviewActionError(null);
+    setIsImportReviewOpen(false);
+    if (stagedImportRef.current) void cancelImport(stagedImportRef.current).catch(() => {});
+    stagedImportRef.current = null;
     setImportPreview(null);
     setIsUploading(true);
     const uploadRequestId = ++uploadRequestRef.current;
 
     try {
       const response = await previewImport(file);
-      if (uploadRequestRef.current === uploadRequestId) {
-        stagedImportRef.current = response.import_id;
-        setImportPreview(response);
-      } else {
-        void cancelImport(response.import_id).catch(() => {});
-      }
+      await importAutomatically(response, uploadRequestId);
     } catch (error) {
       if (uploadRequestRef.current === uploadRequestId) {
         const message = error instanceof Error ? error.message : 'Upload failed';
@@ -126,11 +147,14 @@ export function FileUploader() {
     } finally {
       if (uploadRequestRef.current === uploadRequestId) setIsUploading(false);
     }
-  }, [setIsUploading]);
+  }, [setIsUploading, importAutomatically]);
 
   const handleDemoLoad = useCallback(async (dataset: DemoDataset) => {
     setUploadError(null);
     setPreviewActionError(null);
+    setIsImportReviewOpen(false);
+    if (stagedImportRef.current) void cancelImport(stagedImportRef.current).catch(() => {});
+    stagedImportRef.current = null;
     setImportPreview(null);
     setIsDemoLoading(true);
     setIsUploading(true);
@@ -138,12 +162,7 @@ export function FileUploader() {
 
     try {
       const response = await previewDemoImport(dataset);
-      if (uploadRequestRef.current === uploadRequestId) {
-        stagedImportRef.current = response.import_id;
-        setImportPreview(response);
-      } else {
-        void cancelImport(response.import_id).catch(() => {});
-      }
+      await importAutomatically(response, uploadRequestId);
     } catch (error) {
       if (uploadRequestRef.current === uploadRequestId) {
         const message = error instanceof Error ? error.message : 'Demo load failed';
@@ -156,7 +175,7 @@ export function FileUploader() {
         setIsUploading(false);
       }
     }
-  }, [setIsUploading]);
+  }, [setIsUploading, importAutomatically]);
 
   const handleRecheckPreview = useCallback(async (settings: ImportSettings) => {
     if (!importPreview || previewAction) return;
@@ -184,7 +203,9 @@ export function FileUploader() {
       if (uploadRequestRef.current !== requestId) return;
       stagedImportRef.current = null;
       setImportPreview(null);
-      setIsColumnReviewOpen(false);
+      setIsImportReviewOpen(false);
+      setUploadError(null);
+      setIsDataReviewOpen(false);
       await applyUploadResponse(response, requestId);
     } catch (error) {
       if (uploadRequestRef.current === requestId) setPreviewActionError(error instanceof Error ? error.message : 'Could not confirm this import.');
@@ -202,6 +223,8 @@ export function FileUploader() {
     setIsUploading(true);
     setImportPreview(null);
     setPreviewActionError(null);
+    setIsImportReviewOpen(false);
+    setUploadError(null);
     try {
       await cancelImport(stagedImportId);
     } catch (error) {
@@ -222,7 +245,7 @@ export function FileUploader() {
     try {
       await applyUploadResponse(response, uploadRequestId);
       if (previousVersion !== response.version) {
-        toast.message('Column schema updated', {
+        toast.message('Data settings updated', {
           description: 'Dashboard snapshots from the previous schema were cleared. History entries from that version are marked old and disabled.',
         });
       }
@@ -272,17 +295,10 @@ export function FileUploader() {
                   )}
                   <button
                     type="button"
-                    onClick={() => setIsCleaningReportOpen(true)}
+                    onClick={() => setIsDataReviewOpen(true)}
                     className="rounded-md border border-border/60 bg-card/40 px-2 py-0.5 text-xs font-medium text-foreground hover:border-primary/40 hover:bg-primary/10"
                   >
-                    View Cleaning Report
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsColumnReviewOpen(true)}
-                    className="rounded-md border border-border/60 bg-card/40 px-2 py-0.5 text-xs font-medium text-foreground hover:border-primary/40 hover:bg-primary/10"
-                  >
-                    Review columns
+                    Review data
                   </button>
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -328,32 +344,28 @@ export function FileUploader() {
                 )}
               </div>
             </div>
-            <button onClick={() => { uploadRequestRef.current += 1; setIsColumnReviewOpen(false); clearData(); }} className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-white">
+            <button onClick={() => { uploadRequestRef.current += 1; setIsDataReviewOpen(false); clearData(); }} className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5 hover:text-white">
               Upload New
             </button>
           </div>
         </div>
-        <CleaningReportDrawer
-          open={isCleaningReportOpen}
-          onClose={() => setIsCleaningReportOpen(false)}
-          dataHealth={dataHealth}
-          rowCount={dataset.rowCount}
-          columnCount={dataset.columns.length}
-        />
-        <ColumnReview
-          open={isColumnReviewOpen}
+        <DataReview
+          open={isDataReviewOpen}
           datasetId={dataset.datasetId}
           datasetVersion={dataset.version}
-          onClose={() => setIsColumnReviewOpen(false)}
+          dataHealth={dataHealth}
+          rowCount={dataset.rowCount}
+          onClose={() => setIsDataReviewOpen(false)}
           onApplied={handleSchemaApplied}
         />
       </motion.div>
     );
   }
 
-  if (importPreview) {
+  if (importPreview && isImportReviewOpen) {
     return (
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="w-full">
+        <button type="button" onClick={() => setIsImportReviewOpen(false)} className="mb-3 text-sm text-muted-foreground">Close review</button>
         <ImportPreview
           key={`${importPreview.import_id}:${JSON.stringify(importPreview.settings)}`}
           preview={importPreview}
@@ -377,13 +389,14 @@ export function FileUploader() {
           {isUploading ? (
             <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="font-medium">Preparing import preview…</p>
-              <p className="text-xs text-muted-foreground animate-pulse">Checking the file before creating a dataset.</p>
+              <p className="font-medium">Preparing your dataset…</p>
+              <p className="text-xs text-muted-foreground animate-pulse">Reading, validating and preparing columns for charting.</p>
             </motion.div>
           ) : uploadError ? (
             <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
               <AlertCircle className="h-10 w-10 text-destructive" />
               <p className="font-medium text-destructive">{uploadError}</p>
+              {importPreview && <button type="button" onClick={event => { event.stopPropagation(); setIsImportReviewOpen(true); }} className="rounded-lg border border-border px-4 py-2 text-sm text-foreground">Review data</button>}
             </motion.div>
           ) : isDragActive ? (
             <motion.div key="drag" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-3">
@@ -396,8 +409,8 @@ export function FileUploader() {
                 <Upload className="h-7 w-7 text-primary" />
               </div>
               <div>
-                <p className="font-medium">Drop a CSV to review its parsing</p>
-                <p className="mt-1 text-sm text-muted-foreground">Preview a sample and adjust separators before importing</p>
+                <p className="font-medium">Drop a CSV to start charting</p>
+                <p className="mt-1 text-sm text-muted-foreground">Prepared automatically. Review data settings whenever you need.</p>
               </div>
             </motion.div>
           )}

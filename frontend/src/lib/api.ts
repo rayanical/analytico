@@ -191,11 +191,12 @@ export async function applyDatasetSchema(
   expectedVersion: string,
   columnOverrides: ColumnSchemaOverride[],
   signal?: AbortSignal,
+  settings?: ImportSettings,
 ): Promise<VersionedUploadResponse> {
   try {
     const response = await api.post<VersionedUploadResponse>(
       `/datasets/${encodeURIComponent(datasetId)}/schema`,
-      { expected_version: expectedVersion, column_overrides: columnOverrides },
+      { expected_version: expectedVersion, column_overrides: columnOverrides, settings },
       { signal },
     );
     return response.data;

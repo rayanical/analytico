@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Loader2, RefreshCw, X } from 'lucide-react';
+import { ImportSettingsFields } from '@/components/ImportSettingsFields';
 import type { ImportPreviewResponse, ImportSettings } from '@/types';
 
 interface ImportPreviewProps {
@@ -12,8 +13,6 @@ interface ImportPreviewProps {
   onConfirm: (settings: ImportSettings) => void;
   onCancel: () => void;
 }
-
-const fieldClass = 'mt-1 w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60';
 
 function showValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '(blank)';
@@ -30,23 +29,17 @@ export function ImportPreview({
   onCancel,
 }: ImportPreviewProps) {
   const [settings, setSettings] = useState<ImportSettings>(preview.settings);
-  const [nullTokens, setNullTokens] = useState(preview.settings.null_values.filter(token => token !== '').join('\n'));
-  const [includesBlank, setIncludesBlank] = useState(preview.settings.null_values.includes(''));
   const isDirty = JSON.stringify(settings) !== JSON.stringify(preview.settings);
   const rawRows = preview.raw_rows.slice(0, 12);
   const parsedRows = preview.parsed_rows.slice(0, 12);
   const shownRowCount = Math.min(rawRows.length, parsedRows.length);
 
-  const updateSetting = <K extends keyof ImportSettings>(key: K, value: ImportSettings[K]) => {
-    setSettings(current => ({ ...current, [key]: value }));
-  };
-
   return (
     <section className="w-full rounded-2xl border border-border/60 bg-card/70 p-5 shadow-xl sm:p-6" aria-labelledby="import-preview-title">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Import review</p>
-          <h2 id="import-preview-title" className="mt-1 text-xl font-semibold">Check how this file will be read</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Review data</p>
+          <h2 id="import-preview-title" className="mt-1 text-xl font-semibold">File settings and sample</h2>
           <p className="mt-1 text-sm text-muted-foreground">{preview.filename}</p>
         </div>
         <button
@@ -88,87 +81,7 @@ export function ImportPreview({
         <div className="rounded-xl border border-border/50 bg-background/40 p-4">
           <h3 className="font-medium">Parsing settings</h3>
           <p className="mt-1 text-xs text-muted-foreground">Adjust a setting, then recheck the saved upload sample.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <label className="text-xs font-medium text-muted-foreground">
-              Delimiter
-              <select className={fieldClass} value={settings.delimiter} disabled={busy} onChange={e => updateSetting('delimiter', e.target.value as ImportSettings['delimiter'])}>
-                <option value=",">Comma</option>
-                <option value=";">Semicolon</option>
-                <option value="\t">Tab</option>
-                <option value="|">Pipe</option>
-              </select>
-            </label>
-            <label className="text-xs font-medium text-muted-foreground">
-              Encoding
-              <select className={fieldClass} value={settings.encoding} disabled={busy} onChange={e => updateSetting('encoding', e.target.value as ImportSettings['encoding'])}>
-                <option value="utf-8-sig">UTF-8 with BOM</option>
-                <option value="utf-8">UTF-8</option>
-                <option value="utf-16">UTF-16</option>
-                <option value="cp1252">Windows-1252</option>
-              </select>
-            </label>
-            <label className="text-xs font-medium text-muted-foreground">
-              Decimal separator
-              <select className={fieldClass} value={settings.decimal_separator} disabled={busy} onChange={e => updateSetting('decimal_separator', e.target.value as ImportSettings['decimal_separator'])}>
-                <option value="auto">Detect automatically</option>
-                <option value=".">Period (1.25)</option>
-                <option value=",">Comma (1,25)</option>
-              </select>
-            </label>
-            <label className="text-xs font-medium text-muted-foreground">
-              Grouping separator
-              <select className={fieldClass} value={settings.grouping_separator ?? 'none'} disabled={busy} onChange={e => updateSetting('grouping_separator', e.target.value === 'none' ? null : e.target.value as ImportSettings['grouping_separator'])}>
-                <option value="none">None</option>
-                <option value=",">Comma (1,000)</option>
-                <option value=".">Period (1.000)</option>
-                <option value=" ">Space (1 000)</option>
-              </select>
-            </label>
-            <label className="text-xs font-medium text-muted-foreground">
-              Date order
-              <select className={fieldClass} value={settings.date_order} disabled={busy} onChange={e => updateSetting('date_order', e.target.value as ImportSettings['date_order'])}>
-                <option value="auto">Detect automatically</option>
-                <option value="ymd">Year, month, day</option>
-                <option value="dmy">Day, month, year</option>
-                <option value="mdy">Month, day, year</option>
-              </select>
-            </label>
-          </div>
-          <label className="mt-3 block text-xs font-medium text-muted-foreground">
-            Other missing-value tokens
-            <textarea
-              className={`${fieldClass} min-h-20 resize-y`}
-              value={nullTokens}
-              disabled={busy}
-              onChange={e => {
-                const value = e.target.value;
-                setNullTokens(value);
-                updateSetting('null_values', [
-                  ...(includesBlank ? [''] : []),
-                  ...value.split('\n').filter(token => token !== ''),
-                ]);
-              }}
-              placeholder={'NA\nN/A\nnull'}
-            />
-            <span className="mt-1 block font-normal">Enter one token per line. Tokens are matched exactly, including spaces.</span>
-          </label>
-          <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={includesBlank}
-              disabled={busy}
-              onChange={event => {
-                const checked = event.target.checked;
-                setIncludesBlank(checked);
-                updateSetting('null_values', [
-                  ...(checked ? [''] : []),
-                  ...nullTokens.split('\n').filter(token => token !== ''),
-                ]);
-              }}
-              className="h-4 w-4 accent-primary"
-            />
-            Treat blank cells as missing
-          </label>
+          <ImportSettingsFields settings={settings} onChange={setSettings} busy={busy} />
           {isDirty && <p className="mt-3 text-xs text-amber-200">Settings changed. Recheck the sample before confirming.</p>}
         </div>
 
@@ -220,7 +133,7 @@ export function ImportPreview({
           title={!preview.can_confirm ? 'Resolve the import warnings before confirming' : isDirty ? 'Recheck the edited settings first' : undefined}
         >
           {busy && !isDirty ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Confirm import
+          Apply settings and import
         </button>
       </div>
     </section>

@@ -185,6 +185,7 @@ def apply_schema(
     dataset_id: str,
     expected_version: str,
     column_overrides: list[Any],
+    import_settings=None,
 ):
     """Rebuild and atomically replace a dataset after a complete schema edit.
 
@@ -200,7 +201,14 @@ def apply_schema(
             raise HTTPException(status_code=409, detail="Dataset schema has changed. Refresh before applying edits.")
 
         overrides = _merge_overrides(dataset, column_overrides)
-        settings = ImportSettings.model_validate(_model_dict(getattr(dataset, "import_settings", None)))
+        previous_settings = ImportSettings.model_validate(_model_dict(getattr(dataset, "import_settings", None)))
+        settings = ImportSettings.model_validate(import_settings) if import_settings is not None else previous_settings
+        if (settings.delimiter, settings.encoding) != (previous_settings.delimiter, previous_settings.encoding):
+            if column_overrides:
+                raise HTTPException(status_code=422, detail="Apply delimiter or encoding changes separately from column edits; then review the new columns.")
+            # Column identities may change. Never transfer old overrides to a
+            # different set of source fields merely because names coincide.
+            overrides = []
         source = _source_path(dataset)
 
         # The lease keeps the old source alive through the ingestion copy and

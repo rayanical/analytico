@@ -20,7 +20,7 @@ Analytico is a local-first analytics application that takes users from CSV explo
 
 ### 1) Data Ingestion
 
-- CSV uploads open a local sample preview with editable delimiters, encodings, number/date conventions, and missing-value tokens. Confirmation validates the full file before registration.
+- CSV uploads detect file settings and prepare automatically, with full-file validation before registration. The optional Review data panel contains file settings, column edits, AI proposals, samples and cleaning details. Failed imports remain available for settings correction without automatically opening a panel.
 - Included Gapminder demo; optional taxi demo when its CSV is installed.
 - Stable column names and conservative format detection for numeric, currency, percentage, and date fields.
 - Missing observations remain null; ingestion retains the original CSV bytes separately from the parsed view for the current session.

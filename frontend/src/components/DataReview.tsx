@@ -3,6 +3,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Check, ChevronDown, Loader2, Sparkles, X } from 'lucide-react';
 import type {
+  DataHealth,
+  ImportSettings,
   ColumnAggregation,
   ColumnFormat,
   ColumnSchemaOverride,
@@ -13,12 +15,15 @@ import type {
   SemanticType,
   VersionedUploadResponse,
 } from '@/types';
+import { ImportSettingsFields } from '@/components/ImportSettingsFields';
 import { applyDatasetSchema, getDatasetSchema } from '@/lib/api';
 
-interface ColumnReviewProps {
+interface DataReviewProps {
   open: boolean;
   datasetId: string;
   datasetVersion?: string;
+  dataHealth: DataHealth;
+  rowCount: number;
   onClose: () => void;
   onApplied: (response: VersionedUploadResponse, previousVersion?: string) => void;
 }
@@ -107,7 +112,8 @@ function reviewProposal(
   return { supported: true, value: { ...updated, column: column.column } };
 }
 
-export function ColumnReview({ open, datasetId, datasetVersion, onClose, onApplied }: ColumnReviewProps) {
+export function DataReview({ open, datasetId, datasetVersion, dataHealth, rowCount, onClose, onApplied }: DataReviewProps) {
+  const [settings, setSettings] = useState<ImportSettings | null>(null);
   const [schema, setSchema] = useState<DatasetSchemaResponse | null>(null);
   const [overrides, setOverrides] = useState<Record<string, ColumnSchemaOverride>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -130,6 +136,7 @@ export function ColumnReview({ open, datasetId, datasetVersion, onClose, onAppli
       .then(result => {
         if (controller.signal.aborted) return;
         setSchema(result);
+        setSettings(result.settings);
         setOverrides(Object.fromEntries(result.columns.map(column => [column.column, toOverride(column)])));
       })
       .catch(reason => {
@@ -143,11 +150,11 @@ export function ColumnReview({ open, datasetId, datasetVersion, onClose, onAppli
 
   const hasChanges = useMemo(() => {
     if (!schema) return false;
-    return schema.columns.some(column => {
+    return JSON.stringify(settings) !== JSON.stringify(schema.settings) || schema.columns.some(column => {
       const initial = toOverride(column);
       return JSON.stringify(initial) !== JSON.stringify(overrides[column.column]);
     });
-  }, [schema, overrides]);
+  }, [schema, overrides, settings]);
 
   const updateColumn = (column: string, update: Partial<ColumnSchemaOverride>) => {
     setOverrides(current => ({
@@ -180,7 +187,7 @@ export function ColumnReview({ open, datasetId, datasetVersion, onClose, onAppli
         const changes = Object.fromEntries(Object.entries(edited).filter(([key, value]) => key !== 'column' && value !== initial[key as keyof ColumnSchemaOverride]));
         return Object.keys(changes).length ? [{ column: column.column, ...changes }] : [];
       });
-      const response = await applyDatasetSchema(datasetId, schema.version, columnOverrides, controller.signal);
+      const response = await applyDatasetSchema(datasetId, schema.version, columnOverrides, controller.signal, settings ?? undefined);
       if (controller.signal.aborted || generation.current !== activeGeneration) return;
       onApplied(response, datasetVersion);
       onClose();
@@ -194,15 +201,15 @@ export function ColumnReview({ open, datasetId, datasetVersion, onClose, onAppli
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-2 backdrop-blur-sm sm:p-5" role="dialog" aria-modal="true" aria-labelledby="column-review-title">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-2 backdrop-blur-sm sm:p-5" role="dialog" aria-modal="true" aria-labelledby="data-review-title">
       <section className="flex max-h-[95vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-2xl border border-border/60 bg-background shadow-2xl">
         <header className="flex items-start justify-between gap-4 border-b border-border/50 px-5 py-4 sm:px-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Column review</p>
-            <h2 id="column-review-title" className="mt-1 text-xl font-semibold">Review how columns are interpreted</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Review data</p>
+            <h2 id="data-review-title" className="mt-1 text-xl font-semibold">Review your dataset</h2>
             <p className="mt-1 text-sm text-muted-foreground">Edits create a new dataset version. Proposals are suggestions until you accept them into the form.</p>
           </div>
-          <button type="button" onClick={onClose} disabled={isSaving} className="rounded-lg p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-50" aria-label="Close column review">
+          <button type="button" onClick={onClose} disabled={isSaving} className="rounded-lg p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-50" aria-label="Close data review">
             <X className="h-4 w-4" />
           </button>
         </header>
@@ -219,6 +226,24 @@ export function ColumnReview({ open, datasetId, datasetVersion, onClose, onAppli
             <div className="flex min-h-52 items-center justify-center gap-3 text-sm text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin text-primary" />Loading schema and sample rows…</div>
           ) : schema ? (
             <>
+              <details className="mb-5 rounded-xl border border-border/50 bg-card/30 p-4">
+                <summary className="cursor-pointer text-sm font-medium">File parsing settings</summary>
+                <p className="mt-2 text-xs text-muted-foreground">Changes re-read the retained source and validate every row. Changing delimiter or encoding resets column overrides; apply those changes separately from column edits.</p>
+                {settings && <ImportSettingsFields key={JSON.stringify(schema.settings)} settings={settings} onChange={setSettings} busy={isSaving} />}
+              </details>
+              <details className="mb-5 rounded-xl border border-border/50 bg-card/30 p-4">
+                <summary className="cursor-pointer text-sm font-medium">Cleaning and missing values</summary>
+                <p className="mt-2 text-xs text-muted-foreground">{rowCount.toLocaleString()} rows · {dataHealth.quality_score.toFixed(0)}% completeness. Missing values stay missing; original data is retained.</p>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <section><h3 className="text-sm font-medium">Preparation changes</h3>
+                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground">{dataHealth.cleaning_actions.length ? dataHealth.cleaning_actions.map((action, index) => <li key={index}>{action}</li>) : <li>No preparation changes.</li>}</ul>
+                  </section>
+                  <section><h3 className="text-sm font-medium">Missing cells by column</h3>
+                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground">{Object.entries(dataHealth.missing_values).length ? Object.entries(dataHealth.missing_values).map(([column, count]) => <li key={column}>{column}: {count.toLocaleString()}</li>) : <li>No missing cells.</li>}</ul>
+                  </section>
+                </div>
+              </details>
+              <h3 className="mb-3 text-sm font-medium">Column interpretation and AI suggestions</h3>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm text-muted-foreground">{schema.columns.length} columns · schema version {schema.version}</div>
                 <p className="inline-flex items-center gap-2 text-xs text-muted-foreground"><Sparkles className="h-3.5 w-3.5 text-primary" />Accept a proposal to copy its values into editable fields.</p>
@@ -321,7 +346,7 @@ export function ColumnReview({ open, datasetId, datasetVersion, onClose, onAppli
           <div className="flex items-center gap-2">
             <button type="button" onClick={onClose} disabled={isSaving} className="rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-muted/50 disabled:opacity-50">Close</button>
             <button type="button" onClick={() => void apply()} disabled={!schema || isLoading || isSaving || !hasChanges} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
-              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Apply schema
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Apply changes
             </button>
           </div>
         </footer>

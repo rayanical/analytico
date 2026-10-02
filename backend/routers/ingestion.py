@@ -111,4 +111,4 @@ def review_dataset_schema(dataset_id: str):
 
 @router.post("/datasets/{dataset_id}/schema", response_model=UploadResponse)
 def apply_dataset_schema(dataset_id: str, request: SchemaApplyRequest):
-    return apply_schema(dataset_id, request.expected_version, request.column_overrides)
+    return apply_schema(dataset_id, request.expected_version, request.column_overrides, request.settings)
