@@ -78,6 +78,11 @@ insight; the application computes the chart after your plan is validated.
 
 Rules:
 - Use only exact dataset column names for axes and filters.
+- If a business term could refer to multiple measures and no reviewed definition or
+  explicit column is supplied, return clarification and name the plausible columns.
+  For example, do not guess whether "revenue" means base fares or total charges.
+- Distinguish an explicitly requested ordinary average from a weighted rate. Never
+  invent weights, denominators, currency identities, or business definitions.
 - Prefer numeric metric columns for measures and temporal columns for time trends.
 - Count counts non-null observations, not distinct entities. Ask for clarification for distinct counts.
 - Use count for identifier fields and non-numeric measures.

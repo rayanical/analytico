@@ -451,6 +451,7 @@ class DiskDataset:
                 "currency_grouped": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({currency_trim}, {_literal(_US_GROUPED_NUMBER.pattern)}))",
                 "comma": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND STRPOS({trimmed}, ',') > 0)",
                 "ambiguous_grouped": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, {_literal(_AMBIGUOUS_GROUPED.pattern)}))",
+                "grouped_integer": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, '^[+-]?[1-9][0-9]{{0,2}}(,[0-9]{{3}})+$'))",
                 "grouped_decimal": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, {_literal(_US_GROUPED_NUMBER.pattern)}))",
                 "numeric_like": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, {_literal(_NUMERIC_LIKE.pattern)}))",
                 "leading_zero": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, '^[+-]?0[0-9]+$'))",
@@ -616,7 +617,10 @@ class DiskDataset:
                     "retained source values"
                 )
                 attempted = True
-            elif counts["grouped_decimal"] == nonnull:
+            elif (
+                counts["plain"] + counts["grouped_decimal"] + counts["grouped_integer"] == nonnull
+                and counts["grouped_decimal"] + counts["plain"] - counts["integer"] > 0
+            ):
                 number_source = f"REPLACE({trimmed}, ',', '')"
                 grouped_number = f"REPLACE({trimmed}, ',', '')"
                 guard = self._precision_guard_counts(raw, {

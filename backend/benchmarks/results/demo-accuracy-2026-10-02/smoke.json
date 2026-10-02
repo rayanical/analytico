@@ -1,0 +1,146 @@
+{
+  "model": "gpt-6-luna",
+  "rows": 1068755,
+  "csv_loader": "native",
+  "ingestion_seconds": 15.731886749970727,
+  "roles": {
+    "trip_distance": "metric",
+    "fare_amount": "metric",
+    "total_amount": "metric"
+  },
+  "results": [
+    {
+      "prompt": "Show average trip_distance by payment_type.",
+      "trial": 1,
+      "passed": true,
+      "seconds": 3.3638743329793215,
+      "result": "chart",
+      "axes": [
+        "payment_type",
+        [
+          "trip_distance"
+        ]
+      ],
+      "aggregation": "mean"
+    },
+    {
+      "prompt": "Show average trip_distance by payment_type.",
+      "trial": 2,
+      "passed": true,
+      "seconds": 3.7642281249864027,
+      "result": "chart",
+      "axes": [
+        "payment_type",
+        [
+          "trip_distance"
+        ]
+      ],
+      "aggregation": "mean"
+    },
+    {
+      "prompt": "Show total fare_amount by payment_type.",
+      "trial": 1,
+      "passed": true,
+      "seconds": 3.409014999982901,
+      "result": "chart",
+      "axes": [
+        "payment_type",
+        [
+          "fare_amount"
+        ]
+      ],
+      "aggregation": "sum"
+    },
+    {
+      "prompt": "Show total fare_amount by payment_type.",
+      "trial": 2,
+      "passed": true,
+      "seconds": 3.360075082979165,
+      "result": "chart",
+      "axes": [
+        "payment_type",
+        [
+          "fare_amount"
+        ]
+      ],
+      "aggregation": "sum"
+    },
+    {
+      "prompt": "Show total tip_amount by payment_type.",
+      "trial": 1,
+      "passed": true,
+      "seconds": 4.087959415977821,
+      "result": "chart",
+      "axes": [
+        "payment_type",
+        [
+          "tip_amount"
+        ]
+      ],
+      "aggregation": "sum"
+    },
+    {
+      "prompt": "Show total tip_amount by payment_type.",
+      "trial": 2,
+      "passed": true,
+      "seconds": 4.773473624954931,
+      "result": "chart",
+      "axes": [
+        "payment_type",
+        [
+          "tip_amount"
+        ]
+      ],
+      "aggregation": "sum"
+    },
+    {
+      "prompt": "Show revenue by payment_type.",
+      "trial": 1,
+      "passed": true,
+      "seconds": 4.046786708990112,
+      "result": "clarification",
+      "axes": [
+        "",
+        []
+      ],
+      "aggregation": null
+    },
+    {
+      "prompt": "Show revenue by payment_type.",
+      "trial": 2,
+      "passed": true,
+      "seconds": 3.144597667036578,
+      "result": "clarification",
+      "axes": [
+        "",
+        []
+      ],
+      "aggregation": null
+    },
+    {
+      "prompt": "Show the weighted average fare_amount by payment_type.",
+      "trial": 1,
+      "passed": true,
+      "seconds": 4.793933500070125,
+      "result": "clarification",
+      "axes": [
+        "",
+        []
+      ],
+      "aggregation": null
+    },
+    {
+      "prompt": "Show the weighted average fare_amount by payment_type.",
+      "trial": 2,
+      "passed": true,
+      "seconds": 2.766545624937862,
+      "result": "clarification",
+      "axes": [
+        "",
+        []
+      ],
+      "aggregation": null
+    }
+  ],
+  "scope": "One full taxi ingestion; five requests repeated twice. Chart axes and aggregations independently checked. Clarification required for ambiguous revenue and unsupported weighted average. Not a broad accuracy estimate; provider latency uncontrolled."
+}

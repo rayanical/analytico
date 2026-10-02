@@ -404,10 +404,16 @@ def _parse_numeric_text(series: pd.Series, col: str, *, allow_metric_name: bool 
             lambda value: bool(re.fullmatch(r"[+-]?\d{1,3}(?:,\d{3})+", value)),
         ).all():
             return None, None, f"Could not safely parse '{col}' numeric text: ambiguous locale separators; retained source values"
-        if _map_distinct_text(
-            normalized, lambda value: bool(_US_GROUPED_NUMBER.fullmatch(value))
-        ).all():
+        # Mixed plain/grouped values are safe only with decimal-point evidence
+        # and valid three-digit grouping throughout the complete column.
+        valid = _map_distinct_text(normalized, lambda value: bool(
+            _PLAIN_NUMBER.fullmatch(value) or _US_GROUPED_NUMBER.fullmatch(value)
+            or re.fullmatch(r"[+-]?[1-9][0-9]{0,2}(?:,[0-9]{3})+", value)
+        ))
+        if valid.all() and normalized.map(lambda value: "." in value).any():
             normalized = _map_distinct_text(normalized, lambda value: value.replace(",", ""))
+            if normalized.map(lambda value: value.lstrip("+-").isdigit() and abs(int(value)) > 2**53 - 1).any():
+                return None, None, f"Could not safely parse '{col}' grouped values without integer precision loss; retained source values"
             parsed = pd.to_numeric(normalized, errors="raise")
             return parsed, None, f"Converted '{col}' from grouped numeric text to numeric"
 

@@ -45,6 +45,28 @@ class NativeCSVLoaderTests(unittest.TestCase):
         self.assertEqual(dataset.row_count, 150_000)
         self.assertEqual(incorrect, 0)
 
+    def test_mixed_grouped_and_plain_decimals_parse_in_both_engines(self):
+        from modules.data_janitor import clean_dataframe
+        from utils.dataframe_utils import read_csv_fast
+        source = ('reading\n"1,243.5"\n"2,109"\n'+''.join(f'{i/10}\n' for i in range(100))).encode()
+        disk = self.create(source)
+        self.assertEqual(disk.column_types['reading'], 'metric')
+        values = disk.sample_frame(200)['reading'].tolist()
+        self.assertEqual(values[:2], [1243.5, 2109.0])
+        cleaned, *_ = clean_dataframe(read_csv_fast(io.BytesIO(source)), interpret_columns=False)
+        self.assertEqual(cleaned['reading'].tolist(), values)
+
+    def test_ambiguous_or_malformed_grouping_remains_source_text(self):
+        from modules.data_janitor import clean_dataframe
+        from utils.dataframe_utils import read_csv_fast
+        for values in [['1,234', '2,345'], ['1,23', '2.5'], ['001', '2.5'], ['9,007,199,254,740,993', '2.5']]:
+            with self.subTest(values=values):
+                source = ('reading\n'+''.join('"'+v+'"\n' for v in values)).encode()
+                disk = self.create(source)
+                self.assertEqual(disk.sample_frame(10)['reading'].tolist(), values)
+                cleaned, *_ = clean_dataframe(read_csv_fast(io.BytesIO(source)), interpret_columns=False)
+                self.assertEqual(cleaned['reading'].tolist(), values)
+
     def test_malformed_late_row_is_rejected_before_native_loading(self):
         source = ('code,amount\n'+'001,1\n'*21_000+'002,2,unexpected\n').encode()
         with self.assertRaises(CSVStructureError):
