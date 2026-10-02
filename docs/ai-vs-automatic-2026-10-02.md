@@ -59,6 +59,8 @@ The adapter reported the requested model `gpt-6-luna` for both runs. No Jev requ
 
 ## Artifacts and reproduction
 
+For end-to-end taxi, Gapminder and wide-file timing, including parallel and selective hybrid experiments, see [Dataset ingestion and Luna latency](dataset-ai-latency-2026-10-02.md). Those measurements separate data-ready time from background enrichment and quantify the routing accuracy tradeoff.
+
 Raw predictions, usage, local observations, scores and stress results: `backend/evals/results/ai-vs-automatic-2026-10-02/`. The results include full per-case observations so improved recognition and abstentions can be inspected separately.
 
 From backend, reproduce offline comparison without provider calls:
