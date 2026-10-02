@@ -23,7 +23,7 @@ function formatName(name: string): string {
 }
 
 export function FileUploader() {
-  const { dataset, setDataset, setCurrentChart, addToHistory, setIsUploading, isUploading, clearData, beginQuery, isCurrentQuery, finishQuery } = useData();
+  const { dataset, enrichment, setDataset, setCurrentChart, addToHistory, setIsUploading, isUploading, clearData, beginQuery, isCurrentQuery, finishQuery } = useData();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreviewResponse | null>(null);
@@ -263,6 +263,12 @@ export function FileUploader() {
                   )}
                   {dataset.enrichmentStatus === 'error' && !dataset.summary && (
                     <span className="text-xs text-muted-foreground">AI insights could not be prepared</span>
+                  )}
+                  {enrichment?.dataset_id === dataset.datasetId && enrichment.coverage && (
+                    <span className="text-xs text-muted-foreground" aria-live="polite">
+                      AI reviewed {enrichment.coverage.completed_columns} of {enrichment.coverage.total_columns} columns
+                      {enrichment.status === 'done' && !enrichment.coverage.complete ? ' · Some insights are unavailable' : ''}
+                    </span>
                   )}
                   <button
                     type="button"

@@ -30,6 +30,7 @@ class _Job:
     interpretation_proposals: dict[str, Any] = field(default_factory=dict)
     error: str | None = None
     reason: str | None = None
+    coverage: dict[str, Any] | None = None
     future: Future[None] | None = None
 
     def snapshot(self) -> dict[str, Any]:
@@ -42,6 +43,7 @@ class _Job:
             "interpretation_proposals": deepcopy(self.interpretation_proposals),
             "error": self.error,
             "reason": self.reason,
+            "coverage": deepcopy(self.coverage),
         }
 
 
@@ -143,6 +145,28 @@ class EnrichmentManager:
         if self._owns_executor:
             self._executor.shutdown(wait=wait, cancel_futures=True)
 
+    def update(self, dataset_id: str, version: str, result: Mapping[str, Any]) -> None:
+        """Publish partial results only to the still-running matching version."""
+        with self._lock:
+            job = self._matching_job_locked(dataset_id, version)
+            if job is not None and job.status == "running":
+                self._apply_result(job, result)
+                job.progress = max(job.progress, min(99, int(result.get("progress", 10))))
+
+    @staticmethod
+    def _apply_result(job: _Job, result: Mapping[str, Any]) -> None:
+        summary = result.get("summary")
+        job.summary = summary[:4000] if isinstance(summary, str) and summary else None
+        proposals = result.get("interpretation_proposals", {})
+        if isinstance(proposals, Mapping):
+            job.interpretation_proposals = {
+                str(name)[:256]: deepcopy(value)
+                for name, value in islice(proposals.items(), 256)
+                if isinstance(name, str)
+            }
+        coverage = result.get("coverage")
+        job.coverage = deepcopy(coverage) if isinstance(coverage, dict) else None
+
     def _run(self, dataset_id: str, version: str, work: EnrichmentWork) -> None:
         with self._lock:
             job = self._matching_job_locked(dataset_id, version)
@@ -155,17 +179,8 @@ class EnrichmentManager:
             result = work()
             if not isinstance(result, Mapping):
                 raise TypeError("Enrichment callback must return a mapping")
-            summary = result.get("summary")
-            proposals = result.get("interpretation_proposals", {})
-            if summary is not None and not isinstance(summary, str):
-                summary = None
-            if not isinstance(proposals, Mapping):
-                proposals = {}
-            safe_proposals = {
-                str(name)[:256]: deepcopy(value)
-                for name, value in islice(proposals.items(), 100)
-                if isinstance(name, str)
-            }
+            prepared = _Job(dataset_id=dataset_id, version=version, status="running")
+            self._apply_result(prepared, result)
         except Exception:
             # Provider exceptions may contain prompts, sampled data, or secrets.
             # Keep the public record generic and do not log exception contents.
@@ -180,8 +195,9 @@ class EnrichmentManager:
         with self._lock:
             job = self._matching_job_locked(dataset_id, version)
             if job is not None:
-                job.summary = summary[:4000] if summary else None
-                job.interpretation_proposals = safe_proposals
+                job.summary = prepared.summary
+                job.interpretation_proposals = prepared.interpretation_proposals
+                job.coverage = prepared.coverage
                 job.status = "done"
                 job.progress = 100
                 job.error = None
@@ -224,6 +240,7 @@ def _disabled_snapshot(
         "interpretation_proposals": {},
         "error": None,
         "reason": reason,
+        "coverage": None,
     }
 
 

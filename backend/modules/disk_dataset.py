@@ -1238,8 +1238,8 @@ class DiskDataset:
     def interpretation_inputs(self, limit: int = 12) -> list[tuple[str, dict[str, Any]]]:
         """Build bounded, source-grounded interpretation proposals for a worker."""
         self._ensure_open()
-        if type(limit) is not int or not 0 <= limit <= 12:
-            raise ValueError("Interpretation limit must be between 0 and 12.")
+        if type(limit) is not int or not 0 <= limit <= MAX_COLUMNS:
+            raise ValueError(f"Interpretation limit must be between 0 and {MAX_COLUMNS}.")
         if not limit or not self.columns:
             return []
         positions = sorted({

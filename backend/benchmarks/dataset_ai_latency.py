@@ -1,6 +1,7 @@
 """Explicit live dataset benchmark; experimental strategies never alter production."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal, InvalidOperation
 import contextlib
 import io
 import json
@@ -16,12 +17,41 @@ from unittest.mock import patch
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
-STRATEGIES = ('off', 'current', 'parallel_all', 'hybrid')
+STRATEGIES = ('off', 'current', 'parallel_all', 'hybrid', 'hybrid_cautious')
 
 
 def needs_ai(role, nonnull):
     """Experimental semantic triage, not a guarantee of correct meaning or units."""
     return nonnull > 0 and role not in {'metric', 'temporal'}
+
+
+def needs_ai_cautious(role, nonnull, unique_count, values):
+    """Experimental gate: prefer extra calls over silently accepting codes.
+
+    These cardinality thresholds are heuristics, not calibrated confidence.
+    No column names or dataset-specific patterns enter the decision.
+    """
+    if not nonnull:
+        return False
+    if role == 'temporal':
+        return False
+    if role != 'metric' or unique_count is None:
+        return True
+    if unique_count <= 32 or unique_count / nonnull >= .9:
+        return True
+    for value in values:
+        if value is None:
+            continue
+        text = str(value).strip()
+        unsigned = text.lstrip('+-')
+        if len(unsigned) > 1 and unsigned[0] == '0' and unsigned[1].isdigit():
+            return True
+        try:
+            if not Decimal(text).is_finite():
+                return True
+        except InvalidOperation:
+            return True
+    return False
 
 
 def all_inputs(dataset, source_frame):
@@ -97,6 +127,13 @@ def worker(path, label, strategy, live, parallelism=4):
         if strategy == 'hybrid':
             payloads = [(column, payload) for column, payload in payloads
                         if needs_ai(dataset.column_types.get(column), dataset.row_count - dataset.missing_counts.get(column, 0))]
+        elif strategy == 'hybrid_cautious':
+            counts = (dataset.disk.column_stats if hasattr(dataset, 'disk') else None)
+            payloads = [(column, payload) for column, payload in payloads
+                        if needs_ai_cautious(dataset.column_types.get(column),
+                            dataset.row_count - dataset.missing_counts.get(column, 0),
+                            counts[column].unique_count if counts is not None else int(dataset.df[column].nunique()),
+                            payload['values'])]
         selected_columns.extend(column for column, _ in payloads)
         frame = dataset.sample_frame(3).iloc[:, :20].copy(deep=True)
         sampling_times.append(perf_counter() - tick)
@@ -116,7 +153,7 @@ def worker(path, label, strategy, live, parallelism=4):
 
     patches = [patch('modules.column_interpretation.interpret_column', side_effect=interpret),
                patch('services.ingestion_service._generate_business_summary', side_effect=summary)]
-    if strategy in {'parallel_all', 'hybrid'}:
+    if strategy in {'parallel_all', 'hybrid', 'hybrid_cautious'}:
         patches += [patch('services.ingestion_service.queue_dataset_enrichment', side_effect=queue),
                     patch('services.csv_ingestion.queue_dataset_enrichment', side_effect=queue)]
     start = perf_counter()
@@ -143,9 +180,10 @@ def worker(path, label, strategy, live, parallelism=4):
                 'engine': 'disk' if hasattr(dataset, 'disk') else 'pandas',
                 'ready_seconds': ready, 'complete_seconds': complete,
                 'remaining_ai_after_ready_seconds': max(0, complete - ready), 'status': status['status'],
+                'coverage': status.get('coverage'),
                 'ingestion_phase_seconds': measurement.get('phase_seconds'),
                 'sample_preparation_seconds': sum(sampling_times) if sampling_times else None,
-                'selected_columns': selected_columns if strategy in {'parallel_all', 'hybrid'} else None,
+                'selected_columns': selected_columns if strategy in {'parallel_all', 'hybrid', 'hybrid_cautious'} else None,
                 'interpretation_requests': sum('kind' not in item for item in observations),
                 'summary_requests': sum(item.get('kind') == 'summary' for item in observations),
                 'peak_rss_bytes': int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss) * (1 if sys.platform == 'darwin' else 1024),

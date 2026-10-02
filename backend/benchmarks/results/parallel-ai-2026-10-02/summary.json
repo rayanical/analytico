@@ -1,0 +1,130 @@
+{
+  "method": "Two isolated-process trials. Initial profiles match previous baseline within 1e-9 float tolerance; initial roles match exactly. No automatically applied AI proposals.",
+  "column_calls": 196,
+  "statuses": {
+    "ok": 48,
+    "uncertain": 148
+  },
+  "column_usage": {
+    "input_tokens": 208662,
+    "output_tokens": 7809
+  },
+  "estimated_column_only_usd": 0.0247707,
+  "cost_scope": "Standard-rate estimate, excludes twelve summary requests; actual billing and provider cache discounts unobserved.",
+  "results": [
+    {
+      "dataset": "taxi",
+      "strategy": "production_parallel",
+      "ready_median_seconds": 20.916697395441588,
+      "ai_remaining_median_seconds": 7.14521818747744,
+      "ai_remaining_range_seconds": [
+        5.92276387498714,
+        8.367672499967739
+      ],
+      "column_requests_per_trial": [
+        20,
+        20
+      ],
+      "previous_sequential_ai_median_seconds": 14.904817791539244,
+      "previous_sequential_requests_per_trial": [
+        6,
+        9
+      ]
+    },
+    {
+      "dataset": "taxi",
+      "strategy": "hybrid_cautious",
+      "ready_median_seconds": 19.86019789602142,
+      "ai_remaining_median_seconds": 4.888978812494315,
+      "ai_remaining_range_seconds": [
+        3.933506082976237,
+        5.8444515420123935
+      ],
+      "column_requests_per_trial": [
+        15,
+        15
+      ],
+      "previous_sequential_ai_median_seconds": 14.904817791539244,
+      "previous_sequential_requests_per_trial": [
+        6,
+        9
+      ]
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "production_parallel",
+      "ready_median_seconds": 0.05047410406405106,
+      "ai_remaining_median_seconds": 2.0387764374609105,
+      "ai_remaining_range_seconds": [
+        1.971963582909666,
+        2.105589292012155
+      ],
+      "column_requests_per_trial": [
+        6,
+        6
+      ],
+      "previous_sequential_ai_median_seconds": 8.433892395463772,
+      "previous_sequential_requests_per_trial": [
+        6,
+        6
+      ]
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "hybrid_cautious",
+      "ready_median_seconds": 0.05153433355735615,
+      "ai_remaining_median_seconds": 2.0193680204683915,
+      "ai_remaining_range_seconds": [
+        1.837606874993071,
+        2.201129165943712
+      ],
+      "column_requests_per_trial": [
+        5,
+        5
+      ],
+      "previous_sequential_ai_median_seconds": 8.433892395463772,
+      "previous_sequential_requests_per_trial": [
+        6,
+        6
+      ]
+    },
+    {
+      "dataset": "wide",
+      "strategy": "production_parallel",
+      "ready_median_seconds": 0.6252922500134446,
+      "ai_remaining_median_seconds": 14.199919000035152,
+      "ai_remaining_range_seconds": [
+        13.12234129209537,
+        15.277496707974933
+      ],
+      "column_requests_per_trial": [
+        50,
+        50
+      ],
+      "previous_sequential_ai_median_seconds": 13.936041645996738,
+      "previous_sequential_requests_per_trial": [
+        9,
+        11
+      ]
+    },
+    {
+      "dataset": "wide",
+      "strategy": "hybrid_cautious",
+      "ready_median_seconds": 0.6118294170009904,
+      "ai_remaining_median_seconds": 1.210030457994435,
+      "ai_remaining_range_seconds": [
+        1.1459793329704553,
+        1.2740815830184147
+      ],
+      "column_requests_per_trial": [
+        2,
+        2
+      ],
+      "previous_sequential_ai_median_seconds": 13.936041645996738,
+      "previous_sequential_requests_per_trial": [
+        9,
+        11
+      ]
+    }
+  ]
+}

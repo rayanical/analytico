@@ -147,6 +147,7 @@ def _queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = No
     from modules.data_janitor import _interpretation_input
     from modules.column_interpretation import interpret_column
     from storage import DATASETS
+    from services.parallel_enrichment import run_parallel_enrichment
 
     provider = os.getenv("COLUMN_INTERPRETER", "off").strip().lower()
     has_summary_key = bool(os.getenv("OPENAI_API_KEY", "").strip())
@@ -161,35 +162,32 @@ def _queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = No
         if source_frame is not None:
             headers = [str(column) for column in source_frame.columns]
             payloads = [(str(dataset.column_names[index]), _interpretation_input(header, source_frame.iloc[:, index], headers))
-                        for index, header in enumerate(headers[:12])]
+                        for index, header in enumerate(headers[:256])]
         else:
-            payloads = dataset.disk.interpretation_inputs(limit=12)
+            payloads = dataset.disk.interpretation_inputs(limit=256)
     dataset_id, version, filename = dataset.id, dataset.cache_version, dataset.filename
 
-    def work():
+    def is_current():
         current = DATASETS.get(dataset_id)
-        if current is None or current.cache_version != version:
-            return {"summary": None, "interpretation_proposals": {}}
-        summary = _generate_business_summary(filename, summary_frame) if has_summary_key else None
-        proposals = {}
-        from time import perf_counter
-        started = perf_counter()
-        for column, payload in payloads:
-            if perf_counter() - started >= 12:
-                break
-            result = interpret_column(payload, provider=provider, use_cache=True)
-            proposals[column] = {
-                "status": result.status, "runtime_status": "clarification",
-                "provider": result.provider or provider, "model": result.model,
-                "prompt_version": result.prompt_version, "latency_ms": result.latency_ms,
-                "usage": result.usage, "error_code": result.error_code,
-                "cache_hit": result.cache_hit,
-                "decision": result.decision.model_dump() if result.decision else None,
-            }
-            if result.status in {"disabled", "unavailable", "error"}:
-                break
-        if has_summary_key and not summary and not proposals:
-            raise RuntimeError("Optional enrichment unavailable")
-        return {"summary": summary, "interpretation_proposals": proposals}
+        return current is not None and current.cache_version == version
+
+    def proposal(payload):
+        result = interpret_column(payload, provider=provider, use_cache=True)
+        return {
+            "status": result.status, "runtime_status": "clarification",
+            "provider": result.provider or provider, "model": result.model,
+            "prompt_version": result.prompt_version, "latency_ms": result.latency_ms,
+            "usage": result.usage, "error_code": result.error_code,
+            "cache_hit": result.cache_hit,
+            "decision": result.decision.model_dump() if result.decision else None,
+        }
+
+    def work():
+        return run_parallel_enrichment(
+            (lambda: _generate_business_summary(filename, summary_frame)) if has_summary_key else None,
+            [(column, lambda payload=payload: proposal(payload)) for column, payload in payloads],
+            total_columns=len(dataset.column_names), is_current=is_current,
+            publish=lambda result: manager.update(dataset_id, version, result),
+        )
 
     return enqueue_enrichment(dataset_id, version, work)["status"]

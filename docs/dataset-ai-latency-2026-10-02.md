@@ -2,6 +2,8 @@
 
 The strongest immediate improvement is bounded parallel AI requests while keeping ingestion usable before enrichment finishes. A selective hybrid can reduce requests further, but the experimental routing rule loses semantic accuracy on numeric codes. Neither strategy has been enabled in production by this benchmark.
 
+Follow-up: [parallel enrichment is now implemented and measured](parallel-ai-2026-10-02.md). That report includes broader routing counterexamples and a taxi ingestion profile; the original measurements below remain unchanged.
+
 ## Measured results
 
 Two isolated-process trials per dataset and strategy on this local ARM64 Mac, Python 3.14. All live requests used GPT-6 Luna, reasoning none, the existing structured-output prompt, and bounded production-style source samples. Application interpretation caching was bypassed. Provider caching, filesystem caching and network conditions were not controlled. These are observed ranges and medians, not latency guarantees.

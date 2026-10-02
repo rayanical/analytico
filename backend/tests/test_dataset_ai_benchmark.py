@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from benchmarks.dataset_ai_latency import all_inputs, needs_ai
+from benchmarks.dataset_ai_latency import all_inputs, needs_ai, needs_ai_cautious
 from services.csv_ingestion import ingest_csv
 from storage import DATASETS, get_dataset
 
@@ -33,6 +33,7 @@ class DatasetAiBenchmarkTests(unittest.TestCase):
         extended = all_inputs(dataset, None)
         original = dataset.disk.interpretation_inputs(limit=12)
         self.assertEqual(extended[:12], original)
+        self.assertEqual(extended, dataset.disk.interpretation_inputs(limit=256))
         self.assertEqual(len(extended), 20)
         for _, payload in extended:
             self.assertEqual(len(payload['values']), 12)
@@ -45,3 +46,12 @@ class DatasetAiBenchmarkTests(unittest.TestCase):
         self.assertFalse(needs_ai('temporal', 100))
         for role in ['identifier', 'categorical', 'unknown', None]:
             self.assertTrue(needs_ai(role, 100))
+
+    def test_cautious_gate_routes_numeric_ambiguity_without_dataset_names(self):
+        for values, unique in [(['1', '2'], 2), (['10001', '10002'], 10000),
+                               (['00123', '456'], 1001), (['1,23', '4.56'], 1001),
+                               (['$10', '$20'], 1001), (['Infinity'], 1001)]:
+            self.assertTrue(needs_ai_cautious('metric', 10000, unique, values))
+        self.assertFalse(needs_ai_cautious('metric', 10000, 1001, ['1.23', '4.56']))
+        self.assertFalse(needs_ai_cautious('unknown', 0, 0, [None]))
+        self.assertTrue(needs_ai_cautious('metric', 10000, None, ['1']))

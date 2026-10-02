@@ -211,6 +211,15 @@ export interface EnrichmentStatusResponse {
   interpretation_proposals: Record<string, InterpretationProposal>;
   error: string | null;
   reason?: string | null;
+  coverage?: {
+    total_columns: number;
+    selected_columns: number;
+    completed_columns: number;
+    failed_columns: number;
+    skipped_columns: number;
+    complete: boolean;
+    stop_reason: string | null;
+  } | null;
 }
 
 /** Dataset metadata retained in local storage between visits. */
