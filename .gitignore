@@ -45,3 +45,6 @@ backend/benchmarks/results/**
 !backend/benchmarks/results/library-comparison-2026-10-03/*-environment.txt
 
 !backend/benchmarks/results/fresh-accuracy-2026-10-03/answer-followup-summary.json
+
+# Local planning, audits, and research notes
+/docs/
