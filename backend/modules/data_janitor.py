@@ -3,19 +3,25 @@ Analytico Backend - Data Janitor Module
 Smart ingestion, header normalization, type repair, and data cleaning
 """
 
-import json
+from modules.column_statistics import MIN_CALENDAR_YEAR, MAX_CALENDAR_YEAR
+
 import os
+import math
 import re
 import unicodedata
-import warnings
+from decimal import Decimal, InvalidOperation, localcontext
 from time import perf_counter
-from typing import Optional
+from typing import Callable, Optional
 
+import numpy as np
 import pandas as pd
-from openai import OpenAI
 
-# Client initialized lazily to avoid import-time side effects
-_client: Optional[OpenAI] = None
+from modules.import_policy import (
+    ColumnOverride,
+    ImportSettings,
+    apply_column_policy,
+    unsupported_date_reason,
+)
 
 # Master list of candidate date formats for fast C-vectorized parsing.
 # Order matters: most common/high-signal formats are first.
@@ -47,26 +53,94 @@ DATE_FORMAT_CANDIDATES = [
     "%Y%m%d",
 ]
 
-# Skip LLM schema mapping for very wide datasets to cap latency/cost.
-LLM_SCHEMA_MAX_COLUMNS = 120
 UNIVERSAL_CURRENCY_KEYWORDS = {
     "amount", "price", "cost", "revenue", "income", "salary", "expense",
     "value", "total", "balance", "payment",
 }
-IDENTIFIER_HINT_KEYWORDS = {"id", "code", "key", "identifier"}
+IDENTIFIER_HINT_KEYWORDS = {
+    "id", "code", "zip", "zipcode", "postal", "phone", "key", "identifier",
+    "ssn", "account", "serial", "reference", "ref", "sequence",
+}
+_MAX_DISTINCT_TEXT_VALUES = 10_000
+_DISTINCT_TEXT_CHUNK_SIZE = 16_384
+_LEADING_ZERO_IDENTIFIER = re.compile(r"^[+-]?0\d+$")
 
-def get_openai_client() -> OpenAI:
-    global _client
-    if _client is None:
-        _client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    return _client
+
+def _distinct_text_values(values: pd.Series) -> Optional[dict[str, None]]:
+    """Collect distinct lexemes up to a fixed cap, or signal high cardinality."""
+    unique: dict[str, None] = {}
+    for start in range(0, len(values), _DISTINCT_TEXT_CHUNK_SIZE):
+        for value in values.iloc[start:start + _DISTINCT_TEXT_CHUNK_SIZE].unique():
+            unique.setdefault(value, None)
+            if len(unique) > _MAX_DISTINCT_TEXT_VALUES:
+                return None
+    return unique
+
+
+def _map_distinct_text(values: pd.Series, mapper: Callable[[str], object]) -> pd.Series:
+    """Map repeated text once per lexeme, falling back for high-cardinality data."""
+    unique = _distinct_text_values(values)
+    if unique is None:
+        return values.map(mapper)
+    mapping = {value: mapper(value) for value in unique}
+    return values.map(mapping)
 
 
 def legacy_normalize_header(header: str) -> str:
     """Conservative, deterministic snake_case sanitizer."""
-    clean = re.sub(r"[^\w]+", "_", header.strip().lower())
+    value = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", header.strip())
+    clean = re.sub(r"[^\w]+", "_", value.lower())
     clean = re.sub(r"_+", "_", clean).strip("_")
     return clean or "column"
+
+
+def _unique_normalized_headers(headers: list[str]) -> list[str]:
+    """Normalize headers with collision-free suffixes, independent of AI output."""
+    bases = [legacy_normalize_header(str(header)) for header in headers]
+    reserved = set(bases)
+    used: set[str] = set()
+    result: list[str] = []
+
+    for base in bases:
+        candidate = base
+        suffix = 2
+        while candidate in used:
+            candidate = f"{base}_{suffix}"
+            suffix += 1
+            while candidate in used or candidate in reserved:
+                candidate = f"{base}_{suffix}"
+                suffix += 1
+        used.add(candidate)
+        result.append(candidate)
+    return result
+
+
+def _column_tokens(col_name: str) -> set[str]:
+    return set(re.findall(r"[a-z0-9]+", str(col_name).lower()))
+
+
+def _has_split_id_token(col_name: str) -> bool:
+    tokens = re.findall(r"[a-z0-9]+", str(col_name).lower())
+    entity_names = {"customer", "account", "person", "user", "record", "order", "invoice",
+                    "product", "employee", "transaction", "item", "row", "entity"}
+    if any(token == entity + "id" for token in tokens for entity in entity_names):
+        return True
+    return any(left == "i" and right == "d" for left, right in zip(tokens, tokens[1:]))
+
+
+def _is_identifier_name(col_name: str) -> bool:
+    return bool(_column_tokens(col_name) & IDENTIFIER_HINT_KEYWORDS) or _has_split_id_token(col_name)
+
+
+def _is_date_name(col_name: str) -> bool:
+    return bool(_column_tokens(col_name) & {"date", "time", "datetime", "timestamp", "year"})
+
+
+def _has_leading_zero_identifiers(series: pd.Series) -> bool:
+    values = _map_distinct_text(series.dropna().astype(str), lambda value: value.strip())
+    return bool(_map_distinct_text(
+        values, lambda value: bool(_LEADING_ZERO_IDENTIFIER.match(value))
+    ).any())
 
 
 def _normalize_llm_format(value: Optional[str]) -> Optional[str]:
@@ -85,180 +159,101 @@ def _normalize_llm_semantic(value: Optional[str]) -> Optional[str]:
     return sem if sem in allowed else None
 
 
-def llm_enrich_columns(headers: list[str], df: pd.DataFrame) -> list[dict[str, Optional[str]]]:
-    """
-    Use one LLM pass to normalize header names and classify each column.
-    Returns rows with: original, clean, format, semantic_type.
-    """
-    fallback = [
-        {
-            "original": h,
-            "clean": legacy_normalize_header(h),
-            "format": None,
-            "semantic_type": None,
+def _interpretation_input(header: str, series: pd.Series, headers: list[str]) -> dict:
+    """Sample throughout the column, preserving nulls and bounding outbound data."""
+    count = len(series)
+    positions = sorted({round(i * (count - 1) / 11) for i in range(12)}) if count else []
+    values = []
+    for position in positions:
+        value = series.iloc[position]
+        if pd.isna(value):
+            values.append(None)
+        elif isinstance(value, (int, float, bool)):
+            values.append(value if not isinstance(value, float) or math.isfinite(value) else None)
+        else:
+            values.append(str(value)[:160])
+    return {
+        "column_name": header[:256],
+        "values": values,
+        "context": {
+            "purpose": "Conservative dataset ingestion; no requested calculation or external unit metadata.",
+            "row_count": count,
+            "missing_count": int(series.isna().sum()),
+            "sample_unique_count": len({str(v) for v in values if v is not None}),
+            "sample_is_complete": count <= 12,
+            "other_column_names": [name[:128] for name in headers if name != header][:20],
+        },
+    }
+
+
+def llm_enrich_columns(headers: list[str], df: pd.DataFrame) -> list[dict]:
+    """Optional bounded interpretation; source keys never depend on model output."""
+    rows = [{"original": h, "clean": legacy_normalize_header(h), "format": None,
+             "semantic_type": None} for h in headers]
+    provider = os.getenv("COLUMN_INTERPRETER", "off").strip().lower()
+    if provider == "off":
+        return rows
+    from modules.column_interpretation import interpret_column
+
+    start = perf_counter()
+    unavailable = False
+    for index, (header, row) in enumerate(zip(headers, rows)):
+        if index >= 12 or perf_counter() - start >= 12 or unavailable:
+            row["interpretation"] = {"status": "skipped", "runtime_status": "clarification",
+                                     "provider": provider, "decision": None}
+            continue
+        result = interpret_column(_interpretation_input(header, df.iloc[:, index], headers), use_cache=True)
+        decision = result.decision.model_dump() if result.decision is not None else None
+        row["interpretation"] = {
+            "status": result.status, "runtime_status": "clarification",
+            "provider": result.provider or provider, "model": result.model,
+            "prompt_version": result.prompt_version, "latency_ms": result.latency_ms,
+            "usage": result.usage, "confidence": result.confidence,
+            "error_code": result.error_code, "cache_hit": result.cache_hit, "decision": decision,
         }
-        for h in headers
-    ]
-
-    if not os.getenv("OPENAI_API_KEY") or len(headers) > LLM_SCHEMA_MAX_COLUMNS:
-        return fallback
-
-    try:
-        client = get_openai_client()
-        # Compact payload: per-column samples reduce tokens vs full row objects.
-        sample_values = {}
-        for col in headers:
-            if col not in df.columns:
-                sample_values[col] = []
-                continue
-            values = df[col].dropna().head(3).tolist()
-            sample_values[col] = [str(v) for v in values]
-
-        system_prompt = (
-            "Respond ONLY with a JSON object where each key is the original column name and each value is an object "
-            "with: semantic_type and clean_name. "
-            "Schema: {\"Original Column Name\": {\"semantic_type\": \"metric|identifier|temporal|categorical\", "
-            "\"clean_name\": \"short_snake_case_name\"}}. "
-            "clean_name must be short, human-readable snake_case (example: lpep_pickup_datetime -> pickup_date). "
-            "Do not include explanations, formatting, or markdown. Return valid JSON only."
-        )
-        user_prompt = f"""Headers:
-{json.dumps(headers)}
-
-Per-column sample values (up to 3 non-null each):
-{json.dumps(sample_values, separators=(",", ":"))}"""
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0,
-            response_format={"type": "json_object"},
-        )
-        content = response.choices[0].message.content
-        parsed = json.loads(content)
-        by_original: dict[str, dict[str, Optional[str]]] = {}
-
-        # Fast path: mapping "original_header" -> {"semantic_type", "clean_name"}.
-        # Backward compatible with legacy flat semantic values.
-        for original, payload in parsed.items():
-            original_key = str(original).strip()
-            if not original_key:
-                continue
-            semantic_value = payload.get("semantic_type") if isinstance(payload, dict) else payload
-            clean_name = payload.get("clean_name") if isinstance(payload, dict) else None
-            normalized_clean = legacy_normalize_header(str(clean_name).strip() if clean_name else original_key)
-            by_original[original_key] = {
-                "original": original_key,
-                "clean": normalized_clean,
-                "format": None,
-                "semantic_type": _normalize_llm_semantic(semantic_value),
-            }
-
-        # Backward-compatible parser for older structured payloads.
-        raw_columns = parsed.get("columns", []) if isinstance(parsed, dict) else []
-        for row in raw_columns:
-            if not isinstance(row, dict):
-                continue
-            original = str(row.get("original", "")).strip()
-            if not original:
-                continue
-            raw_clean = str(row.get("clean_name") or row.get("clean") or "").strip()
-            by_original[original] = {
-                "original": original,
-                "clean": legacy_normalize_header(raw_clean or original),
-                "format": None,
-                "semantic_type": _normalize_llm_semantic(row.get("semantic_type")),
-            }
-
-        return [by_original.get(h, f) for h, f in zip(headers, fallback)]
-    except Exception as e:
-        print(f"LLM Column Enrichment failed: {e}")
-        return fallback
+        unavailable = result.status in {"unavailable", "disabled", "error"}
+        if decision is not None:
+            row["semantic_type"] = decision["role"]
+    return rows
 
 
 def llm_clean_headers(headers: list[str], df: pd.DataFrame) -> list[str]:
     """Smart header normalization using LLM with sample data context"""
-    enriched = llm_enrich_columns(headers, df)
-    return [re.sub(r"[^\w]", "_", str(row.get("clean", "") or "")).lower() for row in enriched]
+    return _unique_normalized_headers(headers)
 
 
 def detect_column_format(series: pd.Series, col_name: str) -> str:
-    """Detect the display format for a column"""
-    col_lower = col_name.lower()
-    
-    # Identifier columns (IDs, codes, serial numbers)
-    if any(kw in col_lower for kw in ['id', 'code', 'serial', 'key', 'number', 'ref', 'identifier']):
-        # But not if it contains currency keywords
-        if not any(kw in col_lower for kw in UNIVERSAL_CURRENCY_KEYWORDS):
-            return 'identifier'
-    
-    # Currency keywords (domain-agnostic set)
-    if any(kw in col_lower for kw in UNIVERSAL_CURRENCY_KEYWORDS):
-        return 'currency'
-    
-    # Percentage keywords
-    if any(kw in col_lower for kw in ['percent', 'pct', 'rate', 'ratio']):
-        return 'percentage'
-    
-    # Check data patterns (more conservative)
-    if pd.api.types.is_numeric_dtype(series):
-        sample = series.dropna().head(100)
-        if len(sample) > 0:
-            # Values between 0-1 might be percentages
-            if sample.between(0, 1).all() and sample.max() < 1:
-                return 'percentage'
-    
-    return 'number'
+    """Physical display format; units require source syntax or explicit metadata."""
+    if _is_identifier_name(col_name):
+        return "identifier"
+    if pd.api.types.is_datetime64_any_dtype(series):
+        return "date"
+    return "number" if pd.api.types.is_numeric_dtype(series) else "general"
 
 
 def _contains_currency_symbol(value: str) -> bool:
     return any(unicodedata.category(ch) == "Sc" for ch in value)
 
 
-def _strip_numeric_text(value: str) -> str:
-    # Remove unicode currency symbols + common separators.
-    no_currency = "".join(ch for ch in value if unicodedata.category(ch) != "Sc")
-    return re.sub(r"[,\s]", "", no_currency)
+def _currency_symbol_set(value: str) -> frozenset[str]:
+    return frozenset(ch for ch in value if unicodedata.category(ch) == "Sc")
 
 
-def _is_coded_numeric_column(
-    series: pd.Series,
-    col_name: str,
-    semantic_types: dict[str, str],
-    column_formats: dict[str, str],
-) -> bool:
-    """Detect numeric columns that are categorical/identifier-like codes using generic signals."""
-    sem = semantic_types.get(col_name)
-    col_lower = col_name.lower()
-    non_null = series.dropna()
-    if len(non_null) == 0:
-        return False
+def _currency_symbols_in_values(values: pd.Series) -> set[str]:
+    """Collect symbols across the full source, reusing repeated lexemes."""
+    distinct = _distinct_text_values(values)
+    lexemes = distinct if distinct is not None else values
+    symbols: set[str] = set()
+    for value in lexemes:
+        symbols.update(_currency_symbol_set(value))
+        if len(symbols) > 1:
+            break
+    return symbols
 
-    if column_formats.get(col_name) in {"currency", "percentage"}:
-        return False
 
-    if sem == "identifier":
-        return True
+def _strip_currency_symbols(value: str) -> str:
+    return "".join(ch for ch in value if unicodedata.category(ch) != "Sc").strip()
 
-    keyword_hint = any(kw in col_lower for kw in IDENTIFIER_HINT_KEYWORDS)
-    numeric_vals = pd.to_numeric(non_null, errors="coerce").dropna()
-    if len(numeric_vals) == 0:
-        return False
-
-    integer_like = (numeric_vals.round() == numeric_vals).mean() > 0.95
-    unique_count = int(numeric_vals.nunique())
-    unique_ratio = unique_count / max(len(numeric_vals), 1)
-    repeat_ratio = 1.0 - unique_ratio
-    low_cardinality = unique_count <= max(20, int(len(numeric_vals) * 0.05))
-
-    if sem == "categorical" and integer_like and low_cardinality and repeat_ratio >= 0.5:
-        return True
-    if keyword_hint and integer_like and low_cardinality:
-        return True
-    return False
 
 
 def llm_fix_data_issues(df: pd.DataFrame, column_types: dict[str, str]) -> tuple[pd.DataFrame, list[str]]:
@@ -300,219 +295,569 @@ def llm_fix_data_issues(df: pd.DataFrame, column_types: dict[str, str]) -> tuple
     return df, actions
 
 
-def clean_dataframe(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str], dict[str, int], dict[str, str], dict[str, str]]:
+_PLAIN_NUMBER = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$")
+_US_GROUPED_NUMBER = re.compile(r"^[+-]?\d{1,3}(?:,\d{3})+\.\d+$")
+
+
+def _parse_numeric_text(series: pd.Series, col: str, *, allow_metric_name: bool = False) -> tuple[Optional[pd.Series], Optional[str], Optional[str]]:
+    """Parse only uniformly valid, unambiguous numeric text; otherwise retain it."""
+    values = _map_distinct_text(series.dropna().astype(str), lambda value: value.strip())
+    if values.empty:
+        return None, None, None
+
+    if (_is_identifier_name(col) and not allow_metric_name) or _has_leading_zero_identifiers(values):
+        return None, None, None
+
+    percent_values = _map_distinct_text(values, lambda value: value.endswith("%"))
+    if percent_values.all():
+        normalized = _map_distinct_text(values, lambda value: value[:-1].strip())
+        if _map_distinct_text(
+            normalized, lambda value: bool(_PLAIN_NUMBER.fullmatch(value))
+        ).all():
+            parsed = pd.to_numeric(normalized, errors="raise") / 100
+            return parsed, "percentage", f"Converted '{col}' from percentage text to decimal"
+        return None, None, f"Could not safely parse '{col}' percentage text; retained source values"
+
+    # Plain numeric tokens cannot contain currency symbols. Validate them before
+    # the per-character Unicode currency scan used for decorated values.
+    if _map_distinct_text(
+        values, lambda value: bool(_PLAIN_NUMBER.fullmatch(value))
+    ).all():
+        parsed = pd.to_numeric(values, errors="raise")
+        return parsed, None, f"Converted '{col}' from numeric text to numeric"
+
+    has_currency_symbol = _map_distinct_text(values, _contains_currency_symbol)
+    normalized = _map_distinct_text(values, _strip_currency_symbols)
+    if has_currency_symbol.any():
+        if len(_currency_symbols_in_values(values)) > 1:
+            return None, None, (
+                f"Could not safely parse '{col}' mixed currency text: multiple currency "
+                "symbols; retained source values for review"
+            )
+        if _PLAIN_NUMBER.fullmatch(normalized.iloc[0]) and _map_distinct_text(
+            normalized, lambda value: bool(_PLAIN_NUMBER.fullmatch(value))
+        ).all():
+            parsed = pd.to_numeric(normalized, errors="raise")
+            return parsed, "currency", f"Converted '{col}' from currency text to numeric"
+        if _map_distinct_text(
+            normalized, lambda value: bool(_US_GROUPED_NUMBER.fullmatch(value))
+        ).all():
+            normalized = _map_distinct_text(normalized, lambda value: value.replace(",", ""))
+            parsed = pd.to_numeric(normalized, errors="raise")
+            return parsed, "currency", f"Converted '{col}' from currency text to numeric"
+        return None, None, f"Could not safely parse '{col}' currency text; retained source values"
+
+    if _map_distinct_text(
+        normalized, lambda value: bool(_PLAIN_NUMBER.fullmatch(value))
+    ).all():
+        parsed = pd.to_numeric(normalized, errors="raise")
+        return parsed, None, f"Converted '{col}' from numeric text to numeric"
+
+    has_comma = _map_distinct_text(normalized, lambda value: "," in value)
+    if has_comma.any():
+        # A comma without a decimal point can mean grouping or decimal notation.
+        if _map_distinct_text(
+            normalized,
+            lambda value: bool(re.fullmatch(r"[+-]?\d{1,3}(?:,\d{3})+", value)),
+        ).all():
+            return None, None, f"Could not safely parse '{col}' numeric text: ambiguous locale separators; retained source values"
+        # Mixed plain/grouped values are safe only with decimal-point evidence
+        # and valid three-digit grouping throughout the complete column.
+        valid = _map_distinct_text(normalized, lambda value: bool(
+            _PLAIN_NUMBER.fullmatch(value) or _US_GROUPED_NUMBER.fullmatch(value)
+            or re.fullmatch(r"[+-]?[1-9][0-9]{0,2}(?:,[0-9]{3})+", value)
+        ))
+        if valid.all() and normalized.map(lambda value: "." in value).any():
+            normalized = _map_distinct_text(normalized, lambda value: value.replace(",", ""))
+            if normalized.map(lambda value: value.lstrip("+-").isdigit() and abs(int(value)) > 2**53 - 1).any():
+                return None, None, f"Could not safely parse '{col}' grouped values without integer precision loss; retained source values"
+            parsed = pd.to_numeric(normalized, errors="raise")
+            return parsed, None, f"Converted '{col}' from grouped numeric text to numeric"
+
+    numeric_like = _map_distinct_text(
+        normalized,
+        lambda value: bool(re.fullmatch(r"[+-]?[\d.,\s]+", value))
+    )
+    if numeric_like.any():
+        return None, None, f"Could not safely parse '{col}' numeric text; retained source values"
+    if not _is_date_name(col) and _column_tokens(col) & (UNIVERSAL_CURRENCY_KEYWORDS | {"percent", "percentage", "pct", "rate", "ratio"}):
+        return None, None, f"Could not safely parse '{col}' numeric text; retained source values"
+    return None, None, None
+
+
+def _parse_date_text(series: pd.Series, col: str) -> tuple[Optional[pd.Series], Optional[str]]:
+    """Parse dates only when a deterministic format is supported by the sample."""
+    values = series.dropna().astype(str).str.strip()
+    if values.empty:
+        return None, None
+
+    unsupported = unsupported_date_reason(values)
+    if unsupported:
+        return None, f"Could not safely parse '{col}' as date: {unsupported} retained as text"
+
+    sample = values.head(100)
+    candidates: list[tuple[str, pd.Series]] = []
+    for fmt in DATE_FORMAT_CANDIDATES:
+        try:
+            parsed_sample = pd.to_datetime(sample, format=fmt, errors="coerce")
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if parsed_sample.notna().all():
+            candidates.append((fmt, parsed_sample))
+
+    if not candidates:
+        if _is_date_name(col):
+            return None, f"Could not safely parse non-null values in '{col}' as date; retained source values"
+        return None, None
+
+    # The sample only narrows formats. Compare their interpretations across every
+    # source value: equal day/month values in the sample cannot establish locale.
+    parsed = None
+    for fmt, _ in candidates:
+        try:
+            candidate = pd.to_datetime(values, format=fmt, errors="coerce")
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if not candidate.notna().all():
+            continue
+        if parsed is not None and not candidate.equals(parsed):
+            return None, f"Could not safely parse '{col}' as date: ambiguous date order; retained source values"
+        parsed = candidate
+    if parsed is None:
+        return None, f"Could not safely parse all non-null values in '{col}' as date; retained source values"
+    return parsed, f"Parsed '{col}' as date"
+
+
+def _validated_llm_semantic(series: pd.Series, col: str, value: Optional[str]) -> Optional[str]:
+    semantic = _normalize_llm_semantic(value)
+    tokens = _column_tokens(col)
+    if "year" in tokens and pd.api.types.is_numeric_dtype(series):
+        values = series.dropna()
+        if len(values) and values.map(lambda value: float(value).is_integer() and MIN_CALENDAR_YEAR <= value <= MAX_CALENDAR_YEAR).all():
+            return "temporal" if semantic == "temporal" else None
+    if semantic == "metric" and (
+        not pd.api.types.is_numeric_dtype(series) or _is_identifier_name(col)
+    ):
+        return None
+    if semantic == "temporal":
+        if pd.api.types.is_datetime64_any_dtype(series):
+            return semantic
+        if "year" in tokens and pd.api.types.is_numeric_dtype(series):
+            values = series.dropna()
+            if len(values) and values.map(lambda value: float(value).is_integer() and MIN_CALENDAR_YEAR <= value <= MAX_CALENDAR_YEAR).all():
+                return semantic
+        return None
+    if semantic == "categorical" and pd.api.types.is_datetime64_any_dtype(series):
+        return None
+    return semantic
+
+
+def _numeric_values_are_finite(values: pd.Series) -> bool:
+    """Check parsed values without converting exact integer arrays through float."""
+    if pd.api.types.is_integer_dtype(values.dtype):
+        return True
+    if pd.api.types.is_numeric_dtype(values.dtype):
+        return bool(np.isfinite(values.to_numpy()).all())
+    return bool(values.map(math.isfinite).all())
+
+
+def _can_apply_interpretation(series: pd.Series, col: str, metadata: dict) -> bool:
+    """Reject unsafe combinations before any parsed view is changed."""
+    decision = metadata.get("decision")
+    if metadata.get("status") != "ok" or not decision or decision["needs_clarification"]:
+        return False
+    role, policy, unit = decision["role"], decision["parsing_policy"], decision["unit"]
+    aggregation = decision["recommended_aggregation"]
+    if role == "unknown" or unit in {"unknown", "mixed_currency"}:
+        return False
+    if aggregation not in {"sum", "mean", "count", "none"}:
+        return False
+    if role in {"identifier", "categorical"}:
+        return policy in {"preserve_lexeme", "preserve_source"} and aggregation in {"count", "none"}
+    if role == "temporal":
+        return (not _is_identifier_name(col) and policy == "parse_unambiguous_date"
+                and unit == "calendar_date" and aggregation == "none")
+    if role != "metric" or aggregation not in {"sum", "mean"}:
+        return False
+    tokens = _column_tokens(col)
+    if tokens & (IDENTIFIER_HINT_KEYWORDS - {"account"}) or _has_split_id_token(col):
+        return False
+    if "account" in tokens and ("balance" not in tokens or unit not in {"USD", "EUR"}):
+        return False
+    if series.dropna().empty or _has_leading_zero_identifiers(series):
+        return False
+    if pd.api.types.is_bool_dtype(series):
+        return False
+    if pd.api.types.is_numeric_dtype(series):
+        observed = series.dropna()
+        if not _numeric_values_are_finite(observed) or observed.map(lambda value: abs(float(value)) > 2**53 - 1).any():
+            return False
+        if math.fsum(abs(float(value)) for value in observed) > 2**53 - 1:
+            return False
+    values = _map_distinct_text(series.dropna().astype(str), lambda value: value.strip())
+    header_currencies = tokens & {"usd", "eur"}
+    if header_currencies and header_currencies != {unit.lower()}:
+        return False
+    if unit in {"USD", "EUR"}:
+        explicit_units = _map_distinct_text(
+            values, lambda value: re.match(r"^(?:USD|EUR)\s+", value) is not None
+        )
+        if unit.lower() not in tokens and not explicit_units.all():
+            return False
+    if policy == "parse_currency_decimal":
+        if unit not in {"USD", "EUR"}:
+            return False
+        # A symbol alone does not establish currency identity. Require source evidence.
+        header_unit = unit.lower() in _column_tokens(col)
+        explicit_units = _map_distinct_text(
+            values, lambda value: re.match(r"^(?:USD|EUR)\s+", value) is not None
+        )
+        if not header_unit and not explicit_units.all():
+            return False
+        other = "EUR" if unit == "USD" else "USD"
+        if _map_distinct_text(values, lambda value: other in value).any():
+            return False
+        unique_values = _distinct_text_values(values)
+        symbol_values = values.array if unique_values is None else unique_values
+        symbols = {
+            ch for value in symbol_values for ch in value
+            if unicodedata.category(ch) == "Sc"
+        }
+        if not symbols.issubset({"$"} if unit == "USD" else {"€"}):
+            return False
+        return True
+    if policy == "parse_percent_to_ratio":
+        return unit == "ratio" and _map_distinct_text(
+            values, lambda value: value.endswith("%")
+        ).all()
+    if policy == "preserve_numeric_value":
+        return pd.api.types.is_numeric_dtype(series)
+    if policy in {"parse_decimal", "preserve_nulls_parse_numeric"}:
+        return not _map_distinct_text(
+            values, _contains_currency_symbol
+        ).any() and not _map_distinct_text(values, lambda value: value.endswith("%")).any()
+    return False
+
+
+def _parse_interpreted_numeric(series: pd.Series, col: str, decision: dict):
+    if decision["parsing_policy"] == "parse_percent_to_ratio":
+        values = _map_distinct_text(series.dropna().astype(str), lambda value: value.strip())
+        values = _map_distinct_text(values, lambda value: value[:-1].strip())
+        if not _map_distinct_text(
+            values, lambda value: bool(_PLAIN_NUMBER.fullmatch(value))
+        ).all():
+            return None, None, f"Could not safely parse '{col}' percentage text; retained source values"
+        def ratio(token):
+            with localcontext() as context:
+                context.prec = max(28, len(token) + 2)
+                return float(Decimal(token) / 100)
+        return _map_distinct_text(values, ratio), "percentage", f"Converted '{col}' from percentage text to decimal"
+    if decision["parsing_policy"] != "parse_currency_decimal":
+        return _parse_numeric_text(series, col, allow_metric_name=True)
+    values = _map_distinct_text(series.dropna().astype(str), lambda value: value.strip())
+    normalized = _map_distinct_text(
+        values,
+        lambda value: _strip_currency_symbols(re.sub(r"^(?:USD|EUR)\s+", "", value)),
+    )
+    if not _map_distinct_text(
+        normalized,
+        lambda value: bool(_PLAIN_NUMBER.fullmatch(value) or _US_GROUPED_NUMBER.fullmatch(value)),
+    ).all():
+        return None, None, f"Could not safely parse '{col}' currency text; retained source values"
+    normalized = _map_distinct_text(normalized, lambda value: value.replace(",", ""))
+    parsed = pd.to_numeric(normalized, errors="raise")
+    return parsed, "currency", f"Converted '{col}' from currency text to numeric with verified currency identity"
+
+
+def _interpreted_numbers_are_lossless(original: pd.Series, converted: pd.Series, decision: dict) -> bool:
+    """Reject rounding and quantities outside JavaScript's exact integer range."""
+    magnitude_sum = Decimal(0)
+    policy = decision["parsing_policy"]
+
+    def normalize_token(token: str) -> str:
+        if policy == "parse_currency_decimal":
+            token = re.sub(r"^(?:USD|EUR)\s+", "", token)
+            token = _strip_currency_symbols(token)
+        if policy == "parse_percent_to_ratio":
+            token = token[:-1].strip()
+        return token.replace(",", "")
+
+    tokens = iter(_map_distinct_text(
+        _map_distinct_text(original.dropna().astype(str), lambda value: value.strip()),
+        normalize_token,
+    ).tolist())
+    for source, value in zip(original.tolist(), converted.tolist()):
+        if pd.isna(source):
+            if not pd.isna(value):
+                return False
+            continue
+        token = next(tokens)
+        percent = policy == "parse_percent_to_ratio"
+        try:
+            with localcontext() as context:
+                context.prec = max(28, len(token) + 2)
+                expected = Decimal(token) / (100 if percent else 1)
+            actual = Decimal(str(value))
+            if (not actual.is_finite() or abs(actual) > 2**53 - 1 or actual != expected):
+                return False
+            magnitude_sum += abs(actual)
+            if magnitude_sum > 2**53 - 1:
+                return False
+        except (InvalidOperation, ValueError, OverflowError):
+            return False
+    return True
+
+
+def _expand_parsed_values(original: pd.Series, parsed: pd.Series, missing_value) -> pd.Series:
+    """Reinsert parsed non-null values by position while preserving source nulls."""
+    present = original.notna().to_numpy()
+    positions = np.flatnonzero(present)
+    if len(positions) == len(original):
+        values = parsed.array.copy()
+    elif pd.api.types.is_integer_dtype(parsed.dtype):
+        # A floating NaN would coerce large integers to float and lose precision.
+        bits = parsed.dtype.itemsize * 8
+        integer_type = "UInt" if pd.api.types.is_unsigned_integer_dtype(parsed.dtype) else "Int"
+        values = pd.array([pd.NA] * len(original), dtype=f"{integer_type}{bits}")
+        values[positions] = parsed.array
+    else:
+        values = pd.array([missing_value] * len(original), dtype=parsed.dtype)
+        values[positions] = parsed.array
+    return pd.Series(values, index=original.index)
+
+
+def clean_dataframe(
+    df: pd.DataFrame,
+    interpret_columns: bool = True,
+    *,
+    import_settings: Optional[ImportSettings] = None,
+    column_overrides: Optional[list[ColumnOverride]] = None,
+) -> tuple[pd.DataFrame, list[str], dict[str, int], dict[str, str], dict[str, str]]:
     """
-    Clean DataFrame and extract metadata.
+    Apply loss-aware type normalization and extract metadata without imputing.
     Returns: (cleaned_df, cleaning_actions, missing_counts, column_formats, semantic_types)
     """
+    if import_settings is not None and not isinstance(import_settings, ImportSettings):
+        import_settings = ImportSettings.model_validate(import_settings)
+    original_headers = list(df.attrs.get("original_headers", []))
+    df = df.copy(deep=False)
     cleaning_actions = []
     missing_counts = {}
     column_formats = {}
     semantic_types = {}
-    
-    # 1. Header Normalization (LLM Powered with Sample Data)
+
+    # Count source nulls before parsing, using stable normalized schema keys.
     original_cols = df.columns.tolist()
+    new_cols = _unique_normalized_headers([str(col) for col in original_cols])
+    source_names = original_headers if len(original_headers) == len(original_cols) else [str(col) for col in original_cols]
+    original_names = {
+        normalized: str(original)
+        for normalized, original in zip(new_cols, source_names)
+    }
+    source_missing = [int(df.iloc[:, index].isna().sum()) for index in range(len(original_cols))]
+
+    # Optional semantic suggestions cannot control the deterministic column keys.
+    headers = [str(col) for col in original_cols]
     llm_start = perf_counter()
-    llm_columns = llm_enrich_columns(original_cols, df)
+    if interpret_columns:
+        llm_columns = llm_enrich_columns(headers, df)
+    else:
+        llm_columns = [
+            {"original": header, "clean": legacy_normalize_header(header),
+             "format": None, "semantic_type": None}
+            for header in headers
+        ]
     llm_end = perf_counter()
     print(f"LLM Schema Mapping Time: {llm_end - llm_start:.2f}s")
-    new_cols = [str(row.get("clean", "") or legacy_normalize_header(h)) for h, row in zip(original_cols, llm_columns)]
-    
-    # Handle duplicate column names by appending _2, _3, etc.
-    seen = {}
-    unique_cols = []
-    for col in new_cols:
-        if col in seen:
-            seen[col] += 1
-            unique_cols.append(f"{col}_{seen[col]}")
-        else:
-            seen[col] = 1
-            unique_cols.append(col)
-    new_cols = unique_cols
-    
     renamed = [(o, n) for o, n in zip(original_cols, new_cols) if o != n]
     if renamed:
         cleaning_actions.append(f"Normalized {len(renamed)} column headers")
     df.columns = new_cols
 
-    # Capture LLM-provided semantic_type on the final deduped names.
-    for final_col, row in zip(new_cols, llm_columns):
-        llm_sem = _normalize_llm_semantic(row.get("semantic_type"))
-        if llm_sem:
-            semantic_types[final_col] = llm_sem
-    
-    # 2. Type Repair and Format Detection
+    df, column_schema = apply_column_policy(
+        df,
+        import_settings,
+        column_overrides,
+        original_names=original_names,
+    )
+    schema_by_column = {item["column"]: item for item in column_schema}
+
+    for col, count in zip(new_cols, source_missing):
+        if count:
+            missing_counts[col] = count
+            cleaning_actions.append(f"Preserved {count} source missing values as null in '{col}'")
+
+    llm_semantic_candidates = {
+        final_col: row.get("semantic_type")
+        for final_col, row in zip(new_cols, llm_columns)
+    }
+
+    interpretations = {
+        final_col: row["interpretation"] for final_col, row in zip(new_cols, llm_columns)
+        if "interpretation" in row
+    }
+    df.attrs["column_interpretations"] = interpretations
+
+    # Parse complete columns only when every non-null value has one safe interpretation.
     pandas_processing_start = perf_counter()
     for col in df.columns:
-        if df[col].dtype == 'object':
-            sample = df[col].dropna().head(100).astype(str)
-            if len(sample) == 0:
-                continue
-            
-            normalized_numeric = sample.apply(_strip_numeric_text).str.strip()
-            numeric_like_matches = normalized_numeric.str.match(r'^[+-]?\d+(\.\d+)?$').sum()
-            currency_symbol_matches = sample.apply(_contains_currency_symbol).sum()
-            has_currency_name = any(kw in col.lower() for kw in UNIVERSAL_CURRENCY_KEYWORDS)
+        policy = schema_by_column[col]
+        manual_role = policy["role"]
+        parse_as = policy["parse_as"]
+        manual_format = policy["format"]
+        if (
+            parse_as in {"text", "number", "date"}
+            or manual_role is not None
+            or manual_format is not None
+        ):
+            if manual_role is not None:
+                semantic_types[col] = manual_role
+            if parse_as == "date" or manual_role == "temporal" or manual_format == "date":
+                column_formats[col] = "date"
+            elif parse_as == "number" or manual_role == "metric" or manual_format in {"number", "currency", "percentage"}:
+                column_formats[col] = manual_format or detect_column_format(df[col], col)
+            elif manual_format:
+                column_formats[col] = manual_format
+            continue
 
-            # Numeric-like text columns should be converted to numeric deterministically.
-            if numeric_like_matches > len(sample) * 0.5:
+        metadata = interpretations.get(col)
+        decision = metadata.get("decision") if metadata else None
+        if metadata and not _can_apply_interpretation(df[col], col, metadata):
+            semantic_types[col] = "unknown"
+            cleaning_actions.append(f"Column '{col}' needs interpretation review; source values preserved")
+            continue
+        if decision and decision["role"] in {"identifier", "categorical"}:
+            semantic_types[col] = decision["role"]
+            metadata["runtime_status"] = "applied"
+            continue
+        if pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_string_dtype(df[col]):
+            original = df[col]
+            if decision and decision["role"] == "temporal":
+                parsed, fmt, action = None, None, None
+            else:
                 try:
-                    df[col] = (
-                        df[col]
-                        .astype(str)
-                        .apply(_strip_numeric_text)
-                        .str.strip()
-                    )
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
-                    has_currency_evidence = has_currency_name or currency_symbol_matches > len(sample) * 0.1
-                    if has_currency_evidence:
-                        column_formats[col] = 'currency'
-                        cleaning_actions.append(f"Converted '{col}' from currency text to numeric")
+                    if decision:
+                        parsed, fmt, action = _parse_interpreted_numeric(original, col, decision)
+                    elif not import_settings or import_settings.decimal_separator == "auto":
+                        parsed, fmt, action = _parse_numeric_text(original, col)
                     else:
-                        cleaning_actions.append(f"Converted '{col}' from numeric text to numeric")
-                except Exception:
-                    pass
+                        parsed, fmt, action = None, None, None
+                    if parsed is not None and not _numeric_values_are_finite(parsed):
+                        parsed, fmt, action = None, None, f"Could not safely parse '{col}' as finite numbers; retained source values"
+                except (ValueError, TypeError, OverflowError):
+                    parsed, fmt, action = None, None, f"Could not safely parse '{col}' as representable numbers; retained source values"
+            if action:
+                cleaning_actions.append(action)
+            if parsed is not None:
+                converted = _expand_parsed_values(original, parsed, float("nan"))
+                if decision and not _interpreted_numbers_are_lossless(original, converted, decision):
+                    semantic_types[col] = "unknown"
+                    cleaning_actions.append(f"Column '{col}' needs interpretation review; numeric precision would be lost")
+                    continue
+                df[col] = converted
+                if fmt:
+                    column_formats[col] = fmt
                 continue
-            
-            # Percentage pattern
-            pct_matches = sample.str.match(r'^\d+\.?\d*%$').sum()
-            if pct_matches > len(sample) * 0.5:
-                try:
-                    df[col] = df[col].astype(str).str.replace('%', '', regex=False)
-                    df[col] = pd.to_numeric(df[col], errors='coerce') / 100
-                    column_formats[col] = 'percentage'
-                    cleaning_actions.append(f"Converted '{col}' from percentage text to decimal")
-                except Exception:
-                    pass
-                continue
-            
-            # Try date parsing
-            try:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    sample_parsed = pd.to_datetime(sample, errors='coerce')
-                if sample_parsed.notna().sum() > len(sample) * 0.7:
-                    sample_threshold = len(sample) * 0.7
-                    full_threshold = len(df) * 0.7
-                    parsed = None
-                    success = False
-                    winning_format = None
+            if (
+                fmt is None
+                and not action
+                and (not decision or decision["role"] == "temporal")
+                and not _is_identifier_name(col)
+                and (not import_settings or import_settings.date_order == "auto")
+            ):
+                parsed_dates, date_action = _parse_date_text(original, col)
+                if date_action:
+                    cleaning_actions.append(date_action)
+                if parsed_dates is not None:
+                    converted = _expand_parsed_values(original, parsed_dates, pd.NaT)
+                    df[col] = pd.to_datetime(converted, errors="raise")
+                    column_formats[col] = "date"
 
-                    # Infer the fastest viable format on the sample first.
-                    for fmt in DATE_FORMAT_CANDIDATES:
-                        try:
-                            sample_fmt_parsed = pd.to_datetime(sample, format=fmt, errors='coerce')
-                            if sample_fmt_parsed.notna().sum() > sample_threshold:
-                                winning_format = fmt
-                                break
-                        except Exception:
-                            continue
-
-                    # Apply winning format to full column for fast vectorized parsing.
-                    if winning_format:
-                        try:
-                            parsed_candidate = pd.to_datetime(df[col], format=winning_format, errors='coerce')
-                            if parsed_candidate.notna().sum() > full_threshold:
-                                parsed = parsed_candidate
-                                success = True
-                        except Exception:
-                            pass
-
-                    # Final fallback for obscure/mixed formats.
-                    if not success:
-                        with warnings.catch_warnings():
-                            warnings.simplefilter("ignore", UserWarning)
-                            parsed_fallback = pd.to_datetime(df[col], errors='coerce')
-                        if parsed_fallback.notna().sum() > full_threshold:
-                            parsed = parsed_fallback
-                            success = True
-
-                    if success and parsed is not None:
-                        df[col] = parsed
-                        column_formats[col] = 'date'
-                        cleaning_actions.append(f"Parsed '{col}' as date")
-            except Exception:
-                pass
     pandas_processing_end = perf_counter()
     print(f"Pandas Vectorization & Date Parsing Time: {pandas_processing_end - pandas_processing_start:.2f}s")
-    
-    # Heuristic-first format detection (authoritative): always recompute for numeric columns.
-    numeric_cols = df.select_dtypes(include=['number']).columns
-    for col in numeric_cols:
-        inferred = detect_column_format(df[col], col)
-        # Preserve strong parsing evidence from earlier conversion.
-        if column_formats.get(col) in {"currency", "percentage"} and inferred == "number":
-            continue
-        column_formats[col] = inferred
-    
-    # 3. Record missing counts BEFORE filling
+
     for col in df.columns:
-        missing_count = df[col].isna().sum()
-        if missing_count > 0:
-            missing_counts[col] = int(missing_count)
-    
-    # 4. Auto-Imputation using smart logic
-    for col in numeric_cols:
-        if col in missing_counts:
-            if _is_coded_numeric_column(df[col], col, semantic_types, column_formats):
-                df[col] = df[col].fillna(-1)
-                cleaning_actions.append(
-                    f"Filled {missing_counts[col]} missing '{col}' values with sentinel (-1) for coded field"
-                )
+        series = df[col]
+        column_policy = schema_by_column[col]
+        if pd.api.types.is_datetime64_any_dtype(series):
+            column_formats[col] = "date"
+        elif column_policy["role"] == "metric" or column_policy["parse_as"] == "number":
+            inferred = detect_column_format(series, col)
+            column_formats[col] = "number" if inferred == "identifier" else inferred
+        elif column_policy["role"] == "identifier":
+            column_formats[col] = "identifier"
+        elif column_policy["role"] == "unknown":
+            column_formats[col] = "general"
+        elif _is_identifier_name(col):
+            column_formats[col] = "identifier"
+        elif col not in column_formats:
+            inferred = detect_column_format(series, col)
+            if inferred != "number" or pd.api.types.is_numeric_dtype(series):
+                column_formats[col] = inferred
+            values = series.dropna().astype(str)
+            if col not in column_formats and len(values) and _map_distinct_text(
+                values, _contains_currency_symbol
+            ).any():
+                column_formats[col] = "currency"
+
+    for col, candidate in llm_semantic_candidates.items():
+        if col in interpretations:
+            metadata = interpretations[col]
+            decision = metadata.get("decision")
+            if metadata["runtime_status"] == "applied":
                 continue
-
-            non_null = df[col].dropna()
-            if len(non_null) == 0:
-                cleaning_actions.append(
-                    f"Left {missing_counts[col]} missing '{col}' values as null (low-confidence imputation)"
-                )
+            if semantic_types.get(col) == "unknown":
                 continue
+            role = decision["role"] if decision else "unknown"
+            if (role == "metric" and not pd.api.types.is_numeric_dtype(df[col])) or (
+                role == "temporal" and not pd.api.types.is_datetime64_any_dtype(df[col])
+            ):
+                semantic_types[col] = "unknown"
+                cleaning_actions.append(f"Column '{col}' needs interpretation review; proposed role was not supported by parsed values")
+            else:
+                semantic_types[col] = role
+                metadata["runtime_status"] = "applied"
+            continue
+        llm_sem = _validated_llm_semantic(df[col], col, candidate)
+        if llm_sem:
+            semantic_types[col] = llm_sem
 
-            numeric_vals = pd.to_numeric(non_null, errors="coerce").dropna()
-            coverage = len(non_null) / max(len(df[col]), 1)
-            integer_like = (numeric_vals.round() == numeric_vals).mean() > 0.95 if len(numeric_vals) else False
-            unique_ratio = numeric_vals.nunique() / max(len(numeric_vals), 1) if len(numeric_vals) else 0.0
-            sem = semantic_types.get(col)
+    for col, metadata in interpretations.items():
+        decision = metadata.get("decision")
+        if metadata["runtime_status"] != "applied":
+            column_formats[col] = "general"
+        elif decision["role"] == "identifier":
+            column_formats[col] = "identifier"
+        elif decision["role"] == "temporal":
+            column_formats[col] = "date"
+        elif decision["role"] == "metric":
+            column_formats[col] = {"USD": "currency", "EUR": "currency", "ratio": "percentage"}.get(decision["unit"], "number")
+        else:
+            column_formats[col] = "general"
 
-            # High-confidence bounded binary/ratio fields.
-            if len(numeric_vals) and numeric_vals.between(0, 1).all():
-                if (numeric_vals == 0).mean() >= 0.8:
-                    df[col] = df[col].fillna(0)
-                    cleaning_actions.append(
-                        f"Filled {missing_counts[col]} missing '{col}' values with 0 for bounded ratio field"
-                    )
-                    continue
-                mode = numeric_vals.mode(dropna=True)
-                if len(mode) > 0:
-                    mode_val = float(mode.iloc[0])
-                    df[col] = df[col].fillna(mode_val)
-                    cleaning_actions.append(
-                        f"Filled {missing_counts[col]} missing '{col}' values with mode ({mode_val}) for bounded ratio field"
-                    )
-                    continue
+    # Explicit formats override name-based and interpretation suggestions.
+    for col, item in schema_by_column.items():
+        if item["format"] is not None:
+            column_formats[col] = item["format"]
 
-            metric_confident = (
-                sem == "metric"
-                or (coverage >= 0.7 and not integer_like and unique_ratio > 0.2)
-            )
-            if metric_confident:
-                skew = abs(float(numeric_vals.skew())) if len(numeric_vals) > 2 and pd.notna(numeric_vals.skew()) else 0.0
-                if skew > 1.0:
-                    median_val = float(numeric_vals.median())
-                    df[col] = df[col].fillna(round(median_val, 4))
-                    cleaning_actions.append(
-                        f"Filled {missing_counts[col]} missing '{col}' values with median (high-confidence metric)"
-                    )
-                else:
-                    mean_val = float(numeric_vals.mean())
-                    df[col] = df[col].fillna(round(mean_val, 4))
-                    cleaning_actions.append(
-                        f"Filled {missing_counts[col]} missing '{col}' values with mean (high-confidence metric)"
-                    )
-                continue
+    # User roles take precedence over interpretation suggestions and name hints.
+    for col, item in schema_by_column.items():
+        if item["role"] is not None:
+            semantic_types[col] = item["role"]
+        if item["format"] is not None:
+            column_formats[col] = item["format"]
 
-            cleaning_actions.append(
-                f"Left {missing_counts[col]} missing '{col}' values as null (low-confidence imputation)"
-            )
-    
+    # Complete one shared schema record per final, normalized column.
+    for item in column_schema:
+        col = item["column"]
+        if item["role"] is None:
+            item["role"] = semantic_types.get(col)
+        if item["format"] is None:
+            item["format"] = column_formats.get(col)
+        if item["provenance"] == "inference" and (
+            item["role"] is not None or item["format"] is not None
+        ):
+            item["status"] = "suggested"
+    df.attrs["column_schema"] = column_schema
+
     return df, cleaning_actions, missing_counts, column_formats, semantic_types

@@ -1,0 +1,397 @@
+{
+  "version": 1,
+  "frozen_before_live_calls": true,
+  "freeze_date": "2026-10-03",
+  "label_policy": "Role labels follow cited source codebooks. Numerical storage alone does not prove business metric semantics. Parenthesized alternatives count as acceptable only where explicitly listed. This evaluation is external to the model prompt.",
+  "source_policy": "Held-out files are pinned to seaborn-data commit 71e2436a092d714350de0fc409ca8a8714e7e78f. That repository describes itself as a convenience sample source and warns that datasets may change or differ from canonical sources; canonical codebooks below define the rubric.",
+  "heldout_source_commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+  "question_count": 20,
+  "datasets": [
+    {
+      "id": "bike",
+      "filename": "bike.csv",
+      "delimiter": ",",
+      "source": "https://archive.ics.uci.edu/dataset/275/bike+sharing+dataset",
+      "rows": 17379,
+      "roles": {
+        "instant": "identifier",
+        "dteday": "temporal",
+        "season": "categorical",
+        "yr": "categorical",
+        "mnth": "temporal",
+        "hr": "temporal",
+        "holiday": "categorical",
+        "weekday": "categorical",
+        "workingday": "categorical",
+        "weathersit": "categorical",
+        "temp": "metric",
+        "atemp": "metric",
+        "hum": "metric",
+        "windspeed": "metric",
+        "casual": "metric",
+        "registered": "metric",
+        "cnt": "metric"
+      },
+      "role_alternatives": {
+        "mnth": [
+          "categorical"
+        ],
+        "hr": [
+          "categorical"
+        ]
+      },
+      "queries": [
+        {
+          "prompt": "Show the sum of cnt by weekday",
+          "kind": "chart",
+          "x": "weekday",
+          "y": "cnt",
+          "aggregation": "sum"
+        },
+        {
+          "prompt": "Show average temp by season",
+          "kind": "chart",
+          "x": "season",
+          "y": "temp",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Predict next month's number of rentals",
+          "kind": "clarification"
+        }
+      ],
+      "source_codebook": "https://archive.ics.uci.edu/dataset/275/bike+sharing+dataset",
+      "sha256": "e03de4ee4ef4dc376ac6e04bf829673c6269e8eba5c60fa121640fa2f829504f",
+      "fixture_file": "bike.csv"
+    },
+    {
+      "id": "bank",
+      "filename": "bank.csv",
+      "delimiter": ";",
+      "source": "https://archive.ics.uci.edu/dataset/222/bank+marketing",
+      "rows": 45211,
+      "roles": {
+        "age": "metric",
+        "job": "categorical",
+        "marital": "categorical",
+        "education": "categorical",
+        "default": "categorical",
+        "balance": "metric",
+        "housing": "categorical",
+        "loan": "categorical",
+        "contact": "categorical",
+        "day": "temporal",
+        "month": "temporal",
+        "duration": "metric",
+        "campaign": "metric",
+        "pdays": "metric",
+        "previous": "metric",
+        "poutcome": "categorical",
+        "y": "categorical"
+      },
+      "role_alternatives": {
+        "day": [
+          "categorical"
+        ],
+        "month": [
+          "categorical"
+        ]
+      },
+      "queries": [
+        {
+          "prompt": "Show average age by job",
+          "kind": "chart",
+          "x": "job",
+          "y": "age",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Show average balance by marital status",
+          "kind": "chart",
+          "x": "marital",
+          "y": "balance",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Show a weighted average age by job",
+          "kind": "clarification"
+        }
+      ],
+      "source_codebook": "https://archive.ics.uci.edu/dataset/222/bank+marketing",
+      "sha256": "d1513ec63b385506f7cfce9f2c5caa9fe99e7ba4e8c3fa264b3aaf0f849ed32d",
+      "fixture_file": "bank.csv"
+    },
+    {
+      "id": "retail",
+      "filename": "retail.csv",
+      "delimiter": ",",
+      "source": "https://archive.ics.uci.edu/dataset/352/online+retail",
+      "rows": 541909,
+      "roles": {
+        "InvoiceNo": "identifier",
+        "StockCode": "identifier",
+        "Description": "categorical",
+        "Quantity": "metric",
+        "InvoiceDate": "temporal",
+        "UnitPrice": "metric",
+        "CustomerID": "identifier",
+        "Country": "categorical"
+      },
+      "role_alternatives": {},
+      "queries": [
+        {
+          "prompt": "Show total quantity by country",
+          "kind": "chart",
+          "x": "country",
+          "y": "quantity",
+          "aggregation": "sum"
+        },
+        {
+          "prompt": "Show average unit_price by country",
+          "kind": "chart",
+          "x": "country",
+          "y": "unit_price",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Show net revenue by country",
+          "kind": "clarification"
+        }
+      ],
+      "source_codebook": "https://archive.ics.uci.edu/dataset/352/online+retail",
+      "sha256": "50e9f56b0ee4bd0662a397c68295f48945972135f57322cd5208f4f809eb67ac",
+      "fixture_file": "retail.csv"
+    },
+    {
+      "id": "taxi",
+      "filename": "2021_Green_Taxi_Trip_Data_20260221.csv",
+      "delimiter": ",",
+      "source": "https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page",
+      "rows": 1068755,
+      "roles": {
+        "VendorID": "identifier",
+        "lpep_pickup_datetime": "temporal",
+        "lpep_dropoff_datetime": "temporal",
+        "store_and_fwd_flag": "categorical",
+        "RatecodeID": "categorical",
+        "PULocationID": "identifier",
+        "DOLocationID": "identifier",
+        "passenger_count": "metric",
+        "trip_distance": "metric",
+        "fare_amount": "metric",
+        "extra": "metric",
+        "mta_tax": "metric",
+        "tip_amount": "metric",
+        "tolls_amount": "metric",
+        "ehail_fee": "metric",
+        "improvement_surcharge": "metric",
+        "total_amount": "metric",
+        "payment_type": "categorical",
+        "trip_type": "categorical",
+        "congestion_surcharge": "metric"
+      },
+      "role_alternatives": {
+        "VendorID": [
+          "categorical"
+        ],
+        "RatecodeID": [
+          "identifier"
+        ],
+        "payment_type": [
+          "identifier"
+        ],
+        "trip_type": [
+          "identifier"
+        ]
+      },
+      "queries": [
+        {
+          "prompt": "Show average trip distance by payment type",
+          "kind": "chart",
+          "x": "payment_type",
+          "y": "trip_distance",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Show total fare_amount by payment_type",
+          "kind": "chart",
+          "x": "payment_type",
+          "y": "fare_amount",
+          "aggregation": "sum"
+        },
+        {
+          "prompt": "Show revenue by payment type",
+          "kind": "clarification"
+        }
+      ],
+      "source_codebook": "https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page",
+      "sha256": "b217661724e4d6270063d1eb460dca49aef1187383d6ce30025405d7bb4945c1",
+      "local_path": "backend/datasets/2021_Green_Taxi_Trip_Data_20260221.csv"
+    },
+    {
+      "id": "wine",
+      "filename": "wine.csv",
+      "delimiter": ";",
+      "source": "https://archive.ics.uci.edu/dataset/186/wine+quality",
+      "rows": 4898,
+      "roles": {
+        "fixed acidity": "metric",
+        "volatile acidity": "metric",
+        "citric acid": "metric",
+        "residual sugar": "metric",
+        "chlorides": "metric",
+        "free sulfur dioxide": "metric",
+        "total sulfur dioxide": "metric",
+        "density": "metric",
+        "pH": "metric",
+        "sulphates": "metric",
+        "alcohol": "metric",
+        "quality": "categorical"
+      },
+      "role_alternatives": {},
+      "queries": [
+        {
+          "prompt": "Show average alcohol by quality",
+          "kind": "chart",
+          "x": "quality",
+          "y": "alcohol",
+          "aggregation": "mean"
+        }
+      ],
+      "source_codebook": "https://archive.ics.uci.edu/dataset/186/wine+quality",
+      "sha256": "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836",
+      "fixture_file": "wine.csv"
+    },
+    {
+      "id": "diamonds",
+      "filename": "diamonds.csv",
+      "delimiter": ",",
+      "source": "https://github.com/mwaskom/seaborn-data/blob/71e2436a092d714350de0fc409ca8a8714e7e78f/diamonds.csv",
+      "codebook": "https://ggplot2.tidyverse.org/reference/diamonds.html",
+      "rows": 53940,
+      "roles": {
+        "carat": "metric",
+        "cut": "categorical",
+        "color": "categorical",
+        "clarity": "categorical",
+        "depth": "metric",
+        "table": "metric",
+        "price": "metric",
+        "x": "metric",
+        "y": "metric",
+        "z": "metric"
+      },
+      "role_alternatives": {
+        "cut": [
+          "ordinal"
+        ],
+        "color": [
+          "ordinal"
+        ],
+        "clarity": [
+          "ordinal"
+        ]
+      },
+      "queries": [
+        {
+          "prompt": "Show the average price by cut",
+          "kind": "chart",
+          "x": "cut",
+          "y": "price",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Show the total carat by clarity",
+          "kind": "chart",
+          "x": "clarity",
+          "y": "carat",
+          "aggregation": "sum"
+        }
+      ],
+      "sha256": "9574730b03aba241d899c4a97511c5061b19358fab89510774fb6c24168345c4",
+      "fixture_file": "diamonds.csv"
+    },
+    {
+      "id": "penguins",
+      "filename": "penguins.csv",
+      "delimiter": ",",
+      "source": "https://github.com/mwaskom/seaborn-data/blob/71e2436a092d714350de0fc409ca8a8714e7e78f/penguins.csv",
+      "codebook": "https://allisonhorst.github.io/palmerpenguins/reference/penguins.html",
+      "rows": 344,
+      "roles": {
+        "species": "categorical",
+        "island": "categorical",
+        "bill_length_mm": "metric",
+        "bill_depth_mm": "metric",
+        "flipper_length_mm": "metric",
+        "body_mass_g": "metric",
+        "sex": "categorical"
+      },
+      "role_alternatives": {},
+      "queries": [
+        {
+          "prompt": "Show the average body mass in grams by penguin species",
+          "kind": "chart",
+          "x": "species",
+          "y": "body_mass_g",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Count penguin species entries by island",
+          "kind": "chart",
+          "x": "island",
+          "y": "species",
+          "aggregation": "count"
+        }
+      ],
+      "sha256": "e07636bd8af74260099ea2f8678e2eabbf35def579940cc76f67061ee16c06c1",
+      "fixture_file": "penguins.csv"
+    },
+    {
+      "id": "tips",
+      "filename": "tips.csv",
+      "delimiter": ",",
+      "source": "https://github.com/mwaskom/seaborn-data/blob/71e2436a092d714350de0fc409ca8a8714e7e78f/tips.csv",
+      "codebook": "https://search.r-project.org/CRAN/refmans/reshape2/html/tips.html",
+      "rows": 244,
+      "roles": {
+        "total_bill": "metric",
+        "tip": "metric",
+        "sex": "categorical",
+        "smoker": "categorical",
+        "day": "categorical",
+        "time": "categorical",
+        "size": "metric"
+      },
+      "role_alternatives": {
+        "size": [
+          "categorical"
+        ]
+      },
+      "queries": [
+        {
+          "prompt": "Show the average tip in dollars by day",
+          "kind": "chart",
+          "x": "day",
+          "y": "tip",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Show the total bill in dollars by meal time",
+          "kind": "chart",
+          "x": "time",
+          "y": "total_bill",
+          "aggregation": "sum"
+        },
+        {
+          "prompt": "Which day has the best tips?",
+          "kind": "clarification"
+        }
+      ],
+      "sha256": "e54cc4d2ce1bff65d32ca60b3e4b802e06bde1d7e7caf6f796f6bf7370e863b0",
+      "fixture_file": "tips.csv"
+    }
+  ],
+  "fixture_root_default": "/private/tmp/analytico-real-fixtures",
+  "source_hash_policy": "SHA256 values pin the exact bytes used by this frozen benchmark. The held-out seaborn sample files are pinned to the recorded seaborn-data commit; codebooks define role meaning."
+}

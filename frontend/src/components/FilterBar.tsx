@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Filter, X, ChevronDown, Check, Settings, XCircle } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { FilterConfig } from '@/types';
 import { Button } from '@/components/ui/button';
+import { getColumnDisplayName, getColumnSourceName } from '@/lib/columnLabels';
 
 interface FilterBarProps {
   /** Externally controlled column to expand */
@@ -28,6 +29,11 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
   
   const containerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
+
+  const handleExpandChange = useCallback((column: string | null) => {
+    setExpandedColumn(column);
+    onExpandChange?.(column);
+  }, [onExpandChange]);
 
   // Initialize pending filters from applied filters
   useEffect(() => {
@@ -74,7 +80,7 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [expandedColumn]);
+  }, [expandedColumn, handleExpandChange]);
 
   // Click outside to close settings popover
   useEffect(() => {
@@ -85,20 +91,16 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
     };
 
     if (showSettings) {
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         document.addEventListener('mousedown', handleClickOutside);
       }, 100);
       
       return () => {
+        clearTimeout(timeoutId);
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
   }, [showSettings]);
-
-  const handleExpandChange = (column: string | null) => {
-    setExpandedColumn(column);
-    onExpandChange?.(column);
-  };
 
   // Local filter mutation helpers
   const addPendingFilter = (filter: FilterConfig) => {
@@ -141,16 +143,9 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
     clearFilters();
   };
 
-  if (!dataset || categoricalColumns.length === 0) {
-    return null;
-  }
+  if (!dataset) return null;
 
   const activeFilterCount = filters.length;
-
-  // Format column name for display (convert snake_case to Title Case)
-  const formatColumnName = (name: string) => {
-    return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  };
 
   return (
     <motion.div
@@ -222,11 +217,12 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
                     {/* Show All Toggle */}
                     <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/30 p-3">
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium">Show All Data</span>
-                        <span className="text-xs text-muted-foreground">Disable Top N limit</span>
+                        <span className="text-sm font-medium">Show all groups</span>
+                        <span className="text-xs text-muted-foreground">Results are still capped at 500 groups</span>
                       </div>
                       <button 
                         onClick={() => setShowAll(!showAll)}
+                        aria-pressed={showAll}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showAll ? 'bg-primary' : 'bg-muted'}`}
                       >
                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showAll ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -256,7 +252,7 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
                     <div className={`flex items-center justify-between rounded-lg border border-border/50 bg-card/30 p-3 ${showAll ? 'opacity-50 pointer-events-none' : ''}`}>
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">Group Small Values</span>
-                        <span className="text-xs text-muted-foreground">Combine items outside Top N into "Others"</span>
+                        <span className="text-xs text-muted-foreground">Combine items outside Top N into &quot;Others&quot;</span>
                       </div>
                       <button 
                         onClick={() => setLocalGroupOthers(!localGroupOthers)}
@@ -314,7 +310,7 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
 
       {/* Filter Chips */}
       <div className="flex flex-wrap gap-2">
-        {categoricalColumns.slice(0, 6).map(column => {
+          {categoricalColumns.map(column => {
           const pendingFilter = pendingFilters.find(f => f.column === column.name);
           const appliedFilter = filters.find(f => f.column === column.name);
           const isExpanded = expandedColumn === column.name;
@@ -323,6 +319,7 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
             <div key={column.name} className="relative">
               <button
                 onClick={() => handleExpandChange(isExpanded ? null : column.name)}
+                title={getColumnSourceName(column)}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-all ${
                   appliedFilter
                     ? 'bg-primary text-primary-foreground'
@@ -331,7 +328,7 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
                     : 'bg-white/5 text-muted-foreground hover:bg-white/10'
                 }`}
               >
-                {formatColumnName(column.name)}
+                {getColumnDisplayName(column)}
                 {pendingFilter && (
                   <span className="text-xs opacity-75">
                     ({(pendingFilter.values?.length ?? 0)})
@@ -397,6 +394,9 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
           );
         })}
       </div>
+      {categoricalColumns.length === 0 && (
+        <p className="mt-2 text-xs text-muted-foreground">No categorical columns are available for quick filters. Settings remain available.</p>
+      )}
 
       {/* Active Filter Tags */}
       {pendingFilters.length > 0 && (
@@ -406,7 +406,9 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
               key={filter.column}
               className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs text-primary"
             >
-              {formatColumnName(filter.column)}: {(filter.values as string[])?.slice(0, 2).join(', ')}
+              <span title={getColumnSourceName(dataset.columns.find(column => column.name === filter.column) ?? { name: filter.column })}>
+                {getColumnDisplayName(dataset.columns.find(column => column.name === filter.column) ?? { name: filter.column })}
+              </span>: {(filter.values as string[])?.slice(0, 2).join(', ')}
               {((filter.values as string[])?.length ?? 0) > 2 && ` +${((filter.values as string[])?.length ?? 0) - 2}`}
               <button
                 onClick={() => {

@@ -1,0 +1,6166 @@
+{
+  "input_sha256": "2a594191917cec43db8ac0395752e579a82d293375e0fbeebbed97d190c92904",
+  "manifest_sha256": "7facc20f3b400632919e0941125b6af7d36af32d3aa5811a25ff9818b36bd29a",
+  "original_scope": "Recorded immediate pre-policy baseline, four identical complete sources; wine not measured.",
+  "physical_score_scope": "Agreement with current source-preserving physical schema; alternative valid representations can disagree.",
+  "arms": {
+    "original_recorded": [
+      {
+        "trial": 1,
+        "paired": {
+          "correct": 53,
+          "total": 62,
+          "unknown": 0,
+          "wrong_count": 9,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "description",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "identifier"
+            },
+            {
+              "dataset": "taxi",
+              "column": "passenger_count",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "mta_tax",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ehail_fee",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "improvement_surcharge",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "congestion_surcharge",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.8548387096774194,
+          "coverage_fraction": 1.0,
+          "assigned_precision": 0.8548387096774194
+        },
+        "all_available": {
+          "correct": 53,
+          "total": 62,
+          "unknown": 0,
+          "wrong_count": 9,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "description",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "identifier"
+            },
+            {
+              "dataset": "taxi",
+              "column": "passenger_count",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "mta_tax",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ehail_fee",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "improvement_surcharge",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "congestion_surcharge",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.8548387096774194,
+          "coverage_fraction": 1.0,
+          "assigned_precision": 0.8548387096774194
+        },
+        "datasets": {
+          "bike": {
+            "correct": 15,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "instant",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "hr",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.8823529411764706,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.8823529411764706
+          },
+          "bank": {
+            "correct": 16,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "bank",
+                "column": "day",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.9411764705882353,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.9411764705882353
+          },
+          "retail": {
+            "correct": 7,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "retail",
+                "column": "description",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "identifier"
+              }
+            ],
+            "exact_match_fraction": 0.875,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.875
+          },
+          "taxi": {
+            "correct": 15,
+            "total": 20,
+            "unknown": 0,
+            "wrong_count": 5,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "passenger_count",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "taxi",
+                "column": "mta_tax",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "taxi",
+                "column": "ehail_fee",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "taxi",
+                "column": "improvement_surcharge",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "taxi",
+                "column": "congestion_surcharge",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.75,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.75
+          }
+        }
+      }
+    ],
+    "current_local": [
+      {
+        "trial": 1,
+        "paired": {
+          "correct": 48,
+          "total": 62,
+          "unknown": 14,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7741935483870968,
+          "coverage_fraction": 0.7741935483870968,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 59,
+          "total": 74,
+          "unknown": 15,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7972972972972973,
+          "coverage_fraction": 0.7972972972972973,
+          "assigned_precision": 1.0
+        },
+        "datasets": {
+          "bike": {
+            "correct": 7,
+            "total": 17,
+            "unknown": 10,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.4117647058823529,
+            "coverage_fraction": 0.4117647058823529,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 14,
+            "total": 17,
+            "unknown": 3,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.8235294117647058,
+            "coverage_fraction": 0.8235294117647058,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 19,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.95,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 11,
+            "total": 12,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.9166666666666666,
+            "coverage_fraction": 0.9166666666666666,
+            "assigned_precision": 1.0
+          }
+        }
+      }
+    ],
+    "visions_semantic": [
+      {
+        "trial": 1,
+        "paired": {
+          "correct": 10,
+          "total": 62,
+          "unknown": 52,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.16129032258064516,
+          "coverage_fraction": 0.16129032258064516,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 10,
+          "total": 74,
+          "unknown": 64,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.13513513513513514,
+          "coverage_fraction": 0.13513513513513514,
+          "assigned_precision": 1.0
+        },
+        "datasets": {
+          "bike": {
+            "correct": 1,
+            "total": 17,
+            "unknown": 16,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.058823529411764705,
+            "coverage_fraction": 0.058823529411764705,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 5,
+            "total": 17,
+            "unknown": 12,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.29411764705882354,
+            "coverage_fraction": 0.29411764705882354,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 1,
+            "total": 8,
+            "unknown": 7,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.125,
+            "coverage_fraction": 0.125,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 3,
+            "total": 20,
+            "unknown": 17,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.15,
+            "coverage_fraction": 0.15,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 0,
+            "total": 12,
+            "unknown": 12,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.0,
+            "assigned_precision": null
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "paired": {
+          "correct": 10,
+          "total": 62,
+          "unknown": 52,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.16129032258064516,
+          "coverage_fraction": 0.16129032258064516,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 10,
+          "total": 74,
+          "unknown": 64,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.13513513513513514,
+          "coverage_fraction": 0.13513513513513514,
+          "assigned_precision": 1.0
+        },
+        "datasets": {
+          "bike": {
+            "correct": 1,
+            "total": 17,
+            "unknown": 16,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.058823529411764705,
+            "coverage_fraction": 0.058823529411764705,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 5,
+            "total": 17,
+            "unknown": 12,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.29411764705882354,
+            "coverage_fraction": 0.29411764705882354,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 1,
+            "total": 8,
+            "unknown": 7,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.125,
+            "coverage_fraction": 0.125,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 3,
+            "total": 20,
+            "unknown": 17,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.15,
+            "coverage_fraction": 0.15,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 0,
+            "total": 12,
+            "unknown": 12,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.0,
+            "assigned_precision": null
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "paired": {
+          "correct": 10,
+          "total": 62,
+          "unknown": 52,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.16129032258064516,
+          "coverage_fraction": 0.16129032258064516,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 10,
+          "total": 74,
+          "unknown": 64,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.13513513513513514,
+          "coverage_fraction": 0.13513513513513514,
+          "assigned_precision": 1.0
+        },
+        "datasets": {
+          "bike": {
+            "correct": 1,
+            "total": 17,
+            "unknown": 16,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.058823529411764705,
+            "coverage_fraction": 0.058823529411764705,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 5,
+            "total": 17,
+            "unknown": 12,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.29411764705882354,
+            "coverage_fraction": 0.29411764705882354,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 1,
+            "total": 8,
+            "unknown": 7,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.125,
+            "coverage_fraction": 0.125,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 3,
+            "total": 20,
+            "unknown": 17,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.15,
+            "coverage_fraction": 0.15,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 0,
+            "total": 12,
+            "unknown": 12,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.0,
+            "assigned_precision": null
+          }
+        }
+      }
+    ],
+    "visions_numeric_proxy": [
+      {
+        "trial": 1,
+        "paired": {
+          "correct": 34,
+          "total": 62,
+          "unknown": 11,
+          "wrong_count": 17,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "season",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "mnth",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "holiday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "workingday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weathersit",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "customer_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "vendor_id",
+              "expected": [
+                "identifier",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ratecode_id",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "payment_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "trip_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            }
+          ],
+          "exact_match_fraction": 0.5483870967741935,
+          "coverage_fraction": 0.8225806451612904,
+          "assigned_precision": 0.6666666666666666
+        },
+        "all_available": {
+          "correct": 45,
+          "total": 74,
+          "unknown": 11,
+          "wrong_count": 18,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "season",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "mnth",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "holiday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "workingday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weathersit",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "customer_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "vendor_id",
+              "expected": [
+                "identifier",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ratecode_id",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "payment_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "trip_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "wine",
+              "column": "quality",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            }
+          ],
+          "exact_match_fraction": 0.6081081081081081,
+          "coverage_fraction": 0.8513513513513513,
+          "assigned_precision": 0.7142857142857143
+        },
+        "datasets": {
+          "bike": {
+            "correct": 8,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 9,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "instant",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "season",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "yr",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "mnth",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "hr",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "holiday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "weekday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "workingday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "weathersit",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.47058823529411764,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.47058823529411764
+          },
+          "bank": {
+            "correct": 11,
+            "total": 17,
+            "unknown": 5,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "bank",
+                "column": "day",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.6470588235294118,
+            "coverage_fraction": 0.7058823529411765,
+            "assigned_precision": 0.9166666666666666
+          },
+          "retail": {
+            "correct": 3,
+            "total": 8,
+            "unknown": 4,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "retail",
+                "column": "customer_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.375,
+            "coverage_fraction": 0.5,
+            "assigned_precision": 0.75
+          },
+          "taxi": {
+            "correct": 12,
+            "total": 20,
+            "unknown": 2,
+            "wrong_count": 6,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "vendor_id",
+                "expected": [
+                  "identifier",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "ratecode_id",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "pulocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "dolocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "payment_type",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "trip_type",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.6,
+            "coverage_fraction": 0.9,
+            "assigned_precision": 0.6666666666666666
+          },
+          "wine": {
+            "correct": 11,
+            "total": 12,
+            "unknown": 0,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "wine",
+                "column": "quality",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.9166666666666666,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.9166666666666666
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "paired": {
+          "correct": 34,
+          "total": 62,
+          "unknown": 11,
+          "wrong_count": 17,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "season",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "mnth",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "holiday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "workingday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weathersit",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "customer_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "vendor_id",
+              "expected": [
+                "identifier",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ratecode_id",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "payment_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "trip_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            }
+          ],
+          "exact_match_fraction": 0.5483870967741935,
+          "coverage_fraction": 0.8225806451612904,
+          "assigned_precision": 0.6666666666666666
+        },
+        "all_available": {
+          "correct": 45,
+          "total": 74,
+          "unknown": 11,
+          "wrong_count": 18,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "season",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "mnth",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "holiday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "workingday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weathersit",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "customer_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "vendor_id",
+              "expected": [
+                "identifier",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ratecode_id",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "payment_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "trip_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "wine",
+              "column": "quality",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            }
+          ],
+          "exact_match_fraction": 0.6081081081081081,
+          "coverage_fraction": 0.8513513513513513,
+          "assigned_precision": 0.7142857142857143
+        },
+        "datasets": {
+          "bike": {
+            "correct": 8,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 9,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "instant",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "season",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "yr",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "mnth",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "hr",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "holiday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "weekday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "workingday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "weathersit",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.47058823529411764,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.47058823529411764
+          },
+          "bank": {
+            "correct": 11,
+            "total": 17,
+            "unknown": 5,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "bank",
+                "column": "day",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.6470588235294118,
+            "coverage_fraction": 0.7058823529411765,
+            "assigned_precision": 0.9166666666666666
+          },
+          "retail": {
+            "correct": 3,
+            "total": 8,
+            "unknown": 4,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "retail",
+                "column": "customer_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.375,
+            "coverage_fraction": 0.5,
+            "assigned_precision": 0.75
+          },
+          "taxi": {
+            "correct": 12,
+            "total": 20,
+            "unknown": 2,
+            "wrong_count": 6,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "vendor_id",
+                "expected": [
+                  "identifier",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "ratecode_id",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "pulocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "dolocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "payment_type",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "trip_type",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.6,
+            "coverage_fraction": 0.9,
+            "assigned_precision": 0.6666666666666666
+          },
+          "wine": {
+            "correct": 11,
+            "total": 12,
+            "unknown": 0,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "wine",
+                "column": "quality",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.9166666666666666,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.9166666666666666
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "paired": {
+          "correct": 34,
+          "total": 62,
+          "unknown": 11,
+          "wrong_count": 17,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "season",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "mnth",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "holiday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "workingday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weathersit",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "customer_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "vendor_id",
+              "expected": [
+                "identifier",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ratecode_id",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "payment_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "trip_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            }
+          ],
+          "exact_match_fraction": 0.5483870967741935,
+          "coverage_fraction": 0.8225806451612904,
+          "assigned_precision": 0.6666666666666666
+        },
+        "all_available": {
+          "correct": 45,
+          "total": 74,
+          "unknown": 11,
+          "wrong_count": 18,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "season",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "mnth",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "holiday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "workingday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weathersit",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "customer_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "vendor_id",
+              "expected": [
+                "identifier",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ratecode_id",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "payment_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "trip_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "wine",
+              "column": "quality",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            }
+          ],
+          "exact_match_fraction": 0.6081081081081081,
+          "coverage_fraction": 0.8513513513513513,
+          "assigned_precision": 0.7142857142857143
+        },
+        "datasets": {
+          "bike": {
+            "correct": 8,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 9,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "instant",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "season",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "yr",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "mnth",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "hr",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "holiday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "weekday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "workingday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "weathersit",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.47058823529411764,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.47058823529411764
+          },
+          "bank": {
+            "correct": 11,
+            "total": 17,
+            "unknown": 5,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "bank",
+                "column": "day",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.6470588235294118,
+            "coverage_fraction": 0.7058823529411765,
+            "assigned_precision": 0.9166666666666666
+          },
+          "retail": {
+            "correct": 3,
+            "total": 8,
+            "unknown": 4,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "retail",
+                "column": "customer_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.375,
+            "coverage_fraction": 0.5,
+            "assigned_precision": 0.75
+          },
+          "taxi": {
+            "correct": 12,
+            "total": 20,
+            "unknown": 2,
+            "wrong_count": 6,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "vendor_id",
+                "expected": [
+                  "identifier",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "ratecode_id",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "pulocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "dolocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "payment_type",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "trip_type",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.6,
+            "coverage_fraction": 0.9,
+            "assigned_precision": 0.6666666666666666
+          },
+          "wine": {
+            "correct": 11,
+            "total": 12,
+            "unknown": 0,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "wine",
+                "column": "quality",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.9166666666666666,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.9166666666666666
+          }
+        }
+      }
+    ],
+    "dataprofiler_semantic": [
+      {
+        "trial": 1,
+        "paired": {
+          "correct": 4,
+          "total": 62,
+          "unknown": 58,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.06451612903225806,
+          "coverage_fraction": 0.06451612903225806,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 4,
+          "total": 74,
+          "unknown": 68,
+          "wrong_count": 2,
+          "wrong": [
+            {
+              "dataset": "wine",
+              "column": "fixed_acidity",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "residual_sugar",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.05405405405405406,
+          "coverage_fraction": 0.08108108108108109,
+          "assigned_precision": 0.6666666666666666
+        },
+        "datasets": {
+          "bike": {
+            "correct": 1,
+            "total": 17,
+            "unknown": 16,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.058823529411764705,
+            "coverage_fraction": 0.058823529411764705,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 0,
+            "total": 17,
+            "unknown": 17,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.0,
+            "assigned_precision": null
+          },
+          "retail": {
+            "correct": 1,
+            "total": 8,
+            "unknown": 7,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.125,
+            "coverage_fraction": 0.125,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 2,
+            "total": 20,
+            "unknown": 18,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.1,
+            "coverage_fraction": 0.1,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 0,
+            "total": 12,
+            "unknown": 10,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "wine",
+                "column": "fixed_acidity",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "wine",
+                "column": "residual_sugar",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.16666666666666666,
+            "assigned_precision": 0.0
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "paired": {
+          "correct": 4,
+          "total": 62,
+          "unknown": 58,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.06451612903225806,
+          "coverage_fraction": 0.06451612903225806,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 4,
+          "total": 74,
+          "unknown": 68,
+          "wrong_count": 2,
+          "wrong": [
+            {
+              "dataset": "wine",
+              "column": "fixed_acidity",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "residual_sugar",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.05405405405405406,
+          "coverage_fraction": 0.08108108108108109,
+          "assigned_precision": 0.6666666666666666
+        },
+        "datasets": {
+          "bike": {
+            "correct": 1,
+            "total": 17,
+            "unknown": 16,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.058823529411764705,
+            "coverage_fraction": 0.058823529411764705,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 0,
+            "total": 17,
+            "unknown": 17,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.0,
+            "assigned_precision": null
+          },
+          "retail": {
+            "correct": 1,
+            "total": 8,
+            "unknown": 7,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.125,
+            "coverage_fraction": 0.125,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 2,
+            "total": 20,
+            "unknown": 18,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.1,
+            "coverage_fraction": 0.1,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 0,
+            "total": 12,
+            "unknown": 10,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "wine",
+                "column": "fixed_acidity",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "wine",
+                "column": "residual_sugar",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.16666666666666666,
+            "assigned_precision": 0.0
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "paired": {
+          "correct": 4,
+          "total": 62,
+          "unknown": 58,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.06451612903225806,
+          "coverage_fraction": 0.06451612903225806,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 4,
+          "total": 74,
+          "unknown": 68,
+          "wrong_count": 2,
+          "wrong": [
+            {
+              "dataset": "wine",
+              "column": "fixed_acidity",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "residual_sugar",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.05405405405405406,
+          "coverage_fraction": 0.08108108108108109,
+          "assigned_precision": 0.6666666666666666
+        },
+        "datasets": {
+          "bike": {
+            "correct": 1,
+            "total": 17,
+            "unknown": 16,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.058823529411764705,
+            "coverage_fraction": 0.058823529411764705,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 0,
+            "total": 17,
+            "unknown": 17,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.0,
+            "assigned_precision": null
+          },
+          "retail": {
+            "correct": 1,
+            "total": 8,
+            "unknown": 7,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.125,
+            "coverage_fraction": 0.125,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 2,
+            "total": 20,
+            "unknown": 18,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.1,
+            "coverage_fraction": 0.1,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 0,
+            "total": 12,
+            "unknown": 10,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "wine",
+                "column": "fixed_acidity",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "wine",
+                "column": "residual_sugar",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.16666666666666666,
+            "assigned_precision": 0.0
+          }
+        }
+      }
+    ],
+    "dataprofiler_numeric_proxy": [
+      {
+        "trial": 1,
+        "paired": {
+          "correct": 29,
+          "total": 62,
+          "unknown": 14,
+          "wrong_count": 19,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "season",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "mnth",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "holiday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "workingday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weathersit",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "invoice_no",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "stock_code",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "customer_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "vendor_id",
+              "expected": [
+                "identifier",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ratecode_id",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "payment_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "trip_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            }
+          ],
+          "exact_match_fraction": 0.46774193548387094,
+          "coverage_fraction": 0.7741935483870968,
+          "assigned_precision": 0.6041666666666666
+        },
+        "all_available": {
+          "correct": 38,
+          "total": 74,
+          "unknown": 14,
+          "wrong_count": 22,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "season",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "mnth",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "holiday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "workingday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weathersit",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "invoice_no",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "stock_code",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "customer_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "vendor_id",
+              "expected": [
+                "identifier",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ratecode_id",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "payment_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "trip_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "wine",
+              "column": "fixed_acidity",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "residual_sugar",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "quality",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            }
+          ],
+          "exact_match_fraction": 0.5135135135135135,
+          "coverage_fraction": 0.8108108108108109,
+          "assigned_precision": 0.6333333333333333
+        },
+        "datasets": {
+          "bike": {
+            "correct": 8,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 9,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "instant",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "season",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "yr",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "mnth",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "hr",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "holiday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "weekday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "workingday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "weathersit",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.47058823529411764,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.47058823529411764
+          },
+          "bank": {
+            "correct": 6,
+            "total": 17,
+            "unknown": 10,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "bank",
+                "column": "day",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.35294117647058826,
+            "coverage_fraction": 0.4117647058823529,
+            "assigned_precision": 0.8571428571428571
+          },
+          "retail": {
+            "correct": 3,
+            "total": 8,
+            "unknown": 2,
+            "wrong_count": 3,
+            "wrong": [
+              {
+                "dataset": "retail",
+                "column": "invoice_no",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "retail",
+                "column": "stock_code",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "retail",
+                "column": "customer_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.375,
+            "coverage_fraction": 0.75,
+            "assigned_precision": 0.5
+          },
+          "taxi": {
+            "correct": 12,
+            "total": 20,
+            "unknown": 2,
+            "wrong_count": 6,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "vendor_id",
+                "expected": [
+                  "identifier",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "ratecode_id",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "pulocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "dolocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "payment_type",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "trip_type",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.6,
+            "coverage_fraction": 0.9,
+            "assigned_precision": 0.6666666666666666
+          },
+          "wine": {
+            "correct": 9,
+            "total": 12,
+            "unknown": 0,
+            "wrong_count": 3,
+            "wrong": [
+              {
+                "dataset": "wine",
+                "column": "fixed_acidity",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "wine",
+                "column": "residual_sugar",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "wine",
+                "column": "quality",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.75,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.75
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "paired": {
+          "correct": 29,
+          "total": 62,
+          "unknown": 14,
+          "wrong_count": 19,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "season",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "mnth",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "holiday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "workingday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weathersit",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "invoice_no",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "stock_code",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "customer_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "vendor_id",
+              "expected": [
+                "identifier",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ratecode_id",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "payment_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "trip_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            }
+          ],
+          "exact_match_fraction": 0.46774193548387094,
+          "coverage_fraction": 0.7741935483870968,
+          "assigned_precision": 0.6041666666666666
+        },
+        "all_available": {
+          "correct": 38,
+          "total": 74,
+          "unknown": 14,
+          "wrong_count": 22,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "season",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "mnth",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "holiday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "workingday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weathersit",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "invoice_no",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "stock_code",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "customer_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "vendor_id",
+              "expected": [
+                "identifier",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ratecode_id",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "payment_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "trip_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "wine",
+              "column": "fixed_acidity",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "residual_sugar",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "quality",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            }
+          ],
+          "exact_match_fraction": 0.5135135135135135,
+          "coverage_fraction": 0.8108108108108109,
+          "assigned_precision": 0.6333333333333333
+        },
+        "datasets": {
+          "bike": {
+            "correct": 8,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 9,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "instant",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "season",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "yr",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "mnth",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "hr",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "holiday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "weekday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "workingday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "weathersit",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.47058823529411764,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.47058823529411764
+          },
+          "bank": {
+            "correct": 6,
+            "total": 17,
+            "unknown": 10,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "bank",
+                "column": "day",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.35294117647058826,
+            "coverage_fraction": 0.4117647058823529,
+            "assigned_precision": 0.8571428571428571
+          },
+          "retail": {
+            "correct": 3,
+            "total": 8,
+            "unknown": 2,
+            "wrong_count": 3,
+            "wrong": [
+              {
+                "dataset": "retail",
+                "column": "invoice_no",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "retail",
+                "column": "stock_code",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "retail",
+                "column": "customer_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.375,
+            "coverage_fraction": 0.75,
+            "assigned_precision": 0.5
+          },
+          "taxi": {
+            "correct": 12,
+            "total": 20,
+            "unknown": 2,
+            "wrong_count": 6,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "vendor_id",
+                "expected": [
+                  "identifier",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "ratecode_id",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "pulocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "dolocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "payment_type",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "trip_type",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.6,
+            "coverage_fraction": 0.9,
+            "assigned_precision": 0.6666666666666666
+          },
+          "wine": {
+            "correct": 9,
+            "total": 12,
+            "unknown": 0,
+            "wrong_count": 3,
+            "wrong": [
+              {
+                "dataset": "wine",
+                "column": "fixed_acidity",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "wine",
+                "column": "residual_sugar",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "wine",
+                "column": "quality",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.75,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.75
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "paired": {
+          "correct": 28,
+          "total": 62,
+          "unknown": 15,
+          "wrong_count": 19,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "season",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "mnth",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "holiday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "workingday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weathersit",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "invoice_no",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "stock_code",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "customer_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "vendor_id",
+              "expected": [
+                "identifier",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ratecode_id",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "payment_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "trip_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            }
+          ],
+          "exact_match_fraction": 0.45161290322580644,
+          "coverage_fraction": 0.7580645161290323,
+          "assigned_precision": 0.5957446808510638
+        },
+        "all_available": {
+          "correct": 37,
+          "total": 74,
+          "unknown": 15,
+          "wrong_count": 22,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "instant",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "season",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "mnth",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "hr",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "holiday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "workingday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bike",
+              "column": "weathersit",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "bank",
+              "column": "day",
+              "expected": [
+                "temporal",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "invoice_no",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "stock_code",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "retail",
+              "column": "customer_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "vendor_id",
+              "expected": [
+                "identifier",
+                "categorical"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "ratecode_id",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "payment_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "taxi",
+              "column": "trip_type",
+              "expected": [
+                "categorical",
+                "identifier"
+              ],
+              "actual": "metric"
+            },
+            {
+              "dataset": "wine",
+              "column": "fixed_acidity",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "residual_sugar",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "quality",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "metric"
+            }
+          ],
+          "exact_match_fraction": 0.5,
+          "coverage_fraction": 0.7972972972972973,
+          "assigned_precision": 0.6271186440677966
+        },
+        "datasets": {
+          "bike": {
+            "correct": 8,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 9,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "instant",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "season",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "yr",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "mnth",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "hr",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "holiday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "weekday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "workingday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "bike",
+                "column": "weathersit",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.47058823529411764,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.47058823529411764
+          },
+          "bank": {
+            "correct": 6,
+            "total": 17,
+            "unknown": 10,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "bank",
+                "column": "day",
+                "expected": [
+                  "temporal",
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.35294117647058826,
+            "coverage_fraction": 0.4117647058823529,
+            "assigned_precision": 0.8571428571428571
+          },
+          "retail": {
+            "correct": 3,
+            "total": 8,
+            "unknown": 2,
+            "wrong_count": 3,
+            "wrong": [
+              {
+                "dataset": "retail",
+                "column": "invoice_no",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "retail",
+                "column": "stock_code",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "retail",
+                "column": "customer_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.375,
+            "coverage_fraction": 0.75,
+            "assigned_precision": 0.5
+          },
+          "taxi": {
+            "correct": 11,
+            "total": 20,
+            "unknown": 3,
+            "wrong_count": 6,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "vendor_id",
+                "expected": [
+                  "identifier",
+                  "categorical"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "ratecode_id",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "pulocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "dolocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "payment_type",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              },
+              {
+                "dataset": "taxi",
+                "column": "trip_type",
+                "expected": [
+                  "categorical",
+                  "identifier"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.55,
+            "coverage_fraction": 0.85,
+            "assigned_precision": 0.6470588235294118
+          },
+          "wine": {
+            "correct": 9,
+            "total": 12,
+            "unknown": 0,
+            "wrong_count": 3,
+            "wrong": [
+              {
+                "dataset": "wine",
+                "column": "fixed_acidity",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "wine",
+                "column": "residual_sugar",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "wine",
+                "column": "quality",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "metric"
+              }
+            ],
+            "exact_match_fraction": 0.75,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.75
+          }
+        }
+      }
+    ],
+    "dataprofiler_probability_diagnostic": [
+      {
+        "trial": 1,
+        "paired": {
+          "correct": 4,
+          "total": 62,
+          "unknown": 57,
+          "wrong_count": 1,
+          "wrong": [
+            {
+              "dataset": "taxi",
+              "column": "mta_tax",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.06451612903225806,
+          "coverage_fraction": 0.08064516129032258,
+          "assigned_precision": 0.8
+        },
+        "all_available": {
+          "correct": 4,
+          "total": 74,
+          "unknown": 67,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "taxi",
+              "column": "mta_tax",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "fixed_acidity",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "residual_sugar",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.05405405405405406,
+          "coverage_fraction": 0.0945945945945946,
+          "assigned_precision": 0.5714285714285714
+        },
+        "datasets": {
+          "bike": {
+            "correct": 1,
+            "total": 17,
+            "unknown": 16,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.058823529411764705,
+            "coverage_fraction": 0.058823529411764705,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 0,
+            "total": 17,
+            "unknown": 17,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.0,
+            "assigned_precision": null
+          },
+          "retail": {
+            "correct": 1,
+            "total": 8,
+            "unknown": 7,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.125,
+            "coverage_fraction": 0.125,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 2,
+            "total": 20,
+            "unknown": 17,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "mta_tax",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.1,
+            "coverage_fraction": 0.15,
+            "assigned_precision": 0.6666666666666666
+          },
+          "wine": {
+            "correct": 0,
+            "total": 12,
+            "unknown": 10,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "wine",
+                "column": "fixed_acidity",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "wine",
+                "column": "residual_sugar",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.16666666666666666,
+            "assigned_precision": 0.0
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "paired": {
+          "correct": 4,
+          "total": 62,
+          "unknown": 57,
+          "wrong_count": 1,
+          "wrong": [
+            {
+              "dataset": "taxi",
+              "column": "mta_tax",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.06451612903225806,
+          "coverage_fraction": 0.08064516129032258,
+          "assigned_precision": 0.8
+        },
+        "all_available": {
+          "correct": 4,
+          "total": 74,
+          "unknown": 67,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "taxi",
+              "column": "mta_tax",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "fixed_acidity",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "residual_sugar",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.05405405405405406,
+          "coverage_fraction": 0.0945945945945946,
+          "assigned_precision": 0.5714285714285714
+        },
+        "datasets": {
+          "bike": {
+            "correct": 1,
+            "total": 17,
+            "unknown": 16,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.058823529411764705,
+            "coverage_fraction": 0.058823529411764705,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 0,
+            "total": 17,
+            "unknown": 17,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.0,
+            "assigned_precision": null
+          },
+          "retail": {
+            "correct": 1,
+            "total": 8,
+            "unknown": 7,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.125,
+            "coverage_fraction": 0.125,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 2,
+            "total": 20,
+            "unknown": 17,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "mta_tax",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.1,
+            "coverage_fraction": 0.15,
+            "assigned_precision": 0.6666666666666666
+          },
+          "wine": {
+            "correct": 0,
+            "total": 12,
+            "unknown": 10,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "wine",
+                "column": "fixed_acidity",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "wine",
+                "column": "residual_sugar",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.16666666666666666,
+            "assigned_precision": 0.0
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "paired": {
+          "correct": 4,
+          "total": 62,
+          "unknown": 57,
+          "wrong_count": 1,
+          "wrong": [
+            {
+              "dataset": "taxi",
+              "column": "mta_tax",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.06451612903225806,
+          "coverage_fraction": 0.08064516129032258,
+          "assigned_precision": 0.8
+        },
+        "all_available": {
+          "correct": 4,
+          "total": 74,
+          "unknown": 67,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "taxi",
+              "column": "mta_tax",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "fixed_acidity",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "wine",
+              "column": "residual_sugar",
+              "expected": [
+                "metric"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.05405405405405406,
+          "coverage_fraction": 0.0945945945945946,
+          "assigned_precision": 0.5714285714285714
+        },
+        "datasets": {
+          "bike": {
+            "correct": 1,
+            "total": 17,
+            "unknown": 16,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.058823529411764705,
+            "coverage_fraction": 0.058823529411764705,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 0,
+            "total": 17,
+            "unknown": 17,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.0,
+            "assigned_precision": null
+          },
+          "retail": {
+            "correct": 1,
+            "total": 8,
+            "unknown": 7,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.125,
+            "coverage_fraction": 0.125,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 2,
+            "total": 20,
+            "unknown": 17,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "mta_tax",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.1,
+            "coverage_fraction": 0.15,
+            "assigned_precision": 0.6666666666666666
+          },
+          "wine": {
+            "correct": 0,
+            "total": 12,
+            "unknown": 10,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "wine",
+                "column": "fixed_acidity",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "wine",
+                "column": "residual_sugar",
+                "expected": [
+                  "metric"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.0,
+            "coverage_fraction": 0.16666666666666666,
+            "assigned_precision": 0.0
+          }
+        }
+      }
+    ],
+    "current_plus_visions_semantic_unknowns_only_replay": [
+      {
+        "trial": 1,
+        "paired": {
+          "correct": 48,
+          "total": 62,
+          "unknown": 14,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7741935483870968,
+          "coverage_fraction": 0.7741935483870968,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 59,
+          "total": 74,
+          "unknown": 15,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7972972972972973,
+          "coverage_fraction": 0.7972972972972973,
+          "assigned_precision": 1.0
+        },
+        "datasets": {
+          "bike": {
+            "correct": 7,
+            "total": 17,
+            "unknown": 10,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.4117647058823529,
+            "coverage_fraction": 0.4117647058823529,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 14,
+            "total": 17,
+            "unknown": 3,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.8235294117647058,
+            "coverage_fraction": 0.8235294117647058,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 19,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.95,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 11,
+            "total": 12,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.9166666666666666,
+            "coverage_fraction": 0.9166666666666666,
+            "assigned_precision": 1.0
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "paired": {
+          "correct": 48,
+          "total": 62,
+          "unknown": 14,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7741935483870968,
+          "coverage_fraction": 0.7741935483870968,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 59,
+          "total": 74,
+          "unknown": 15,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7972972972972973,
+          "coverage_fraction": 0.7972972972972973,
+          "assigned_precision": 1.0
+        },
+        "datasets": {
+          "bike": {
+            "correct": 7,
+            "total": 17,
+            "unknown": 10,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.4117647058823529,
+            "coverage_fraction": 0.4117647058823529,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 14,
+            "total": 17,
+            "unknown": 3,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.8235294117647058,
+            "coverage_fraction": 0.8235294117647058,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 19,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.95,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 11,
+            "total": 12,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.9166666666666666,
+            "coverage_fraction": 0.9166666666666666,
+            "assigned_precision": 1.0
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "paired": {
+          "correct": 48,
+          "total": 62,
+          "unknown": 14,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7741935483870968,
+          "coverage_fraction": 0.7741935483870968,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 59,
+          "total": 74,
+          "unknown": 15,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7972972972972973,
+          "coverage_fraction": 0.7972972972972973,
+          "assigned_precision": 1.0
+        },
+        "datasets": {
+          "bike": {
+            "correct": 7,
+            "total": 17,
+            "unknown": 10,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.4117647058823529,
+            "coverage_fraction": 0.4117647058823529,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 14,
+            "total": 17,
+            "unknown": 3,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.8235294117647058,
+            "coverage_fraction": 0.8235294117647058,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 19,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.95,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 11,
+            "total": 12,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.9166666666666666,
+            "coverage_fraction": 0.9166666666666666,
+            "assigned_precision": 1.0
+          }
+        }
+      }
+    ],
+    "current_plus_dataprofiler_semantic_unknowns_only_replay": [
+      {
+        "trial": 1,
+        "paired": {
+          "correct": 48,
+          "total": 62,
+          "unknown": 14,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7741935483870968,
+          "coverage_fraction": 0.7741935483870968,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 59,
+          "total": 74,
+          "unknown": 15,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7972972972972973,
+          "coverage_fraction": 0.7972972972972973,
+          "assigned_precision": 1.0
+        },
+        "datasets": {
+          "bike": {
+            "correct": 7,
+            "total": 17,
+            "unknown": 10,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.4117647058823529,
+            "coverage_fraction": 0.4117647058823529,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 14,
+            "total": 17,
+            "unknown": 3,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.8235294117647058,
+            "coverage_fraction": 0.8235294117647058,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 19,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.95,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 11,
+            "total": 12,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.9166666666666666,
+            "coverage_fraction": 0.9166666666666666,
+            "assigned_precision": 1.0
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "paired": {
+          "correct": 48,
+          "total": 62,
+          "unknown": 14,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7741935483870968,
+          "coverage_fraction": 0.7741935483870968,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 59,
+          "total": 74,
+          "unknown": 15,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7972972972972973,
+          "coverage_fraction": 0.7972972972972973,
+          "assigned_precision": 1.0
+        },
+        "datasets": {
+          "bike": {
+            "correct": 7,
+            "total": 17,
+            "unknown": 10,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.4117647058823529,
+            "coverage_fraction": 0.4117647058823529,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 14,
+            "total": 17,
+            "unknown": 3,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.8235294117647058,
+            "coverage_fraction": 0.8235294117647058,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 19,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.95,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 11,
+            "total": 12,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.9166666666666666,
+            "coverage_fraction": 0.9166666666666666,
+            "assigned_precision": 1.0
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "paired": {
+          "correct": 48,
+          "total": 62,
+          "unknown": 14,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7741935483870968,
+          "coverage_fraction": 0.7741935483870968,
+          "assigned_precision": 1.0
+        },
+        "all_available": {
+          "correct": 59,
+          "total": 74,
+          "unknown": 15,
+          "wrong_count": 0,
+          "wrong": [],
+          "exact_match_fraction": 0.7972972972972973,
+          "coverage_fraction": 0.7972972972972973,
+          "assigned_precision": 1.0
+        },
+        "datasets": {
+          "bike": {
+            "correct": 7,
+            "total": 17,
+            "unknown": 10,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.4117647058823529,
+            "coverage_fraction": 0.4117647058823529,
+            "assigned_precision": 1.0
+          },
+          "bank": {
+            "correct": 14,
+            "total": 17,
+            "unknown": 3,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.8235294117647058,
+            "coverage_fraction": 0.8235294117647058,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 19,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.95,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 1.0
+          },
+          "wine": {
+            "correct": 11,
+            "total": 12,
+            "unknown": 1,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 0.9166666666666666,
+            "coverage_fraction": 0.9166666666666666,
+            "assigned_precision": 1.0
+          }
+        }
+      }
+    ],
+    "current_plus_luna": [
+      {
+        "trial": 1,
+        "paired": {
+          "correct": 57,
+          "total": 62,
+          "unknown": 2,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.9193548387096774,
+          "coverage_fraction": 0.967741935483871,
+          "assigned_precision": 0.95
+        },
+        "all_available": {
+          "correct": 69,
+          "total": 74,
+          "unknown": 2,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.9324324324324325,
+          "coverage_fraction": 0.972972972972973,
+          "assigned_precision": 0.9583333333333334
+        },
+        "datasets": {
+          "bike": {
+            "correct": 15,
+            "total": 17,
+            "unknown": 1,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "weekday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "temporal"
+              }
+            ],
+            "exact_match_fraction": 0.8823529411764706,
+            "coverage_fraction": 0.9411764705882353,
+            "assigned_precision": 0.9375
+          },
+          "bank": {
+            "correct": 17,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 17,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "pulocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "taxi",
+                "column": "dolocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.85,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 0.8947368421052632
+          },
+          "wine": {
+            "correct": 12,
+            "total": 12,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "paired": {
+          "correct": 58,
+          "total": 62,
+          "unknown": 1,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.9354838709677419,
+          "coverage_fraction": 0.9838709677419355,
+          "assigned_precision": 0.9508196721311475
+        },
+        "all_available": {
+          "correct": 70,
+          "total": 74,
+          "unknown": 1,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.9459459459459459,
+          "coverage_fraction": 0.9864864864864865,
+          "assigned_precision": 0.958904109589041
+        },
+        "datasets": {
+          "bike": {
+            "correct": 16,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "weekday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "temporal"
+              }
+            ],
+            "exact_match_fraction": 0.9411764705882353,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.9411764705882353
+          },
+          "bank": {
+            "correct": 17,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 17,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "pulocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "taxi",
+                "column": "dolocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.85,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 0.8947368421052632
+          },
+          "wine": {
+            "correct": 12,
+            "total": 12,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "paired": {
+          "correct": 58,
+          "total": 62,
+          "unknown": 1,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.9354838709677419,
+          "coverage_fraction": 0.9838709677419355,
+          "assigned_precision": 0.9508196721311475
+        },
+        "all_available": {
+          "correct": 70,
+          "total": 74,
+          "unknown": 1,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.9459459459459459,
+          "coverage_fraction": 0.9864864864864865,
+          "assigned_precision": 0.958904109589041
+        },
+        "datasets": {
+          "bike": {
+            "correct": 16,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "weekday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "temporal"
+              }
+            ],
+            "exact_match_fraction": 0.9411764705882353,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.9411764705882353
+          },
+          "bank": {
+            "correct": 17,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 17,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "pulocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "taxi",
+                "column": "dolocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.85,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 0.8947368421052632
+          },
+          "wine": {
+            "correct": 12,
+            "total": 12,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          }
+        }
+      }
+    ],
+    "luna_raw_proposals": [
+      {
+        "trial": 1,
+        "paired": {
+          "correct": 57,
+          "total": 62,
+          "unknown": 1,
+          "wrong_count": 4,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.9193548387096774,
+          "coverage_fraction": 0.9838709677419355,
+          "assigned_precision": 0.9344262295081968
+        },
+        "all_available": {
+          "correct": 69,
+          "total": 74,
+          "unknown": 1,
+          "wrong_count": 4,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "yr",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.9324324324324325,
+          "coverage_fraction": 0.9864864864864865,
+          "assigned_precision": 0.9452054794520548
+        },
+        "datasets": {
+          "bike": {
+            "correct": 15,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "yr",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "temporal"
+              },
+              {
+                "dataset": "bike",
+                "column": "weekday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "temporal"
+              }
+            ],
+            "exact_match_fraction": 0.8823529411764706,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.8823529411764706
+          },
+          "bank": {
+            "correct": 17,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 17,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "pulocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "taxi",
+                "column": "dolocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.85,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 0.8947368421052632
+          },
+          "wine": {
+            "correct": 12,
+            "total": 12,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          }
+        }
+      },
+      {
+        "trial": 2,
+        "paired": {
+          "correct": 58,
+          "total": 62,
+          "unknown": 1,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.9354838709677419,
+          "coverage_fraction": 0.9838709677419355,
+          "assigned_precision": 0.9508196721311475
+        },
+        "all_available": {
+          "correct": 70,
+          "total": 74,
+          "unknown": 1,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.9459459459459459,
+          "coverage_fraction": 0.9864864864864865,
+          "assigned_precision": 0.958904109589041
+        },
+        "datasets": {
+          "bike": {
+            "correct": 16,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "weekday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "temporal"
+              }
+            ],
+            "exact_match_fraction": 0.9411764705882353,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.9411764705882353
+          },
+          "bank": {
+            "correct": 17,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 17,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "pulocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "taxi",
+                "column": "dolocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.85,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 0.8947368421052632
+          },
+          "wine": {
+            "correct": 12,
+            "total": 12,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          }
+        }
+      },
+      {
+        "trial": 3,
+        "paired": {
+          "correct": 58,
+          "total": 62,
+          "unknown": 1,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.9354838709677419,
+          "coverage_fraction": 0.9838709677419355,
+          "assigned_precision": 0.9508196721311475
+        },
+        "all_available": {
+          "correct": 70,
+          "total": 74,
+          "unknown": 1,
+          "wrong_count": 3,
+          "wrong": [
+            {
+              "dataset": "bike",
+              "column": "weekday",
+              "expected": [
+                "categorical"
+              ],
+              "actual": "temporal"
+            },
+            {
+              "dataset": "taxi",
+              "column": "pulocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            },
+            {
+              "dataset": "taxi",
+              "column": "dolocation_id",
+              "expected": [
+                "identifier"
+              ],
+              "actual": "categorical"
+            }
+          ],
+          "exact_match_fraction": 0.9459459459459459,
+          "coverage_fraction": 0.9864864864864865,
+          "assigned_precision": 0.958904109589041
+        },
+        "datasets": {
+          "bike": {
+            "correct": 16,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 1,
+            "wrong": [
+              {
+                "dataset": "bike",
+                "column": "weekday",
+                "expected": [
+                  "categorical"
+                ],
+                "actual": "temporal"
+              }
+            ],
+            "exact_match_fraction": 0.9411764705882353,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 0.9411764705882353
+          },
+          "bank": {
+            "correct": 17,
+            "total": 17,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "retail": {
+            "correct": 8,
+            "total": 8,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          },
+          "taxi": {
+            "correct": 17,
+            "total": 20,
+            "unknown": 1,
+            "wrong_count": 2,
+            "wrong": [
+              {
+                "dataset": "taxi",
+                "column": "pulocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "categorical"
+              },
+              {
+                "dataset": "taxi",
+                "column": "dolocation_id",
+                "expected": [
+                  "identifier"
+                ],
+                "actual": "categorical"
+              }
+            ],
+            "exact_match_fraction": 0.85,
+            "coverage_fraction": 0.95,
+            "assigned_precision": 0.8947368421052632
+          },
+          "wine": {
+            "correct": 12,
+            "total": 12,
+            "unknown": 0,
+            "wrong_count": 0,
+            "wrong": [],
+            "exact_match_fraction": 1.0,
+            "coverage_fraction": 1.0,
+            "assigned_precision": 1.0
+          }
+        }
+      }
+    ]
+  },
+  "performance": {
+    "visions": {
+      "import_seconds": 0.3088005830068141,
+      "inference_all_five_seconds": 0.4851679125567898,
+      "process_wall_seconds": 1.0199339160462841,
+      "peak_rss_mb": 110.329856
+    },
+    "dataprofiler": {
+      "import_seconds": 2.8487855000421405,
+      "model_load_seconds": 0.2845560419373214,
+      "profile_all_five_seconds": 3.3487092091236264,
+      "process_wall_seconds": 6.915964291081764,
+      "final_rss_snapshot_mb": 783.23712,
+      "separate_single_run_peak_rss_mb": 784.728064
+    },
+    "luna": {
+      "median_schema_seconds": 3.4867904169950634,
+      "per_dataset_seconds": {
+        "bike": 3.4867904169950634,
+        "bank": 3.8158596249995753,
+        "retail": 2.269061250030063,
+        "taxi": 4.055970333982259,
+        "wine": 2.8788179169641808
+      },
+      "selected_columns_per_complete_schema": 70,
+      "requests": 15,
+      "peak_client_rss_mb": 90.456064
+    }
+  }
+}

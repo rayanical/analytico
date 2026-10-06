@@ -1,10 +1,9 @@
 'use client';
 
-import React, { memo, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
-  PieChart, Pie, Cell, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  PieChart, Pie, Cell, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
 } from 'recharts';
 import { Loader2 } from 'lucide-react';
 import { useData } from '@/context/DataContext';
@@ -12,42 +11,37 @@ import { ChartResponse, ColumnFormat } from '@/types';
 import { aggregateData, drillDown } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { formatValue } from '@/lib/formatValue';
+import { getChartAggregationFields, getNextPeriodStart, mergeFilters, preserveQueryProvenance } from '@/lib/queryFilters';
+import { getColumnDisplayName, getColumnSourceName } from '@/lib/columnLabels';
 
 const COLORS = [
   'hsl(252, 87%, 64%)', 'hsl(173, 80%, 40%)', 'hsl(43, 96%, 56%)',
   'hsl(346, 77%, 59%)', 'hsl(199, 89%, 48%)', 'hsl(280, 65%, 60%)',
   'hsl(150, 60%, 45%)', 'hsl(30, 90%, 55%)',
 ];
+const EMPTY_RECORDS: ChartResponse['data'] = [];
+
+function getDrillDownRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const record = value as Record<string, unknown>;
+  const payload = record.payload;
+  return typeof payload === 'object' && payload !== null && !Array.isArray(payload)
+    ? payload as Record<string, unknown>
+    : record;
+}
+
+function isFilterValue(value: unknown): value is string | number | boolean | null {
+  return value === null
+    || typeof value === 'string'
+    || typeof value === 'boolean'
+    || (typeof value === 'number' && Number.isFinite(value));
+}
 
 interface SmartChartProps {
   chartData?: ChartResponse;
   showAnalyzeButton?: boolean;
   compact?: boolean;
-}
-
-// Format value based on column format
-function formatValue(value: number, format: ColumnFormat, compact: boolean = false): string {
-  if (typeof value !== 'number' || isNaN(value)) return String(value);
-  
-  if (format === 'currency') {
-    if (compact) {
-      if (Math.abs(value) >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
-      if (Math.abs(value) >= 1e3) return `$${(value / 1e3).toFixed(0)}K`;
-      return `$${value.toFixed(0)}`;
-    }
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
-  }
-  
-  if (format === 'percentage') {
-    return `${(value * 100).toFixed(1)}%`;
-  }
-  
-  // Default number
-  if (compact) {
-    if (Math.abs(value) >= 1e6) return `${(value / 1e6).toFixed(1)}M`;
-    if (Math.abs(value) >= 1e3) return `${(value / 1e3).toFixed(1)}K`;
-  }
-  return value.toLocaleString();
 }
 
 // ============================================================================
@@ -58,6 +52,7 @@ interface TooltipPayloadEntry {
   name: string;
   value: number;
   color: string;
+  dataKey?: string | number;
 }
 
 interface CustomTooltipProps {
@@ -65,13 +60,19 @@ interface CustomTooltipProps {
   payload?: TooltipPayloadEntry[];
   label?: string;
   formats: Record<string, ColumnFormat>;
+  aggregation?: ChartResponse['aggregation'];
+  primaryFormat: ColumnFormat;
+  seriesLabels: Record<string, string>;
 }
 
 const CustomTooltip = memo(function CustomTooltip({ 
   active, 
   payload, 
   label, 
-  formats 
+  formats,
+  aggregation,
+  primaryFormat,
+  seriesLabels,
 }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   
@@ -84,9 +85,9 @@ const CustomTooltip = memo(function CustomTooltip({
             className="h-3 w-3 rounded-full" 
             style={{ backgroundColor: entry.color }} 
           />
-          <span className="text-muted-foreground">{entry.name}:</span>
+          <span className="text-muted-foreground">{seriesLabels[String(entry.dataKey ?? '')] || entry.name}:</span>
           <span className="font-medium">
-            {formatValue(entry.value, (formats[entry.name] || 'number') as ColumnFormat, false)}
+            {formatValue(entry.value, (formats[String(entry.dataKey ?? '')] || primaryFormat) as ColumnFormat, { aggregation })}
           </span>
         </p>
       ))}
@@ -99,21 +100,60 @@ const CustomTooltip = memo(function CustomTooltip({
 // ============================================================================
 
 export function SmartChart({ chartData, showAnalyzeButton = true, compact = false }: SmartChartProps) {
-  const { currentChart, dataset, filters, setCurrentChart, setDrillDownData, setIsDrillDownOpen, limit, groupOthers, sortBy } = useData();
+  const { currentChart, dataset, filters, setCurrentChart, setDrillDownData, setIsDrillDownOpen, limit, groupOthers, sortBy, beginQuery, isCurrentQuery, finishQuery, isCurrentDataset } = useData();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const data = chartData || currentChart;
-  
-  if (!data?.data.length && !data?.answer) return null;
+  const analysisControllerRef = useRef<AbortController | null>(null);
+  const drillDownControllerRef = useRef<AbortController | null>(null);
+  const drillDownRequestRef = useRef(0);
+  const records = data?.data ?? EMPTY_RECORDS;
+  const x_axis_key = data?.x_axis_key ?? '';
+  const y_axis_keys = data?.y_axis_keys ?? [];
+  const chart_type = data?.chart_type ?? 'empty';
+  const answer = data?.answer;
+  const analysis = data?.analysis;
+  const aggregation = data?.aggregation;
+  const llm_filters = data?.llm_filters;
+  const formats = dataset?.columnFormats ?? {};
+  const columnsByName = useMemo(
+    () => new Map((dataset?.columns ?? []).map(column => [column.name, column])),
+    [dataset?.columns],
+  );
+  const getColumnLabel = (key: string) => data?.count_rows ? 'Rows' : getColumnDisplayName(columnsByName.get(key) ?? { name: key });
+  const getColumnSource = (key: string) => data?.count_rows ? 'Rows' : data?.aggregation_scope === 'overall' && key === x_axis_key ? 'Overall' : getColumnSourceName(columnsByName.get(key) ?? { name: key });
+  const x_axis_label = data?.aggregation_scope === 'overall' ? 'Overall' : data?.x_axis_label?.trim()
+    || getColumnLabel(data?.source_x_axis_key || x_axis_key);
+  const y_axis_display_label = data?.y_axis_label?.trim()
+    || (y_axis_keys.length === 1 ? getColumnLabel(y_axis_keys[0]) : undefined);
+  const seriesLabels = Object.fromEntries(y_axis_keys.map(key => [key, getColumnLabel(key)]));
+  const primaryFormat = (aggregation === 'count' ? 'number' : formats[y_axis_keys[0]] || 'number') as ColumnFormat;
+  const tickFormatter = useMemo(() => (value: number) =>
+    formatValue(value, primaryFormat, { compact: true, aggregation }), [primaryFormat, aggregation]);
+  const axisStyle = useMemo(() => ({ fontSize: 11, fill: '#a1a1aa' }), []);
+  const commonProps = useMemo(
+    () => ({ data: records, margin: { top: 20, right: 30, left: 70, bottom: 20 } }),
+    [records]
+  );
 
-  const { data: records, x_axis_key, y_axis_keys, chart_type, y_axis_label, answer, analysis, aggregation, llm_filters } = data;
-  
-  // Text-Only Answer View
-  if (chart_type === 'empty' || (answer && !records.length)) {
+  useEffect(() => {
+    analysisControllerRef.current?.abort();
+    drillDownControllerRef.current?.abort();
+    drillDownRequestRef.current += 1;
+    return () => {
+      analysisControllerRef.current?.abort();
+      drillDownControllerRef.current?.abort();
+    };
+  }, [dataset?.datasetId]);
+
+  if (!data || (!records.length && !answer && !analysis)) return null;
+
+  // Text-only answers include clarification responses that have no chart data.
+  if (chart_type === 'empty' || (!records.length && (answer || analysis))) {
     return (
       <div className="flex h-full min-h-[400px] flex-col overflow-y-auto rounded-lg p-6">
          <div className="mb-6 rounded-lg bg-primary/10 p-4">
-           <h3 className="mb-2 text-lg font-semibold text-primary">Insight</h3>
-           <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">{answer}</div>
+           <h3 className="mb-2 text-lg font-semibold text-primary">{chart_type === 'empty' ? 'Clarification needed' : answer ? 'Insight' : 'Analysis'}</h3>
+           {answer && <div className="whitespace-pre-wrap font-mono text-sm leading-relaxed">{answer}</div>}
          </div>
          {analysis && (
            <div className="rounded-lg border border-border/50 bg-card/30 p-4">
@@ -124,121 +164,112 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
       </div>
     );
   }
-  
-  const formats = dataset?.columnFormats ?? {};
 
   const handleAnalyze = async () => {
-    if (!dataset?.datasetId || !x_axis_key || !y_axis_keys?.length) return;
+    if (!dataset?.datasetId || !data || !x_axis_key || !y_axis_keys.length) return;
+    analysisControllerRef.current?.abort();
+    const controller = new AbortController();
+    analysisControllerRef.current = controller;
+    const requestId = beginQuery(dataset.datasetId, controller);
+    const effectiveFilters = mergeFilters(llm_filters, filters);
     setIsAnalyzing(true);
     try {
       const response = await aggregateData({
         dataset_id: dataset.datasetId,
-        x_axis_key,
-        y_axis_keys,
+        ...getChartAggregationFields(data),
         aggregation: aggregation || 'sum',
         chart_type,
-        filters: filters.length > 0 ? filters : undefined,
+        filters: effectiveFilters,
         limit,
         sort_by: sortBy,
         group_others: groupOthers,
         include_analysis: true,
+        time_bucket: data.time_bucket,
+        signal: controller.signal,
       });
-      setCurrentChart(response);
-      toast.success('Analysis added');
+      if (!isCurrentQuery(requestId, dataset.datasetId)) return;
+      setCurrentChart(preserveQueryProvenance(response, data, effectiveFilters));
+      if (response.chart_type === 'empty') toast.message('The chart needs clarification. See the response below.');
+      else toast.success('Analysis added');
     } catch (error) {
-      console.error('Analyze error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to analyze chart';
-      toast.error(message);
+      if (!controller.signal.aborted && isCurrentDataset(dataset.datasetId)) {
+        console.error('Analyze error:', error);
+        const message = error instanceof Error ? error.message : 'Failed to analyze chart';
+        toast.error(message);
+      }
     } finally {
       setIsAnalyzing(false);
+      finishQuery(requestId);
     }
   };
   
-  const handleDrillDown = async (entry: any) => {
-    if (!dataset?.datasetId || !x_axis_key) return;
+  const handleDrillDown = async (entry: Record<string, unknown>) => {
+    if (!dataset?.datasetId || !data || !x_axis_key) return;
     
     // Extract value for the x-axis key from the clicked entry (payload)
+    const sourceAxis = data.source_x_axis_key || x_axis_key;
     const xVal = entry[x_axis_key];
-    if (xVal === undefined) return;
+    if (!isFilterValue(xVal)) return;
     
     // Protection: Prevent drill-down into "Others"
-    if (xVal === 'Others') {
+    if (data.others_label && String(xVal) === data.others_label) {
       toast.warning("Cannot drill down into aggregated 'Others' group.");
       return;
     }
 
-    const toastId = toast.loading(`Loading details for ${xVal}...`);
+    const toastId = toast.loading(`Loading details for ${String(xVal)}...`);
+    drillDownControllerRef.current?.abort();
+    const controller = new AbortController();
+    drillDownControllerRef.current = controller;
+    const requestId = ++drillDownRequestRef.current;
     
     try {
-      const combinedFilters = [
-        ...filters,
-        ...(llm_filters ?? []),
-      ];
-      const drillFilters = [
-        ...combinedFilters,
-        { column: x_axis_key, values: [xVal] }
-      ];
+      const effectiveFilters = data.filters ?? mergeFilters(filters, llm_filters);
+      const nextPeriodStart = data.time_bucket ? getNextPeriodStart(String(xVal), data.time_bucket) : null;
+      const clickedFilters = data.aggregation_scope === 'overall' ? [] : data.time_bucket && nextPeriodStart
+        ? [
+            { column: sourceAxis, operator: 'gte' as const, value: String(xVal) },
+            { column: sourceAxis, operator: 'lt' as const, value: nextPeriodStart },
+          ]
+        : [{ column: sourceAxis, values: [xVal] }];
+      const drillFilters = mergeFilters(effectiveFilters, clickedFilters);
       
       const result = await drillDown({ 
         dataset_id: dataset.datasetId, 
         filters: drillFilters,
-        limit: 50 
+        limit: 50,
+        signal: controller.signal,
       });
       
-      if (result && result.data) {
+      if (result && result.data && !controller.signal.aborted
+        && requestId === drillDownRequestRef.current && isCurrentDataset(dataset.datasetId)) {
         setDrillDownData(result.data);
         setIsDrillDownOpen(true);
         toast.dismiss(toastId);
       }
     } catch (e) {
-      console.error(e);
-      toast.error("Failed to fetch drill-down data", { id: toastId });
+      if (!controller.signal.aborted && isCurrentDataset(dataset.datasetId)) {
+        console.error(e);
+        toast.error("Failed to fetch drill-down data", { id: toastId });
+      }
     }
-  };
-  
-  // Get format for primary Y axis
-  const primaryFormat = (formats[y_axis_keys[0]] || 'number') as ColumnFormat;
-  
-  // Memoize the tick formatter to prevent recreation on each render
-  const tickFormatter = useMemo(
-    () => (v: number) => formatValue(v, primaryFormat, true),
-    [primaryFormat]
-  );
-  
-  // Memoize axis style object - use explicit light color for dark background visibility
-  const axisStyle = useMemo(
-    () => ({ fontSize: 11, fill: '#a1a1aa' }), // zinc-400 - visible on dark backgrounds
-    []
-  );
-  
-  // Memoize common chart props - increased left margin for Y-axis label
-  const commonProps = useMemo(
-    () => ({ data: records, margin: { top: 20, right: 30, left: 70, bottom: 20 } }),
-    [records]
-  );
-
-  // Format legend names from snake_case to Title Case
-  const formatLegendName = (value: string) => {
-    return value
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, c => c.toUpperCase());
   };
 
   // Create tooltip element with formats passed as prop
-  const tooltipContent = <CustomTooltip formats={formats} />;
+  const tooltipContent = <CustomTooltip formats={formats} aggregation={aggregation} primaryFormat={primaryFormat} seriesLabels={seriesLabels} />;
 
   const renderChart = () => {
     switch (chart_type) {
       case 'line':
         return (
           <LineChart {...commonProps}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
             <XAxis dataKey={x_axis_key} tick={axisStyle} axisLine={{ stroke: '#3f3f46' }} />
             <YAxis 
               tick={axisStyle} 
               axisLine={{ stroke: '#3f3f46' }} 
               tickFormatter={tickFormatter} 
-              label={y_axis_label ? { value: y_axis_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined} 
+              label={y_axis_display_label ? { value: y_axis_display_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined}
             />
             <Tooltip content={tooltipContent} />
             {y_axis_keys.map((k, i) => (
@@ -252,7 +283,10 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
                 activeDot={{
                   r: 8,
                   cursor: 'pointer',
-                  onClick: (event: any, payload: any) => handleDrillDown(payload?.payload),
+                  onClick: (_event, payload) => {
+                    const row = getDrillDownRecord(payload);
+                    if (row) void handleDrillDown(row);
+                  },
                 }}
               />
             ))}
@@ -269,9 +303,9 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
                 </linearGradient>
               ))}
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
             <XAxis dataKey={x_axis_key} tick={axisStyle} />
-            <YAxis tick={axisStyle} tickFormatter={tickFormatter} />
+            <YAxis tick={axisStyle} tickFormatter={tickFormatter} label={y_axis_display_label ? { value: y_axis_display_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined} />
             <Tooltip content={tooltipContent} />
             {y_axis_keys.map((k, i) => (
               <Area 
@@ -283,7 +317,10 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
                 activeDot={{
                   r: 8,
                   cursor: 'pointer',
-                  onClick: (event: any, payload: any) => handleDrillDown(payload?.payload),
+                  onClick: (_event, payload) => {
+                    const row = getDrillDownRecord(payload);
+                    if (row) void handleDrillDown(row);
+                  },
                 }}
               />
             ))}
@@ -300,7 +337,7 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
               cy="50%" 
               outerRadius={150}
               label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
-              labelLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+              labelLine={{ stroke: 'var(--muted-foreground)' }}
             >
               {records.map((entry, i) => (
                 <Cell 
@@ -312,15 +349,15 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
               ))}
             </Pie>
             <Tooltip content={tooltipContent} />
-            <Legend formatter={formatLegendName} />
+            <Legend />
           </PieChart>
         );
       case 'composed':
         return (
           <ComposedChart {...commonProps}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
             <XAxis dataKey={x_axis_key} tick={axisStyle} />
-            <YAxis tick={axisStyle} tickFormatter={tickFormatter} />
+            <YAxis tick={axisStyle} tickFormatter={tickFormatter} label={y_axis_display_label ? { value: y_axis_display_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined} />
             <Tooltip content={tooltipContent} />
             {y_axis_keys.map((k, i) => i % 2 === 0
               ? <Bar key={k} dataKey={k} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} opacity={0.8} />
@@ -331,12 +368,12 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
       default: // bar
         return (
           <BarChart {...commonProps}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
             <XAxis dataKey={x_axis_key} tick={axisStyle} />
             <YAxis 
               tick={axisStyle} 
               tickFormatter={tickFormatter}
-              label={y_axis_label ? { value: y_axis_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined}
+              label={y_axis_display_label ? { value: y_axis_display_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined}
             />
             <Tooltip content={tooltipContent} />
             {y_axis_keys.map((k, i) => (
@@ -345,9 +382,16 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
                 dataKey={k} 
                 fill={COLORS[i % COLORS.length]} 
                 radius={[4, 4, 0, 0]} 
-                onClick={(e: any) => handleDrillDown(e.payload)}
+                onClick={(event) => {
+                  const row = getDrillDownRecord(event);
+                  if (row) void handleDrillDown(row);
+                }}
                 cursor="pointer"
-              />
+              >
+                {data?.aggregation_scope === 'overall' && (
+                  <LabelList dataKey={k} position="top" fill="currentColor" formatter={(value: unknown) => formatValue(value, primaryFormat, { aggregation })} />
+                )}
+              </Bar>
             ))}
           </BarChart>
         );
@@ -371,7 +415,7 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
                 style={{ backgroundColor: COLORS[i % COLORS.length] }} 
               />
               <span className="text-sm text-muted-foreground">
-                {formatLegendName(key)}
+                <span title={getColumnSource(key)}>{getColumnLabel(key)}</span>
               </span>
             </div>
           ))}
@@ -396,8 +440,8 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
 
       {/* Fixed X-Axis Label - stays in place during horizontal scroll */}
       {x_axis_key && chart_type !== 'pie' && (
-        <div className="text-center font-medium text-muted-foreground mt-2 text-sm">
-          {formatLegendName(x_axis_key)}
+        <div className="text-center font-medium text-muted-foreground mt-2 text-sm" title={getColumnSource(data?.source_x_axis_key || x_axis_key)}>
+          {x_axis_label}
         </div>
       )}
 

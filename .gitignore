@@ -14,7 +14,8 @@ backend/.env
 backend/.pytest_cache/
 backend/.coverage
 backend/htmlcov/
-backend/datasets/
+backend/datasets/*
+!backend/datasets/gapminderDataFiveYear.csv
 # OS
 .DS_Store
 Thumbs.db
@@ -23,6 +24,24 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+.playwright-mcp/
+.playwright-cli/
+output/playwright/
 
 # Local data files (never commit datasets)
 *.csv
+!backend/datasets/gapminderDataFiveYear.csv
+
+# Generated benchmark details belong outside the source tree.
+backend/benchmarks/results/**
+!backend/benchmarks/results/**/
+!backend/benchmarks/results/**/comparison.json
+!backend/benchmarks/results/**/summary.json
+!backend/benchmarks/results/**/automatic-policy-summary.json
+!backend/benchmarks/results/deterministic-policy-2026-10-03/before.json
+!backend/benchmarks/results/deterministic-policy-2026-10-03/after-final.json
+!backend/benchmarks/results/performance-2026-10-02/before.json
+!backend/benchmarks/results/performance-2026-10-02/after.json
+!backend/benchmarks/results/library-comparison-2026-10-03/*-environment.txt
+
+!backend/benchmarks/results/fresh-accuracy-2026-10-03/answer-followup-summary.json

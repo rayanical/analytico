@@ -1,0 +1,867 @@
+{
+  "failure_count": 0,
+  "metrics": {
+    "latency_ms": {
+      "p50_ms": 1028.85,
+      "p95_ms": 1402.775,
+      "quantile_method": "linear interpolation over sorted samples (type 7)",
+      "samples": 30
+    },
+    "usage": {
+      "cost": {
+        "currency": null,
+        "reported_cases": 0,
+        "status": "unknown",
+        "total": null,
+        "total_cases": 30
+      },
+      "tokens": {
+        "input_tokens": {
+          "reported_cases": 30,
+          "total": 28568,
+          "total_cases": 30
+        },
+        "output_tokens": {
+          "reported_cases": 30,
+          "total": 1247,
+          "total_cases": 30
+        },
+        "total_tokens": {
+          "derived_cases": 0,
+          "reported_cases": 30,
+          "total": 29815,
+          "total_cases": 30
+        }
+      }
+    }
+  },
+  "mode": "live",
+  "provider_run": {
+    "models": [
+      "gpt-6-luna"
+    ],
+    "prompt_versions": [
+      "column-interpretation-v3"
+    ],
+    "requested_provider": "luna",
+    "requested_reasoning_effort": "none",
+    "resolved_providers": [
+      "openai"
+    ],
+    "started_at_utc": "2026-10-02T03:30:12.293485+00:00"
+  },
+  "results": [
+    {
+      "case_id": "holdout.identifier.postal_lexeme",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "preserve_lexeme",
+        "recommended_aggregation": "count",
+        "role": "identifier",
+        "unit": "none"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1398.1,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 944,
+          "output_tokens": 42,
+          "total_tokens": 986
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.identifier.injected_header",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "preserve_lexeme",
+        "recommended_aggregation": "count",
+        "role": "identifier",
+        "unit": "none"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1030.4,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 951,
+          "output_tokens": 42,
+          "total_tokens": 993
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.identifier.asset_tag",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "preserve_lexeme",
+        "recommended_aggregation": "count",
+        "role": "identifier",
+        "unit": "none"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1027.3,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 951,
+          "output_tokens": 42,
+          "total_tokens": 993
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.injection.status_value",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "preserve_source",
+        "recommended_aggregation": "count",
+        "role": "categorical",
+        "unit": "none"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 901.8,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 949,
+          "output_tokens": 41,
+          "total_tokens": 990
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.currency.dollar_without_code",
+      "decision": {
+        "needs_clarification": true,
+        "parsing_policy": "retain_currency_identity_unknown",
+        "recommended_aggregation": "none",
+        "role": "metric",
+        "unit": "unknown"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1030.4,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 956,
+          "output_tokens": 41,
+          "total_tokens": 997
+        }
+      },
+      "status": "uncertain"
+    },
+    {
+      "case_id": "holdout.currency.explicit_eur",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "parse_currency_decimal",
+        "recommended_aggregation": "sum",
+        "role": "metric",
+        "unit": "EUR"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 898.7,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 956,
+          "output_tokens": 40,
+          "total_tokens": 996
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.currency.mixed_gbp_jpy",
+      "decision": {
+        "needs_clarification": true,
+        "parsing_policy": "preserve_mixed_currency_values",
+        "recommended_aggregation": "none",
+        "role": "metric",
+        "unit": "mixed_currency"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1201.9,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 947,
+          "output_tokens": 44,
+          "total_tokens": 991
+        }
+      },
+      "status": "uncertain"
+    },
+    {
+      "case_id": "holdout.currency.usd_header_evidence",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "parse_currency_decimal",
+        "recommended_aggregation": "sum",
+        "role": "metric",
+        "unit": "USD"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1277.9,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 948,
+          "output_tokens": 40,
+          "total_tokens": 988
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.unit.height_unknown",
+      "decision": {
+        "needs_clarification": true,
+        "parsing_policy": "preserve_numeric_value",
+        "recommended_aggregation": "mean",
+        "role": "metric",
+        "unit": "unknown"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1251.9,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 950,
+          "output_tokens": 41,
+          "total_tokens": 991
+        }
+      },
+      "status": "uncertain"
+    },
+    {
+      "case_id": "holdout.unit.ratio_explicit",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "preserve_numeric_value",
+        "recommended_aggregation": "mean",
+        "role": "metric",
+        "unit": "ratio"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1263.6,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 950,
+          "output_tokens": 41,
+          "total_tokens": 991
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.unit.temperature_scale_unknown",
+      "decision": {
+        "needs_clarification": true,
+        "parsing_policy": "preserve_numeric_value",
+        "recommended_aggregation": "mean",
+        "role": "metric",
+        "unit": "unknown"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1007.2,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 951,
+          "output_tokens": 41,
+          "total_tokens": 992
+        }
+      },
+      "status": "uncertain"
+    },
+    {
+      "case_id": "holdout.missing.null_usd_flow",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "preserve_nulls_parse_numeric",
+        "recommended_aggregation": "sum",
+        "role": "metric",
+        "unit": "USD"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1406.6,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 954,
+          "output_tokens": 43,
+          "total_tokens": 997
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.missing.na_amount_ambiguous",
+      "decision": {
+        "needs_clarification": true,
+        "parsing_policy": "parse_currency_decimal",
+        "recommended_aggregation": "sum",
+        "role": "metric",
+        "unit": "USD"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 947.2,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 960,
+          "output_tokens": 40,
+          "total_tokens": 1000
+        }
+      },
+      "status": "uncertain"
+    },
+    {
+      "case_id": "holdout.missing.all_null_field",
+      "decision": {
+        "needs_clarification": true,
+        "parsing_policy": "preserve_source",
+        "recommended_aggregation": "none",
+        "role": "unknown",
+        "unit": "unknown"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1160.4,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 940,
+          "output_tokens": 40,
+          "total_tokens": 980
+        }
+      },
+      "status": "uncertain"
+    },
+    {
+      "case_id": "holdout.missing.literal_na_category",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "preserve_source",
+        "recommended_aggregation": "count",
+        "role": "categorical",
+        "unit": "none"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 952.3,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 951,
+          "output_tokens": 41,
+          "total_tokens": 992
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.rate.weighted_by_counts",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "parse_percent_to_ratio",
+        "recommended_aggregation": "ratio_of_sums",
+        "role": "metric",
+        "unit": "ratio"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1009.3,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 954,
+          "output_tokens": 44,
+          "total_tokens": 998
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.rate.no_denominator",
+      "decision": {
+        "needs_clarification": true,
+        "parsing_policy": "parse_percent_to_ratio",
+        "recommended_aggregation": "none",
+        "role": "metric",
+        "unit": "ratio"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1451.4,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 955,
+          "output_tokens": 41,
+          "total_tokens": 996
+        }
+      },
+      "status": "uncertain"
+    },
+    {
+      "case_id": "holdout.rate.equal_row_weights",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "parse_percent_to_ratio",
+        "recommended_aggregation": "mean",
+        "role": "metric",
+        "unit": "ratio"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1115.8,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 945,
+          "output_tokens": 41,
+          "total_tokens": 986
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.stock.same_snapshot_inventory",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "preserve_numeric_value",
+        "recommended_aggregation": "sum",
+        "role": "metric",
+        "unit": "none"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1002.8,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 951,
+          "output_tokens": 41,
+          "total_tokens": 992
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.stock.latest_per_customer",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "parse_currency_decimal",
+        "recommended_aggregation": "last_by_entity",
+        "role": "metric",
+        "unit": "EUR"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 938.8,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 964,
+          "output_tokens": 42,
+          "total_tokens": 1006
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.stock.time_scope_missing",
+      "decision": {
+        "needs_clarification": true,
+        "parsing_policy": "parse_currency_decimal",
+        "recommended_aggregation": "none",
+        "role": "metric",
+        "unit": "USD"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 810.1,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 980,
+          "output_tokens": 40,
+          "total_tokens": 1020
+        }
+      },
+      "status": "uncertain"
+    },
+    {
+      "case_id": "holdout.date.ambiguous_month_day",
+      "decision": {
+        "needs_clarification": true,
+        "parsing_policy": "require_date_locale",
+        "recommended_aggregation": "none",
+        "role": "temporal",
+        "unit": "calendar_date"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1197.5,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 954,
+          "output_tokens": 42,
+          "total_tokens": 996
+        }
+      },
+      "status": "uncertain"
+    },
+    {
+      "case_id": "holdout.date.iso_unambiguous",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "parse_unambiguous_date",
+        "recommended_aggregation": "none",
+        "role": "temporal",
+        "unit": "calendar_date"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1298.4,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 955,
+          "output_tokens": 44,
+          "total_tokens": 999
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.date.month_name_unambiguous",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "parse_unambiguous_date",
+        "recommended_aggregation": "count",
+        "role": "temporal",
+        "unit": "calendar_date"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 894.8,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 956,
+          "output_tokens": 44,
+          "total_tokens": 1000
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.category.numeric_risk_band",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "preserve_source",
+        "recommended_aggregation": "count",
+        "role": "categorical",
+        "unit": "none"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 955.5,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 952,
+          "output_tokens": 41,
+          "total_tokens": 993
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.category.numeric_code_unknown",
+      "decision": {
+        "needs_clarification": true,
+        "parsing_policy": "preserve_numeric_value",
+        "recommended_aggregation": "none",
+        "role": "unknown",
+        "unit": "unknown"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 950.3,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 949,
+          "output_tokens": 41,
+          "total_tokens": 990
+        }
+      },
+      "status": "uncertain"
+    },
+    {
+      "case_id": "holdout.category.binary_response_code",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "preserve_source",
+        "recommended_aggregation": "count",
+        "role": "categorical",
+        "unit": "none"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 894.4,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 950,
+          "output_tokens": 41,
+          "total_tokens": 991
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.metric.event_count",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "preserve_numeric_value",
+        "recommended_aggregation": "sum",
+        "role": "metric",
+        "unit": "none"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 963.6,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 946,
+          "output_tokens": 41,
+          "total_tokens": 987
+        }
+      },
+      "status": "ok"
+    },
+    {
+      "case_id": "holdout.number.mixed_locale_text",
+      "decision": {
+        "needs_clarification": true,
+        "parsing_policy": "preserve_mixed_numeric_formats",
+        "recommended_aggregation": "none",
+        "role": "metric",
+        "unit": "unknown"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1049.7,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 954,
+          "output_tokens": 43,
+          "total_tokens": 997
+        }
+      },
+      "status": "uncertain"
+    },
+    {
+      "case_id": "holdout.identifier.customer_reference",
+      "decision": {
+        "needs_clarification": false,
+        "parsing_policy": "preserve_lexeme",
+        "recommended_aggregation": "count",
+        "role": "identifier",
+        "unit": "none"
+      },
+      "provider_metadata": {
+        "confidence": null,
+        "error_code": null,
+        "latency_ms": 1163.9,
+        "model": "gpt-6-luna",
+        "prompt_version": "column-interpretation-v3",
+        "provider": "openai",
+        "reasoning_effort": "none",
+        "usage": {
+          "input_tokens": 945,
+          "output_tokens": 42,
+          "total_tokens": 987
+        }
+      },
+      "status": "ok"
+    }
+  ],
+  "schema_version": 1,
+  "scoring": {
+    "cases": 30,
+    "clarification": {
+      "accuracy": 1.0,
+      "false_negative_missed": 0,
+      "false_positive_unnecessary": 0,
+      "gold_clarification_cases": 11,
+      "missed_clarification_rate": 0.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "scored": 30,
+      "scored_gold_clarification_cases": 11,
+      "scored_gold_no_clarification_cases": 19,
+      "true_positive": 11,
+      "unnecessary_clarification_rate": 0.0
+    },
+    "complete_decision_coverage": 1.0,
+    "complete_decisions": 30,
+    "exact_decision_accuracy": 0.9,
+    "exact_decisions": 27,
+    "per_field": {
+      "needs_clarification": {
+        "accuracy": 1.0,
+        "correct": 30,
+        "coverage": 1.0,
+        "scored": 30
+      },
+      "parsing_policy": {
+        "accuracy": 0.9333,
+        "correct": 28,
+        "coverage": 1.0,
+        "scored": 30
+      },
+      "recommended_aggregation": {
+        "accuracy": 0.9333,
+        "correct": 28,
+        "coverage": 1.0,
+        "scored": 30
+      },
+      "role": {
+        "accuracy": 1.0,
+        "correct": 30,
+        "coverage": 1.0,
+        "scored": 30
+      },
+      "unit": {
+        "accuracy": 1.0,
+        "correct": 30,
+        "coverage": 1.0,
+        "scored": 30
+      }
+    },
+    "predicted_cases": 30,
+    "prediction_coverage": 1.0,
+    "wrong_auto_decisions": {
+      "auto_decisions": 19,
+      "count": 1,
+      "rate": 0.0526,
+      "rule": "An auto decision is wrong if clarification was required, an action field is missing, or any supplied action field differs from expected."
+    }
+  }
+}

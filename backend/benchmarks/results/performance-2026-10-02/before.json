@@ -1,0 +1,701 @@
+{
+  "ai_enabled": false,
+  "interpretation_enabled": false,
+  "memory_scope": "isolated worker lifetime peak, including imports, parse, ingestion and charts",
+  "results": [
+    {
+      "workload": "small",
+      "rows": 10000,
+      "columns": 5,
+      "csv_parse_seconds": 0.0027565000345930457,
+      "ingestion_seconds": 0.13967091694939882,
+      "parse_and_ingestion_seconds": 0.14242741698399186,
+      "ingestion_phase_seconds": null,
+      "chart_cold_seconds": 0.001886666053906083,
+      "chart_warm_median_seconds": 0.0013574999757111073,
+      "process_peak_rss_bytes": 127385600,
+      "retained_frame_bytes": 4028024,
+      "result": {
+        "data": [
+          {
+            "category": "group_0",
+            "amount_usd": 499509
+          },
+          {
+            "category": "group_1",
+            "amount_usd": 499508
+          },
+          {
+            "category": "group_2",
+            "amount_usd": 499507
+          },
+          {
+            "category": "group_3",
+            "amount_usd": 499506
+          },
+          {
+            "category": "group_4",
+            "amount_usd": 499505
+          },
+          {
+            "category": "group_5",
+            "amount_usd": 499504
+          },
+          {
+            "category": "group_6",
+            "amount_usd": 499503
+          },
+          {
+            "category": "group_7",
+            "amount_usd": 499502
+          },
+          {
+            "category": "group_8",
+            "amount_usd": 499501
+          },
+          {
+            "category": "group_9",
+            "amount_usd": 499500
+          }
+        ],
+        "x_axis_key": "category",
+        "y_axis_keys": [
+          "amount_usd"
+        ],
+        "chart_type": "bar",
+        "title": "Amount Usd By Category",
+        "aggregation": "sum",
+        "x_axis_label": null,
+        "y_axis_label": null,
+        "row_count": 10,
+        "analysis": null,
+        "warnings": null,
+        "applied_filters": null,
+        "filters": null,
+        "llm_filters": null,
+        "source_x_axis_key": "category",
+        "time_bucket": null,
+        "others_label": null,
+        "answer": null
+      },
+      "trial": 1
+    },
+    {
+      "workload": "small",
+      "rows": 10000,
+      "columns": 5,
+      "csv_parse_seconds": 0.0028463329654186964,
+      "ingestion_seconds": 0.14025129203218967,
+      "parse_and_ingestion_seconds": 0.14309762499760836,
+      "ingestion_phase_seconds": null,
+      "chart_cold_seconds": 0.001873041968792677,
+      "chart_warm_median_seconds": 0.0013295409735292196,
+      "process_peak_rss_bytes": 127614976,
+      "retained_frame_bytes": 4028024,
+      "result": {
+        "data": [
+          {
+            "category": "group_0",
+            "amount_usd": 499509
+          },
+          {
+            "category": "group_1",
+            "amount_usd": 499508
+          },
+          {
+            "category": "group_2",
+            "amount_usd": 499507
+          },
+          {
+            "category": "group_3",
+            "amount_usd": 499506
+          },
+          {
+            "category": "group_4",
+            "amount_usd": 499505
+          },
+          {
+            "category": "group_5",
+            "amount_usd": 499504
+          },
+          {
+            "category": "group_6",
+            "amount_usd": 499503
+          },
+          {
+            "category": "group_7",
+            "amount_usd": 499502
+          },
+          {
+            "category": "group_8",
+            "amount_usd": 499501
+          },
+          {
+            "category": "group_9",
+            "amount_usd": 499500
+          }
+        ],
+        "x_axis_key": "category",
+        "y_axis_keys": [
+          "amount_usd"
+        ],
+        "chart_type": "bar",
+        "title": "Amount Usd By Category",
+        "aggregation": "sum",
+        "x_axis_label": null,
+        "y_axis_label": null,
+        "row_count": 10,
+        "analysis": null,
+        "warnings": null,
+        "applied_filters": null,
+        "filters": null,
+        "llm_filters": null,
+        "source_x_axis_key": "category",
+        "time_bucket": null,
+        "others_label": null,
+        "answer": null
+      },
+      "trial": 2
+    },
+    {
+      "workload": "small",
+      "rows": 10000,
+      "columns": 5,
+      "csv_parse_seconds": 0.0028099589981138706,
+      "ingestion_seconds": 0.1397711660247296,
+      "parse_and_ingestion_seconds": 0.14258112502284348,
+      "ingestion_phase_seconds": null,
+      "chart_cold_seconds": 0.0018406669842079282,
+      "chart_warm_median_seconds": 0.0013268329203128815,
+      "process_peak_rss_bytes": 127451136,
+      "retained_frame_bytes": 4028024,
+      "result": {
+        "data": [
+          {
+            "category": "group_0",
+            "amount_usd": 499509
+          },
+          {
+            "category": "group_1",
+            "amount_usd": 499508
+          },
+          {
+            "category": "group_2",
+            "amount_usd": 499507
+          },
+          {
+            "category": "group_3",
+            "amount_usd": 499506
+          },
+          {
+            "category": "group_4",
+            "amount_usd": 499505
+          },
+          {
+            "category": "group_5",
+            "amount_usd": 499504
+          },
+          {
+            "category": "group_6",
+            "amount_usd": 499503
+          },
+          {
+            "category": "group_7",
+            "amount_usd": 499502
+          },
+          {
+            "category": "group_8",
+            "amount_usd": 499501
+          },
+          {
+            "category": "group_9",
+            "amount_usd": 499500
+          }
+        ],
+        "x_axis_key": "category",
+        "y_axis_keys": [
+          "amount_usd"
+        ],
+        "chart_type": "bar",
+        "title": "Amount Usd By Category",
+        "aggregation": "sum",
+        "x_axis_label": null,
+        "y_axis_label": null,
+        "row_count": 10,
+        "analysis": null,
+        "warnings": null,
+        "applied_filters": null,
+        "filters": null,
+        "llm_filters": null,
+        "source_x_axis_key": "category",
+        "time_bucket": null,
+        "others_label": null,
+        "answer": null
+      },
+      "trial": 3
+    },
+    {
+      "workload": "wide",
+      "rows": 10000,
+      "columns": 50,
+      "csv_parse_seconds": 0.021941791055724025,
+      "ingestion_seconds": 1.0890548749594018,
+      "parse_and_ingestion_seconds": 1.1109966660151258,
+      "ingestion_phase_seconds": null,
+      "chart_cold_seconds": 0.002001791028305888,
+      "chart_warm_median_seconds": 0.001389667042531073,
+      "process_peak_rss_bytes": 157974528,
+      "retained_frame_bytes": 30979459,
+      "result": {
+        "data": [
+          {
+            "category": "group_0",
+            "amount_usd": 499509
+          },
+          {
+            "category": "group_1",
+            "amount_usd": 499508
+          },
+          {
+            "category": "group_2",
+            "amount_usd": 499507
+          },
+          {
+            "category": "group_3",
+            "amount_usd": 499506
+          },
+          {
+            "category": "group_4",
+            "amount_usd": 499505
+          },
+          {
+            "category": "group_5",
+            "amount_usd": 499504
+          },
+          {
+            "category": "group_6",
+            "amount_usd": 499503
+          },
+          {
+            "category": "group_7",
+            "amount_usd": 499502
+          },
+          {
+            "category": "group_8",
+            "amount_usd": 499501
+          },
+          {
+            "category": "group_9",
+            "amount_usd": 499500
+          }
+        ],
+        "x_axis_key": "category",
+        "y_axis_keys": [
+          "amount_usd"
+        ],
+        "chart_type": "bar",
+        "title": "Amount Usd By Category",
+        "aggregation": "sum",
+        "x_axis_label": null,
+        "y_axis_label": null,
+        "row_count": 10,
+        "analysis": null,
+        "warnings": null,
+        "applied_filters": null,
+        "filters": null,
+        "llm_filters": null,
+        "source_x_axis_key": "category",
+        "time_bucket": null,
+        "others_label": null,
+        "answer": null
+      },
+      "trial": 1
+    },
+    {
+      "workload": "wide",
+      "rows": 10000,
+      "columns": 50,
+      "csv_parse_seconds": 0.02182933292351663,
+      "ingestion_seconds": 1.107249875087291,
+      "parse_and_ingestion_seconds": 1.1290792080108076,
+      "ingestion_phase_seconds": null,
+      "chart_cold_seconds": 0.0020435830811038613,
+      "chart_warm_median_seconds": 0.0013254580553621054,
+      "process_peak_rss_bytes": 158072832,
+      "retained_frame_bytes": 30979459,
+      "result": {
+        "data": [
+          {
+            "category": "group_0",
+            "amount_usd": 499509
+          },
+          {
+            "category": "group_1",
+            "amount_usd": 499508
+          },
+          {
+            "category": "group_2",
+            "amount_usd": 499507
+          },
+          {
+            "category": "group_3",
+            "amount_usd": 499506
+          },
+          {
+            "category": "group_4",
+            "amount_usd": 499505
+          },
+          {
+            "category": "group_5",
+            "amount_usd": 499504
+          },
+          {
+            "category": "group_6",
+            "amount_usd": 499503
+          },
+          {
+            "category": "group_7",
+            "amount_usd": 499502
+          },
+          {
+            "category": "group_8",
+            "amount_usd": 499501
+          },
+          {
+            "category": "group_9",
+            "amount_usd": 499500
+          }
+        ],
+        "x_axis_key": "category",
+        "y_axis_keys": [
+          "amount_usd"
+        ],
+        "chart_type": "bar",
+        "title": "Amount Usd By Category",
+        "aggregation": "sum",
+        "x_axis_label": null,
+        "y_axis_label": null,
+        "row_count": 10,
+        "analysis": null,
+        "warnings": null,
+        "applied_filters": null,
+        "filters": null,
+        "llm_filters": null,
+        "source_x_axis_key": "category",
+        "time_bucket": null,
+        "others_label": null,
+        "answer": null
+      },
+      "trial": 2
+    },
+    {
+      "workload": "wide",
+      "rows": 10000,
+      "columns": 50,
+      "csv_parse_seconds": 0.021632291027344763,
+      "ingestion_seconds": 1.0812514589633793,
+      "parse_and_ingestion_seconds": 1.102883749990724,
+      "ingestion_phase_seconds": null,
+      "chart_cold_seconds": 0.0020440840162336826,
+      "chart_warm_median_seconds": 0.0014652499230578542,
+      "process_peak_rss_bytes": 158007296,
+      "retained_frame_bytes": 30979459,
+      "result": {
+        "data": [
+          {
+            "category": "group_0",
+            "amount_usd": 499509
+          },
+          {
+            "category": "group_1",
+            "amount_usd": 499508
+          },
+          {
+            "category": "group_2",
+            "amount_usd": 499507
+          },
+          {
+            "category": "group_3",
+            "amount_usd": 499506
+          },
+          {
+            "category": "group_4",
+            "amount_usd": 499505
+          },
+          {
+            "category": "group_5",
+            "amount_usd": 499504
+          },
+          {
+            "category": "group_6",
+            "amount_usd": 499503
+          },
+          {
+            "category": "group_7",
+            "amount_usd": 499502
+          },
+          {
+            "category": "group_8",
+            "amount_usd": 499501
+          },
+          {
+            "category": "group_9",
+            "amount_usd": 499500
+          }
+        ],
+        "x_axis_key": "category",
+        "y_axis_keys": [
+          "amount_usd"
+        ],
+        "chart_type": "bar",
+        "title": "Amount Usd By Category",
+        "aggregation": "sum",
+        "x_axis_label": null,
+        "y_axis_label": null,
+        "row_count": 10,
+        "analysis": null,
+        "warnings": null,
+        "applied_filters": null,
+        "filters": null,
+        "llm_filters": null,
+        "source_x_axis_key": "category",
+        "time_bucket": null,
+        "others_label": null,
+        "answer": null
+      },
+      "trial": 3
+    },
+    {
+      "workload": "million",
+      "rows": 1000000,
+      "columns": 5,
+      "csv_parse_seconds": 0.1449408329790458,
+      "ingestion_seconds": 12.549990250030532,
+      "parse_and_ingestion_seconds": 12.694931083009578,
+      "ingestion_phase_seconds": null,
+      "chart_cold_seconds": 0.054524082923308015,
+      "chart_warm_median_seconds": 0.05238829203881323,
+      "process_peak_rss_bytes": 733790208,
+      "retained_frame_bytes": 402777849,
+      "result": {
+        "data": [
+          {
+            "category": "group_0",
+            "amount_usd": 50000400
+          },
+          {
+            "category": "group_1",
+            "amount_usd": 50000300
+          },
+          {
+            "category": "group_2",
+            "amount_usd": 50000200
+          },
+          {
+            "category": "group_3",
+            "amount_usd": 50000100
+          },
+          {
+            "category": "group_4",
+            "amount_usd": 50000000
+          },
+          {
+            "category": "group_5",
+            "amount_usd": 49999900
+          },
+          {
+            "category": "group_6",
+            "amount_usd": 49999800
+          },
+          {
+            "category": "group_7",
+            "amount_usd": 49999700
+          },
+          {
+            "category": "group_8",
+            "amount_usd": 49999600
+          },
+          {
+            "category": "group_9",
+            "amount_usd": 49999500
+          }
+        ],
+        "x_axis_key": "category",
+        "y_axis_keys": [
+          "amount_usd"
+        ],
+        "chart_type": "bar",
+        "title": "Amount Usd By Category",
+        "aggregation": "sum",
+        "x_axis_label": null,
+        "y_axis_label": null,
+        "row_count": 10,
+        "analysis": null,
+        "warnings": null,
+        "applied_filters": null,
+        "filters": null,
+        "llm_filters": null,
+        "source_x_axis_key": "category",
+        "time_bucket": null,
+        "others_label": null,
+        "answer": null
+      },
+      "trial": 1
+    },
+    {
+      "workload": "million",
+      "rows": 1000000,
+      "columns": 5,
+      "csv_parse_seconds": 0.15138962503988296,
+      "ingestion_seconds": 12.550943125039339,
+      "parse_and_ingestion_seconds": 12.702332750079222,
+      "ingestion_phase_seconds": null,
+      "chart_cold_seconds": 0.05418999993707985,
+      "chart_warm_median_seconds": 0.05286987510044128,
+      "process_peak_rss_bytes": 733872128,
+      "retained_frame_bytes": 402777849,
+      "result": {
+        "data": [
+          {
+            "category": "group_0",
+            "amount_usd": 50000400
+          },
+          {
+            "category": "group_1",
+            "amount_usd": 50000300
+          },
+          {
+            "category": "group_2",
+            "amount_usd": 50000200
+          },
+          {
+            "category": "group_3",
+            "amount_usd": 50000100
+          },
+          {
+            "category": "group_4",
+            "amount_usd": 50000000
+          },
+          {
+            "category": "group_5",
+            "amount_usd": 49999900
+          },
+          {
+            "category": "group_6",
+            "amount_usd": 49999800
+          },
+          {
+            "category": "group_7",
+            "amount_usd": 49999700
+          },
+          {
+            "category": "group_8",
+            "amount_usd": 49999600
+          },
+          {
+            "category": "group_9",
+            "amount_usd": 49999500
+          }
+        ],
+        "x_axis_key": "category",
+        "y_axis_keys": [
+          "amount_usd"
+        ],
+        "chart_type": "bar",
+        "title": "Amount Usd By Category",
+        "aggregation": "sum",
+        "x_axis_label": null,
+        "y_axis_label": null,
+        "row_count": 10,
+        "analysis": null,
+        "warnings": null,
+        "applied_filters": null,
+        "filters": null,
+        "llm_filters": null,
+        "source_x_axis_key": "category",
+        "time_bucket": null,
+        "others_label": null,
+        "answer": null
+      },
+      "trial": 2
+    },
+    {
+      "workload": "million",
+      "rows": 1000000,
+      "columns": 5,
+      "csv_parse_seconds": 0.15062687499448657,
+      "ingestion_seconds": 12.732372624916025,
+      "parse_and_ingestion_seconds": 12.882999499910511,
+      "ingestion_phase_seconds": null,
+      "chart_cold_seconds": 0.05409783299546689,
+      "chart_warm_median_seconds": 0.05290725000668317,
+      "process_peak_rss_bytes": 705085440,
+      "retained_frame_bytes": 402777849,
+      "result": {
+        "data": [
+          {
+            "category": "group_0",
+            "amount_usd": 50000400
+          },
+          {
+            "category": "group_1",
+            "amount_usd": 50000300
+          },
+          {
+            "category": "group_2",
+            "amount_usd": 50000200
+          },
+          {
+            "category": "group_3",
+            "amount_usd": 50000100
+          },
+          {
+            "category": "group_4",
+            "amount_usd": 50000000
+          },
+          {
+            "category": "group_5",
+            "amount_usd": 49999900
+          },
+          {
+            "category": "group_6",
+            "amount_usd": 49999800
+          },
+          {
+            "category": "group_7",
+            "amount_usd": 49999700
+          },
+          {
+            "category": "group_8",
+            "amount_usd": 49999600
+          },
+          {
+            "category": "group_9",
+            "amount_usd": 49999500
+          }
+        ],
+        "x_axis_key": "category",
+        "y_axis_keys": [
+          "amount_usd"
+        ],
+        "chart_type": "bar",
+        "title": "Amount Usd By Category",
+        "aggregation": "sum",
+        "x_axis_label": null,
+        "y_axis_label": null,
+        "row_count": 10,
+        "analysis": null,
+        "warnings": null,
+        "applied_filters": null,
+        "filters": null,
+        "llm_filters": null,
+        "source_x_axis_key": "category",
+        "time_bucket": null,
+        "others_label": null,
+        "answer": null
+      },
+      "trial": 3
+    }
+  ],
+  "revision": "da8d493"
+}

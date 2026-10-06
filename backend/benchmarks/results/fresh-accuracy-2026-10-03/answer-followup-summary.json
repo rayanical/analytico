@@ -1,0 +1,312 @@
+{
+  "date": "2026-10-03",
+  "model": "gpt-6-luna",
+  "initial_baseline": {
+    "correct": 38,
+    "checks": 40,
+    "per_arm_correct": 19,
+    "per_arm_checks": 20,
+    "failure": "Ambiguous ranking silently chose mean rather than clarifying objective"
+  },
+  "change": "Require a clear ranking/comparison objective when total, average, frequency or rate would answer different questions. No dataset-specific rule or regex added.",
+  "post_fix": [
+    {
+      "scope": "original_frozen_questions",
+      "query_prompt_sha256": "974833478f32b75674397a6eef4d2cb5b3dd1f8eb4568dc0225a1c460d92b6be",
+      "question_set_sha256": "8206165b244d327f92cf9475f523047c31539067746627b8e5782f19dfb88db5",
+      "cases": [
+        {
+          "dataset": "bike",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show the sum of cnt by weekday",
+          "kind": "chart",
+          "x": "weekday",
+          "y": "cnt",
+          "aggregation": "sum"
+        },
+        {
+          "dataset": "bike",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show average temp by season",
+          "kind": "chart",
+          "x": "season",
+          "y": "temp",
+          "aggregation": "mean"
+        },
+        {
+          "dataset": "bike",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Predict next month's number of rentals",
+          "kind": "clarification"
+        },
+        {
+          "dataset": "bank",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show average age by job",
+          "kind": "chart",
+          "x": "job",
+          "y": "age",
+          "aggregation": "mean"
+        },
+        {
+          "dataset": "bank",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show average balance by marital status",
+          "kind": "chart",
+          "x": "marital",
+          "y": "balance",
+          "aggregation": "mean"
+        },
+        {
+          "dataset": "bank",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show a weighted average age by job",
+          "kind": "clarification"
+        },
+        {
+          "dataset": "retail",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show total quantity by country",
+          "kind": "chart",
+          "x": "country",
+          "y": "quantity",
+          "aggregation": "sum"
+        },
+        {
+          "dataset": "retail",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show average unit_price by country",
+          "kind": "chart",
+          "x": "country",
+          "y": "unit_price",
+          "aggregation": "mean"
+        },
+        {
+          "dataset": "retail",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show net revenue by country",
+          "kind": "clarification"
+        },
+        {
+          "dataset": "taxi",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show average trip distance by payment type",
+          "kind": "chart",
+          "x": "payment_type",
+          "y": "trip_distance",
+          "aggregation": "mean"
+        },
+        {
+          "dataset": "taxi",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show total fare_amount by payment_type",
+          "kind": "chart",
+          "x": "payment_type",
+          "y": "fare_amount",
+          "aggregation": "sum"
+        },
+        {
+          "dataset": "taxi",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show revenue by payment type",
+          "kind": "clarification"
+        },
+        {
+          "dataset": "wine",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show average alcohol by quality",
+          "kind": "chart",
+          "x": "quality",
+          "y": "alcohol",
+          "aggregation": "mean"
+        },
+        {
+          "dataset": "diamonds",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show the average price by cut",
+          "kind": "chart",
+          "x": "cut",
+          "y": "price",
+          "aggregation": "mean"
+        },
+        {
+          "dataset": "diamonds",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show the total carat by clarity",
+          "kind": "chart",
+          "x": "clarity",
+          "y": "carat",
+          "aggregation": "sum"
+        },
+        {
+          "dataset": "penguins",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show the average body mass in grams by penguin species",
+          "kind": "chart",
+          "x": "species",
+          "y": "body_mass_g",
+          "aggregation": "mean"
+        },
+        {
+          "dataset": "penguins",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Count penguin species entries by island",
+          "kind": "chart",
+          "x": "island",
+          "y": "species",
+          "aggregation": "count"
+        },
+        {
+          "dataset": "tips",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show the average tip in dollars by day",
+          "kind": "chart",
+          "x": "day",
+          "y": "tip",
+          "aggregation": "mean"
+        },
+        {
+          "dataset": "tips",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Show the total bill in dollars by meal time",
+          "kind": "chart",
+          "x": "time",
+          "y": "total_bill",
+          "aggregation": "sum"
+        },
+        {
+          "dataset": "tips",
+          "repeats": 1,
+          "scope": "frozen_baseline_after_fix",
+          "prompt": "Which day has the best tips?",
+          "kind": "clarification"
+        }
+      ],
+      "checks": 40,
+      "correct": 40,
+      "by_arm": {
+        "local_only": {
+          "checks": 20,
+          "correct": 20,
+          "median_query_seconds": 1.5270113958977163,
+          "median_planner_seconds": 1.5176776670850813,
+          "median_chart_execution_seconds": 0.008955667028203607
+        },
+        "auto_luna_schema": {
+          "checks": 20,
+          "correct": 20,
+          "median_query_seconds": 1.6091316874371842,
+          "median_planner_seconds": 1.5912141455337405,
+          "median_chart_execution_seconds": 0.01088762516155839
+        }
+      },
+      "failures": [],
+      "raw_artifact": "/private/tmp/analytico-answer-post-baseline-results.json"
+    },
+    {
+      "scope": "objective_regressions_and_new_questions",
+      "query_prompt_sha256": "974833478f32b75674397a6eef4d2cb5b3dd1f8eb4568dc0225a1c460d92b6be",
+      "question_set_sha256": "b1062ac61da9dc224062baad18f246941354f8b0a5ef25624115c47270e57eee",
+      "cases": [
+        {
+          "dataset": "tips",
+          "prompt": "Which day has the best tips?",
+          "kind": "clarification",
+          "repeats": 3,
+          "scope": "observed_regression"
+        },
+        {
+          "dataset": "bank",
+          "prompt": "Rank jobs by overall performance",
+          "kind": "clarification",
+          "repeats": 1,
+          "scope": "new_holdout"
+        },
+        {
+          "dataset": "diamonds",
+          "prompt": "Compare value by cut",
+          "kind": "clarification",
+          "repeats": 1,
+          "scope": "new_holdout"
+        },
+        {
+          "dataset": "bike",
+          "prompt": "Which season performs best overall?",
+          "kind": "clarification",
+          "repeats": 1,
+          "scope": "new_holdout"
+        },
+        {
+          "dataset": "tips",
+          "prompt": "Show total tips by day",
+          "kind": "chart",
+          "x": "day",
+          "y": "tip",
+          "aggregation": "sum",
+          "repeats": 1,
+          "scope": "new_clear_control"
+        },
+        {
+          "dataset": "penguins",
+          "prompt": "Show mean flipper length by island",
+          "kind": "chart",
+          "x": "island",
+          "y": "flipper_length_mm",
+          "aggregation": "mean",
+          "repeats": 1,
+          "scope": "new_clear_control"
+        },
+        {
+          "dataset": "diamonds",
+          "prompt": "Show average carat by color",
+          "kind": "chart",
+          "x": "color",
+          "y": "carat",
+          "aggregation": "mean",
+          "repeats": 1,
+          "scope": "new_clear_control"
+        }
+      ],
+      "checks": 18,
+      "correct": 18,
+      "by_arm": {
+        "local_only": {
+          "checks": 9,
+          "correct": 9,
+          "median_query_seconds": 1.8427007081918418,
+          "median_planner_seconds": 1.8418903339188546,
+          "median_chart_execution_seconds": 0.005083082942292094
+        },
+        "auto_luna_schema": {
+          "checks": 9,
+          "correct": 9,
+          "median_query_seconds": 1.8229547920636833,
+          "median_planner_seconds": 1.8203055830672383,
+          "median_chart_execution_seconds": 0.004520375048741698
+        }
+      },
+      "failures": [],
+      "raw_artifact": "/private/tmp/analytico-answer-followup-results.json"
+    }
+  ],
+  "limitations": "Repeated regression prompts are not independent new examples. One full post-fix pass per original question per arm; this does not establish universal answer accuracy."
+}

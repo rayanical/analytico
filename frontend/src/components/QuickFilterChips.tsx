@@ -4,6 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Plus, X } from 'lucide-react';
 import { useData } from '@/context/DataContext';
+import { getColumnDisplayName, getColumnSourceName } from '@/lib/columnLabels';
 
 interface QuickFilterChipsProps {
   /** Columns currently being plotted (will be excluded from quick filter suggestions) */
@@ -54,9 +55,10 @@ export function QuickFilterChips({ plottedColumns = [], onFilterChipClick }: Qui
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={() => removeFilter(filter.column)}
+              title={getColumnSourceName(dataset.columns.find(column => column.name === filter.column) ?? { name: filter.column })}
               className="group flex items-center gap-1.5 rounded-full bg-primary/20 px-3 py-1 text-xs font-medium text-primary transition-all hover:bg-primary/30"
             >
-              <span>{filter.column}:</span>
+              <span>{getColumnDisplayName(dataset.columns.find(column => column.name === filter.column) ?? { name: filter.column })}:</span>
               <span className="font-normal">{formatFilterValues(filter.values)}</span>
               <X className="h-3 w-3 opacity-60 transition-opacity group-hover:opacity-100" />
             </motion.button>
@@ -79,10 +81,11 @@ export function QuickFilterChips({ plottedColumns = [], onFilterChipClick }: Qui
             <button
               key={col.name}
               onClick={() => onFilterChipClick?.(col.name)}
+              title={getColumnSourceName(col)}
               className="flex items-center gap-1 rounded-full border border-border/50 bg-white/5 px-3 py-1 text-xs font-medium text-muted-foreground transition-all hover:border-primary/50 hover:bg-primary/10 hover:text-foreground"
             >
               <Plus className="h-3 w-3" />
-              {col.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+              {getColumnDisplayName(col)}
             </button>
           ))}
         </>

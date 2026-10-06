@@ -1,0 +1,587 @@
+{
+  "manifest_version": 1,
+  "live": false,
+  "model": null,
+  "timing_scope": "local stage/confirm and in-process aggregate HTTP API; excludes transfer/browser render",
+  "hardware": {
+    "machine": "arm64",
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O"
+  },
+  "datasets": [
+    {
+      "dataset": "bike",
+      "file_bytes": 1156736,
+      "sha256": "e03de4ee4ef4dc376ac6e04bf829673c6269e8eba5c60fa121640fa2f829504f",
+      "records": [
+        {
+          "trial": 1,
+          "stage_seconds": 0.06271891598589718,
+          "confirm_seconds": 0.3166164590511471,
+          "local_ready_seconds": 0.3793353750370443,
+          "cold_aggregate_api_seconds": 0.019836624967865646,
+          "warm_aggregate_api_seconds": 0.0017182090086862445,
+          "rows": 17379,
+          "columns": 17,
+          "engine": "pandas",
+          "aggregate_matches_oracle": true,
+          "source_missing_counts_match": true,
+          "local_roles": {
+            "instant": "metric",
+            "dteday": "temporal",
+            "season": "categorical",
+            "yr": "categorical",
+            "mnth": "categorical",
+            "hr": "metric",
+            "holiday": "categorical",
+            "weekday": "categorical",
+            "workingday": "categorical",
+            "weathersit": "categorical",
+            "temp": "metric",
+            "atemp": "metric",
+            "hum": "metric",
+            "windspeed": "metric",
+            "casual": "metric",
+            "registered": "metric",
+            "cnt": "metric"
+          },
+          "default_chart": {
+            "x_axis_key": "dteday",
+            "y_axis_keys": [
+              "hr"
+            ],
+            "chart_type": "line",
+            "aggregation": "mean",
+            "title": "Mean Hr By Dteday",
+            "analysis": "Shows the mean of hr for each observed dteday value."
+          },
+          "top_metrics": [
+            "hr",
+            "temp",
+            "atemp"
+          ]
+        },
+        {
+          "trial": 2,
+          "stage_seconds": 0.07126379094552249,
+          "confirm_seconds": 0.3051345420535654,
+          "local_ready_seconds": 0.37639833299908787,
+          "cold_aggregate_api_seconds": 0.0031401669839397073,
+          "warm_aggregate_api_seconds": 0.0014099580002948642,
+          "rows": 17379,
+          "columns": 17,
+          "engine": "pandas",
+          "aggregate_matches_oracle": true,
+          "source_missing_counts_match": true,
+          "local_roles": {
+            "instant": "metric",
+            "dteday": "temporal",
+            "season": "categorical",
+            "yr": "categorical",
+            "mnth": "categorical",
+            "hr": "metric",
+            "holiday": "categorical",
+            "weekday": "categorical",
+            "workingday": "categorical",
+            "weathersit": "categorical",
+            "temp": "metric",
+            "atemp": "metric",
+            "hum": "metric",
+            "windspeed": "metric",
+            "casual": "metric",
+            "registered": "metric",
+            "cnt": "metric"
+          },
+          "default_chart": {
+            "x_axis_key": "dteday",
+            "y_axis_keys": [
+              "hr"
+            ],
+            "chart_type": "line",
+            "aggregation": "mean",
+            "title": "Mean Hr By Dteday",
+            "analysis": "Shows the mean of hr for each observed dteday value."
+          },
+          "top_metrics": [
+            "hr",
+            "temp",
+            "atemp"
+          ]
+        },
+        {
+          "trial": 3,
+          "stage_seconds": 0.05512516596354544,
+          "confirm_seconds": 0.29416983400005847,
+          "local_ready_seconds": 0.3492949999636039,
+          "cold_aggregate_api_seconds": 0.0028414580738171935,
+          "warm_aggregate_api_seconds": 0.0014442079700529575,
+          "rows": 17379,
+          "columns": 17,
+          "engine": "pandas",
+          "aggregate_matches_oracle": true,
+          "source_missing_counts_match": true,
+          "local_roles": {
+            "instant": "metric",
+            "dteday": "temporal",
+            "season": "categorical",
+            "yr": "categorical",
+            "mnth": "categorical",
+            "hr": "metric",
+            "holiday": "categorical",
+            "weekday": "categorical",
+            "workingday": "categorical",
+            "weathersit": "categorical",
+            "temp": "metric",
+            "atemp": "metric",
+            "hum": "metric",
+            "windspeed": "metric",
+            "casual": "metric",
+            "registered": "metric",
+            "cnt": "metric"
+          },
+          "default_chart": {
+            "x_axis_key": "dteday",
+            "y_axis_keys": [
+              "hr"
+            ],
+            "chart_type": "line",
+            "aggregation": "mean",
+            "title": "Mean Hr By Dteday",
+            "analysis": "Shows the mean of hr for each observed dteday value."
+          },
+          "top_metrics": [
+            "hr",
+            "temp",
+            "atemp"
+          ]
+        }
+      ],
+      "process_peak_rss_bytes": 170393600
+    },
+    {
+      "dataset": "bank",
+      "file_bytes": 4610348,
+      "sha256": "d1513ec63b385506f7cfce9f2c5caa9fe99e7ba4e8c3fa264b3aaf0f849ed32d",
+      "records": [
+        {
+          "trial": 1,
+          "stage_seconds": 0.09678283298853785,
+          "confirm_seconds": 0.8833063340280205,
+          "local_ready_seconds": 0.9800891670165583,
+          "cold_aggregate_api_seconds": 0.01878416701219976,
+          "warm_aggregate_api_seconds": 0.001582416007295251,
+          "rows": 45211,
+          "columns": 17,
+          "engine": "pandas",
+          "aggregate_matches_oracle": true,
+          "source_missing_counts_match": true,
+          "local_roles": {
+            "age": "metric",
+            "job": "categorical",
+            "marital": "categorical",
+            "education": "categorical",
+            "default": "categorical",
+            "balance": "metric",
+            "housing": "categorical",
+            "loan": "categorical",
+            "contact": "categorical",
+            "day": "metric",
+            "month": "categorical",
+            "duration": "metric",
+            "campaign": "metric",
+            "pdays": "metric",
+            "previous": "metric",
+            "poutcome": "categorical",
+            "y": "categorical"
+          },
+          "default_chart": {
+            "x_axis_key": "job",
+            "y_axis_keys": [
+              "age"
+            ],
+            "chart_type": "bar",
+            "aggregation": "mean",
+            "title": "Mean Age By Job",
+            "analysis": "Shows the mean of age for each observed job value."
+          },
+          "top_metrics": [
+            "age",
+            "balance",
+            "day"
+          ]
+        },
+        {
+          "trial": 2,
+          "stage_seconds": 0.08719995804131031,
+          "confirm_seconds": 0.8729536669561639,
+          "local_ready_seconds": 0.9601536249974743,
+          "cold_aggregate_api_seconds": 0.005101209040731192,
+          "warm_aggregate_api_seconds": 0.0014667089562863111,
+          "rows": 45211,
+          "columns": 17,
+          "engine": "pandas",
+          "aggregate_matches_oracle": true,
+          "source_missing_counts_match": true,
+          "local_roles": {
+            "age": "metric",
+            "job": "categorical",
+            "marital": "categorical",
+            "education": "categorical",
+            "default": "categorical",
+            "balance": "metric",
+            "housing": "categorical",
+            "loan": "categorical",
+            "contact": "categorical",
+            "day": "metric",
+            "month": "categorical",
+            "duration": "metric",
+            "campaign": "metric",
+            "pdays": "metric",
+            "previous": "metric",
+            "poutcome": "categorical",
+            "y": "categorical"
+          },
+          "default_chart": {
+            "x_axis_key": "job",
+            "y_axis_keys": [
+              "age"
+            ],
+            "chart_type": "bar",
+            "aggregation": "mean",
+            "title": "Mean Age By Job",
+            "analysis": "Shows the mean of age for each observed job value."
+          },
+          "top_metrics": [
+            "age",
+            "balance",
+            "day"
+          ]
+        },
+        {
+          "trial": 3,
+          "stage_seconds": 0.08787475002463907,
+          "confirm_seconds": 0.8777569159865379,
+          "local_ready_seconds": 0.965631666011177,
+          "cold_aggregate_api_seconds": 0.007272791932336986,
+          "warm_aggregate_api_seconds": 0.00148004200309515,
+          "rows": 45211,
+          "columns": 17,
+          "engine": "pandas",
+          "aggregate_matches_oracle": true,
+          "source_missing_counts_match": true,
+          "local_roles": {
+            "age": "metric",
+            "job": "categorical",
+            "marital": "categorical",
+            "education": "categorical",
+            "default": "categorical",
+            "balance": "metric",
+            "housing": "categorical",
+            "loan": "categorical",
+            "contact": "categorical",
+            "day": "metric",
+            "month": "categorical",
+            "duration": "metric",
+            "campaign": "metric",
+            "pdays": "metric",
+            "previous": "metric",
+            "poutcome": "categorical",
+            "y": "categorical"
+          },
+          "default_chart": {
+            "x_axis_key": "job",
+            "y_axis_keys": [
+              "age"
+            ],
+            "chart_type": "bar",
+            "aggregation": "mean",
+            "title": "Mean Age By Job",
+            "analysis": "Shows the mean of age for each observed job value."
+          },
+          "top_metrics": [
+            "age",
+            "balance",
+            "day"
+          ]
+        }
+      ],
+      "process_peak_rss_bytes": 220905472
+    },
+    {
+      "dataset": "retail",
+      "file_bytes": 47758972,
+      "sha256": "50e9f56b0ee4bd0662a397c68295f48945972135f57322cd5208f4f809eb67ac",
+      "records": [
+        {
+          "trial": 1,
+          "stage_seconds": 0.07393679104279727,
+          "confirm_seconds": 3.3782814169535413,
+          "local_ready_seconds": 3.4522182079963386,
+          "cold_aggregate_api_seconds": 0.017610250040888786,
+          "warm_aggregate_api_seconds": 0.0017184580210596323,
+          "rows": 541909,
+          "columns": 8,
+          "engine": "disk",
+          "aggregate_matches_oracle": true,
+          "source_missing_counts_match": true,
+          "local_roles": {
+            "invoice_no": "identifier",
+            "stock_code": "identifier",
+            "description": "identifier",
+            "quantity": "metric",
+            "invoice_date": "temporal",
+            "unit_price": "metric",
+            "customer_id": "identifier",
+            "country": "categorical"
+          },
+          "default_chart": {
+            "x_axis_key": "invoice_date",
+            "y_axis_keys": [
+              "quantity"
+            ],
+            "chart_type": "line",
+            "aggregation": "sum",
+            "title": "Sum Quantity By Invoice Date",
+            "analysis": "Shows the sum of quantity for each observed invoice_date value."
+          },
+          "top_metrics": [
+            "quantity",
+            "unit_price"
+          ]
+        },
+        {
+          "trial": 2,
+          "stage_seconds": 0.04379891708958894,
+          "confirm_seconds": 3.352684582932852,
+          "local_ready_seconds": 3.396483500022441,
+          "cold_aggregate_api_seconds": 0.004329624935053289,
+          "warm_aggregate_api_seconds": 0.001547417021356523,
+          "rows": 541909,
+          "columns": 8,
+          "engine": "disk",
+          "aggregate_matches_oracle": true,
+          "source_missing_counts_match": true,
+          "local_roles": {
+            "invoice_no": "identifier",
+            "stock_code": "identifier",
+            "description": "identifier",
+            "quantity": "metric",
+            "invoice_date": "temporal",
+            "unit_price": "metric",
+            "customer_id": "identifier",
+            "country": "categorical"
+          },
+          "default_chart": {
+            "x_axis_key": "invoice_date",
+            "y_axis_keys": [
+              "quantity"
+            ],
+            "chart_type": "line",
+            "aggregation": "sum",
+            "title": "Sum Quantity By Invoice Date",
+            "analysis": "Shows the sum of quantity for each observed invoice_date value."
+          },
+          "top_metrics": [
+            "quantity",
+            "unit_price"
+          ]
+        },
+        {
+          "trial": 3,
+          "stage_seconds": 0.041300582932308316,
+          "confirm_seconds": 3.2259414170403033,
+          "local_ready_seconds": 3.2672419999726117,
+          "cold_aggregate_api_seconds": 0.004057709011249244,
+          "warm_aggregate_api_seconds": 0.001481209066696465,
+          "rows": 541909,
+          "columns": 8,
+          "engine": "disk",
+          "aggregate_matches_oracle": true,
+          "source_missing_counts_match": true,
+          "local_roles": {
+            "invoice_no": "identifier",
+            "stock_code": "identifier",
+            "description": "identifier",
+            "quantity": "metric",
+            "invoice_date": "temporal",
+            "unit_price": "metric",
+            "customer_id": "identifier",
+            "country": "categorical"
+          },
+          "default_chart": {
+            "x_axis_key": "invoice_date",
+            "y_axis_keys": [
+              "quantity"
+            ],
+            "chart_type": "line",
+            "aggregation": "sum",
+            "title": "Sum Quantity By Invoice Date",
+            "analysis": "Shows the sum of quantity for each observed invoice_date value."
+          },
+          "top_metrics": [
+            "quantity",
+            "unit_price"
+          ]
+        }
+      ],
+      "process_peak_rss_bytes": 270336000
+    },
+    {
+      "dataset": "taxi",
+      "file_bytes": 139634545,
+      "sha256": "b217661724e4d6270063d1eb460dca49aef1187383d6ce30025405d7bb4945c1",
+      "records": [
+        {
+          "trial": 1,
+          "stage_seconds": 2.3409118748968467,
+          "confirm_seconds": 12.918736041989177,
+          "local_ready_seconds": 15.259647916886024,
+          "cold_aggregate_api_seconds": 0.022504082997329533,
+          "warm_aggregate_api_seconds": 0.001506166998296976,
+          "rows": 1068755,
+          "columns": 20,
+          "engine": "disk",
+          "aggregate_matches_oracle": true,
+          "source_missing_counts_match": true,
+          "local_roles": {
+            "vendor_id": "identifier",
+            "lpep_pickup_datetime": "temporal",
+            "lpep_dropoff_datetime": "temporal",
+            "store_and_fwd_flag": "categorical",
+            "ratecode_id": "identifier",
+            "pulocation_id": "identifier",
+            "dolocation_id": "identifier",
+            "passenger_count": "categorical",
+            "trip_distance": "metric",
+            "fare_amount": "metric",
+            "extra": "metric",
+            "mta_tax": "categorical",
+            "tip_amount": "metric",
+            "tolls_amount": "metric",
+            "ehail_fee": "categorical",
+            "improvement_surcharge": "categorical",
+            "total_amount": "metric",
+            "payment_type": "categorical",
+            "trip_type": "categorical",
+            "congestion_surcharge": "categorical"
+          },
+          "default_chart": {
+            "x_axis_key": "lpep_pickup_datetime",
+            "y_axis_keys": [
+              "trip_distance"
+            ],
+            "chart_type": "line",
+            "aggregation": "sum",
+            "title": "Sum Trip Distance By Lpep Pickup Datetime",
+            "analysis": "Shows the sum of trip_distance for each observed lpep_pickup_datetime value."
+          },
+          "top_metrics": [
+            "trip_distance",
+            "fare_amount",
+            "extra"
+          ]
+        },
+        {
+          "trial": 2,
+          "stage_seconds": 0.09526158403605223,
+          "confirm_seconds": 13.28303479088936,
+          "local_ready_seconds": 13.378296374925412,
+          "cold_aggregate_api_seconds": 0.006497457972727716,
+          "warm_aggregate_api_seconds": 0.0015291670570150018,
+          "rows": 1068755,
+          "columns": 20,
+          "engine": "disk",
+          "aggregate_matches_oracle": true,
+          "source_missing_counts_match": true,
+          "local_roles": {
+            "vendor_id": "identifier",
+            "lpep_pickup_datetime": "temporal",
+            "lpep_dropoff_datetime": "temporal",
+            "store_and_fwd_flag": "categorical",
+            "ratecode_id": "identifier",
+            "pulocation_id": "identifier",
+            "dolocation_id": "identifier",
+            "passenger_count": "categorical",
+            "trip_distance": "metric",
+            "fare_amount": "metric",
+            "extra": "metric",
+            "mta_tax": "categorical",
+            "tip_amount": "metric",
+            "tolls_amount": "metric",
+            "ehail_fee": "categorical",
+            "improvement_surcharge": "categorical",
+            "total_amount": "metric",
+            "payment_type": "categorical",
+            "trip_type": "categorical",
+            "congestion_surcharge": "categorical"
+          },
+          "default_chart": {
+            "x_axis_key": "lpep_pickup_datetime",
+            "y_axis_keys": [
+              "trip_distance"
+            ],
+            "chart_type": "line",
+            "aggregation": "sum",
+            "title": "Sum Trip Distance By Lpep Pickup Datetime",
+            "analysis": "Shows the sum of trip_distance for each observed lpep_pickup_datetime value."
+          },
+          "top_metrics": [
+            "trip_distance",
+            "fare_amount",
+            "extra"
+          ]
+        },
+        {
+          "trial": 3,
+          "stage_seconds": 0.1117097910027951,
+          "confirm_seconds": 13.218048291979358,
+          "local_ready_seconds": 13.329758082982153,
+          "cold_aggregate_api_seconds": 0.006711333058774471,
+          "warm_aggregate_api_seconds": 0.0014922079863026738,
+          "rows": 1068755,
+          "columns": 20,
+          "engine": "disk",
+          "aggregate_matches_oracle": true,
+          "source_missing_counts_match": true,
+          "local_roles": {
+            "vendor_id": "identifier",
+            "lpep_pickup_datetime": "temporal",
+            "lpep_dropoff_datetime": "temporal",
+            "store_and_fwd_flag": "categorical",
+            "ratecode_id": "identifier",
+            "pulocation_id": "identifier",
+            "dolocation_id": "identifier",
+            "passenger_count": "categorical",
+            "trip_distance": "metric",
+            "fare_amount": "metric",
+            "extra": "metric",
+            "mta_tax": "categorical",
+            "tip_amount": "metric",
+            "tolls_amount": "metric",
+            "ehail_fee": "categorical",
+            "improvement_surcharge": "categorical",
+            "total_amount": "metric",
+            "payment_type": "categorical",
+            "trip_type": "categorical",
+            "congestion_surcharge": "categorical"
+          },
+          "default_chart": {
+            "x_axis_key": "lpep_pickup_datetime",
+            "y_axis_keys": [
+              "trip_distance"
+            ],
+            "chart_type": "line",
+            "aggregation": "sum",
+            "title": "Sum Trip Distance By Lpep Pickup Datetime",
+            "analysis": "Shows the sum of trip_distance for each observed lpep_pickup_datetime value."
+          },
+          "top_metrics": [
+            "trip_distance",
+            "fare_amount",
+            "extra"
+          ]
+        }
+      ],
+      "process_peak_rss_bytes": 325550080
+    }
+  ]
+}

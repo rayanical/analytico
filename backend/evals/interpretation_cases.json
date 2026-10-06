@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "decision_fields": [
+    "role",
+    "unit",
+    "parsing_policy",
+    "recommended_aggregation",
+    "needs_clarification"
+  ],
+  "cases": [
+    {
+      "id": "id.leading_zero",
+      "category": "identifier",
+      "column_name": "customer_id",
+      "values": ["00123", "00124", "00017"],
+      "context": {"requested_result": "count customers"},
+      "expected": {
+        "role": "identifier",
+        "unit": "none",
+        "parsing_policy": "preserve_lexeme",
+        "recommended_aggregation": "count",
+        "needs_clarification": false
+      }
+    },
+    {
+      "id": "currency.usd_explicit",
+      "category": "currency",
+      "column_name": "sales_amount",
+      "values": ["$1,240.50", "$950.00"],
+      "context": {"currency_code": "USD", "measure_kind": "flow", "requested_result": "total sales"},
+      "expected": {
+        "role": "metric",
+        "unit": "USD",
+        "parsing_policy": "parse_currency_decimal",
+        "recommended_aggregation": "sum",
+        "needs_clarification": false
+      }
+    },
+    {
+      "id": "currency.dollar_symbol_without_code",
+      "category": "currency",
+      "column_name": "amount",
+      "values": ["$10.00", "$11.00"],
+      "context": {"requested_result": "show total amount"},
+      "expected": {
+        "role": "metric",
+        "unit": "unknown",
+        "parsing_policy": "retain_currency_identity_unknown",
+        "recommended_aggregation": "none",
+        "needs_clarification": true
+      }
+    },
+    {
+      "id": "currency.mixed_codes",
+      "category": "currency",
+      "column_name": "amount",
+      "values": ["USD 12.00", "EUR 13.00"],
+      "context": {"requested_result": "sum all amounts", "exchange_rate": null},
+      "expected": {
+        "role": "metric",
+        "unit": "mixed_currency",
+        "parsing_policy": "preserve_mixed_currency_values",
+        "recommended_aggregation": "none",
+        "needs_clarification": true
+      }
+    },
+    {
+      "id": "percentage.equal_weight_average",
+      "category": "percentage",
+      "column_name": "completion_rate",
+      "values": ["20%", "35%", "40%"],
+      "context": {"requested_result": "average branch completion rate", "weighting": "each branch equally"},
+      "expected": {
+        "role": "metric",
+        "unit": "ratio",
+        "parsing_policy": "parse_percent_to_ratio",
+        "recommended_aggregation": "mean",
+        "needs_clarification": false
+      }
+    },
+    {
+      "id": "percentage.basis_points",
+      "category": "percentage",
+      "column_name": "fee_rate_bps",
+      "values": ["125 bps", "80 bps"],
+      "context": {"requested_result": "average fee rate", "unit_metadata": "basis_points"},
+      "expected": {
+        "role": "metric",
+        "unit": "ratio",
+        "parsing_policy": "parse_basis_points_to_ratio",
+        "recommended_aggregation": "mean",
+        "needs_clarification": false
+      }
+    },
+    {
+      "id": "balance.latest_per_account",
+      "category": "balance",
+      "column_name": "account_balance_usd",
+      "values": ["$100.00", "$90.00", "$110.00"],
+      "context": {"currency_code": "USD", "measure_kind": "stock", "entity_column": "account_id", "time_column": "as_of_date", "requested_result": "latest balance per account"},
+      "expected": {
+        "role": "metric",
+        "unit": "USD",
+        "parsing_policy": "parse_currency_decimal",
+        "recommended_aggregation": "last_by_entity",
+        "needs_clarification": false
+      }
+    },
+    {
+      "id": "balance.account_token_false_positive",
+      "category": "balance",
+      "column_name": "account_balance_usd",
+      "values": ["100.00", "95.00", "120.00"],
+      "context": {"currency_code": "USD", "measure_kind": "stock", "time_scope": "same_snapshot", "requested_result": "sum balances across accounts"},
+      "expected": {
+        "role": "metric",
+        "unit": "USD",
+        "parsing_policy": "parse_decimal",
+        "recommended_aggregation": "sum",
+        "needs_clarification": false
+      }
+    },
+    {
+      "id": "date.ambiguous_day_month",
+      "category": "date",
+      "column_name": "transaction_date",
+      "values": ["03/04/2024", "04/05/2024"],
+      "context": {"date_locale": null, "requested_result": "group transactions by month"},
+      "expected": {
+        "role": "temporal",
+        "unit": "calendar_date",
+        "parsing_policy": "require_date_locale",
+        "recommended_aggregation": "none",
+        "needs_clarification": true
+      }
+    },
+    {
+      "id": "number.mixed_locale_formats",
+      "category": "number",
+      "column_name": "measurement",
+      "values": ["1,234.50", "1.234,50", "1 234,50"],
+      "context": {"number_locale": null, "requested_result": "average measurement"},
+      "expected": {
+        "role": "metric",
+        "unit": "unknown",
+        "parsing_policy": "preserve_mixed_numeric_formats",
+        "recommended_aggregation": "none",
+        "needs_clarification": true
+      }
+    },
+    {
+      "id": "unit.unknown_measurement",
+      "category": "unknown_unit",
+      "column_name": "measurement",
+      "values": [1.2, 1.5, 1.8],
+      "context": {"requested_result": "report average with its unit", "unit_metadata": null},
+      "expected": {
+        "role": "metric",
+        "unit": "unknown",
+        "parsing_policy": "preserve_numeric_value",
+        "recommended_aggregation": "mean",
+        "needs_clarification": true
+      }
+    },
+    {
+      "id": "missing.numeric_metric",
+      "category": "missing",
+      "column_name": "monthly_revenue",
+      "values": [100.0, null, 300.0],
+      "context": {"currency_code": "USD", "measure_kind": "flow", "requested_result": "sum observed revenue"},
+      "expected": {
+        "role": "metric",
+        "unit": "USD",
+        "parsing_policy": "preserve_nulls_parse_numeric",
+        "recommended_aggregation": "sum",
+        "needs_clarification": false
+      }
+    },
+    {
+      "id": "unknown.all_missing_column",
+      "category": "unknown",
+      "column_name": "field_7",
+      "values": [null, null, null],
+      "context": {"requested_result": "analyze this field"},
+      "expected": {
+        "role": "unknown",
+        "unit": "unknown",
+        "parsing_policy": "preserve_source",
+        "recommended_aggregation": "none",
+        "needs_clarification": true
+      }
+    },
+    {
+      "id": "rate.weighted_with_counts",
+      "category": "rate",
+      "column_name": "conversion_rate_pct",
+      "values": ["10%", "50%"],
+      "context": {"requested_result": "overall conversion rate", "numerator_column": "conversions", "denominator_column": "visits", "group_by": "region"},
+      "expected": {
+        "role": "metric",
+        "unit": "ratio",
+        "parsing_policy": "parse_percent_to_ratio",
+        "recommended_aggregation": "ratio_of_sums",
+        "needs_clarification": false
+      }
+    },
+    {
+      "id": "rate.denominator_missing",
+      "category": "rate",
+      "column_name": "conversion_rate_pct",
+      "values": ["10%", "50%"],
+      "context": {"requested_result": "overall conversion rate", "numerator_column": null, "denominator_column": null},
+      "expected": {
+        "role": "metric",
+        "unit": "ratio",
+        "parsing_policy": "parse_percent_to_ratio",
+        "recommended_aggregation": "none",
+        "needs_clarification": true
+      }
+    }
+  ]
+}

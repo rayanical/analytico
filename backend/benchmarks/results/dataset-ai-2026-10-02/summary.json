@@ -1,0 +1,259 @@
+{
+  "environment": {
+    "os": "Darwin",
+    "architecture": "arm64",
+    "python": "3.14.0"
+  },
+  "trials_per_strategy": 2,
+  "comparison_validation": "All initial profiles match within 1e-9 floating-point tolerance and all initial column roles match across strategies. Each worker also asserts background work never changes the schema.",
+  "provider_failures": 0,
+  "column_calls": 235,
+  "column_usage": {
+    "input_tokens": 250422,
+    "output_tokens": 9411
+  },
+  "estimated_column_only_usd": 0.029747700000000002,
+  "cost_scope": "Standard-rate estimate, not billed cost; excludes 18 summary calls whose helper does not expose tokens; provider prompt caching is uncontrolled.",
+  "results": [
+    {
+      "dataset": "taxi",
+      "strategy": "off",
+      "rows": 1068755,
+      "columns": 20,
+      "bytes": 139634545,
+      "ready_median_seconds": 21.830506375059485,
+      "complete_median_seconds": 21.830872541526332,
+      "remaining_ai_median_seconds": 0.0003661664668470621,
+      "remaining_ai_range_seconds": [
+        0.0003496248973533511,
+        0.0003827080363407731
+      ],
+      "column_requests_per_trial": [
+        0,
+        0
+      ],
+      "column_latency_median_ms": null,
+      "peak_rss_median_mib": 296.609375
+    },
+    {
+      "dataset": "taxi",
+      "strategy": "current",
+      "rows": 1068755,
+      "columns": 20,
+      "bytes": 139634545,
+      "ready_median_seconds": 21.45142091694288,
+      "complete_median_seconds": 36.356238708482124,
+      "remaining_ai_median_seconds": 14.904817791539244,
+      "remaining_ai_range_seconds": [
+        14.505692666047253,
+        15.303942917031236
+      ],
+      "column_requests_per_trial": [
+        6,
+        9
+      ],
+      "column_latency_median_ms": 1700.2,
+      "peak_rss_median_mib": 326.3828125
+    },
+    {
+      "dataset": "taxi",
+      "strategy": "parallel_all",
+      "rows": 1068755,
+      "columns": 20,
+      "bytes": 139634545,
+      "ready_median_seconds": 21.707775979011785,
+      "complete_median_seconds": 29.572525958530605,
+      "remaining_ai_median_seconds": 7.86474997951882,
+      "remaining_ai_range_seconds": [
+        7.515906792017631,
+        8.213593167020008
+      ],
+      "column_requests_per_trial": [
+        20,
+        20
+      ],
+      "column_latency_median_ms": 1271.6,
+      "peak_rss_median_mib": 329.265625
+    },
+    {
+      "dataset": "taxi",
+      "strategy": "hybrid",
+      "rows": 1068755,
+      "columns": 20,
+      "bytes": 139634545,
+      "ready_median_seconds": 21.436947229492944,
+      "complete_median_seconds": 26.614209020975977,
+      "remaining_ai_median_seconds": 5.1772617914830334,
+      "remaining_ai_range_seconds": [
+        4.770864916965365,
+        5.5836586660007015
+      ],
+      "column_requests_per_trial": [
+        14,
+        14
+      ],
+      "column_latency_median_ms": 1234.3000000000002,
+      "peak_rss_median_mib": 325.8828125
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "off",
+      "rows": 1704,
+      "columns": 6,
+      "bytes": 82079,
+      "ready_median_seconds": 0.053953583526890725,
+      "complete_median_seconds": 0.05430106201674789,
+      "remaining_ai_median_seconds": 0.000347478489857167,
+      "remaining_ai_range_seconds": [
+        0.00034391600638628006,
+        0.00035104097332805395
+      ],
+      "column_requests_per_trial": [
+        0,
+        0
+      ],
+      "column_latency_median_ms": null,
+      "peak_rss_median_mib": 116.9609375
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "current",
+      "rows": 1704,
+      "columns": 6,
+      "bytes": 82079,
+      "ready_median_seconds": 0.053957979020196944,
+      "complete_median_seconds": 8.487850374483969,
+      "remaining_ai_median_seconds": 8.433892395463772,
+      "remaining_ai_range_seconds": [
+        8.241888790973462,
+        8.625895999954082
+      ],
+      "column_requests_per_trial": [
+        6,
+        6
+      ],
+      "column_latency_median_ms": 1157.3000000000002,
+      "peak_rss_median_mib": 138.1015625
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "parallel_all",
+      "rows": 1704,
+      "columns": 6,
+      "bytes": 82079,
+      "ready_median_seconds": 0.052603541989810765,
+      "complete_median_seconds": 2.7442346459720284,
+      "remaining_ai_median_seconds": 2.6916311039822176,
+      "remaining_ai_range_seconds": [
+        2.598587749991566,
+        2.7846744579728693
+      ],
+      "column_requests_per_trial": [
+        6,
+        6
+      ],
+      "column_latency_median_ms": 1199.0500000000002,
+      "peak_rss_median_mib": 139.09375
+    },
+    {
+      "dataset": "gapminder",
+      "strategy": "hybrid",
+      "rows": 1704,
+      "columns": 6,
+      "bytes": 82079,
+      "ready_median_seconds": 0.05420514551224187,
+      "complete_median_seconds": 1.2853810414671898,
+      "remaining_ai_median_seconds": 1.231175895954948,
+      "remaining_ai_range_seconds": [
+        1.2105727499583736,
+        1.2517790419515222
+      ],
+      "column_requests_per_trial": [
+        2,
+        2
+      ],
+      "column_latency_median_ms": 1160.0,
+      "peak_rss_median_mib": 135.9140625
+    },
+    {
+      "dataset": "wide",
+      "strategy": "off",
+      "rows": 10000,
+      "columns": 50,
+      "bytes": 2034378,
+      "ready_median_seconds": 0.6251880829804577,
+      "complete_median_seconds": 0.6257146454881877,
+      "remaining_ai_median_seconds": 0.0005265625077299774,
+      "remaining_ai_range_seconds": [
+        0.0004764579934999347,
+        0.0005766670219600201
+      ],
+      "column_requests_per_trial": [
+        0,
+        0
+      ],
+      "column_latency_median_ms": null,
+      "peak_rss_median_mib": 138.5390625
+    },
+    {
+      "dataset": "wide",
+      "strategy": "current",
+      "rows": 10000,
+      "columns": 50,
+      "bytes": 2034378,
+      "ready_median_seconds": 0.6499453749856912,
+      "complete_median_seconds": 14.58598702098243,
+      "remaining_ai_median_seconds": 13.936041645996738,
+      "remaining_ai_range_seconds": [
+        13.53491699998267,
+        14.337166292010807
+      ],
+      "column_requests_per_trial": [
+        9,
+        11
+      ],
+      "column_latency_median_ms": 1218.6,
+      "peak_rss_median_mib": 155.0390625
+    },
+    {
+      "dataset": "wide",
+      "strategy": "parallel_all",
+      "rows": 10000,
+      "columns": 50,
+      "bytes": 2034378,
+      "ready_median_seconds": 0.7031055834377185,
+      "complete_median_seconds": 16.898209457925986,
+      "remaining_ai_median_seconds": 16.195103874488268,
+      "remaining_ai_range_seconds": [
+        15.669164708000608,
+        16.72104304097593
+      ],
+      "column_requests_per_trial": [
+        50,
+        50
+      ],
+      "column_latency_median_ms": 1162.5500000000002,
+      "peak_rss_median_mib": 166.2421875
+    },
+    {
+      "dataset": "wide",
+      "strategy": "hybrid",
+      "rows": 10000,
+      "columns": 50,
+      "bytes": 2034378,
+      "ready_median_seconds": 0.7014967710128985,
+      "complete_median_seconds": 2.165549479483161,
+      "remaining_ai_median_seconds": 1.4640527084702626,
+      "remaining_ai_range_seconds": [
+        1.4108745419653133,
+        1.517230874975212
+      ],
+      "column_requests_per_trial": [
+        2,
+        2
+      ],
+      "column_latency_median_ms": 1243.7,
+      "peak_rss_median_mib": 156.8828125
+    }
+  ]
+}

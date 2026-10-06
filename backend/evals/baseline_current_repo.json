@@ -1,0 +1,205 @@
+{
+  "model": "current_repo_offline",
+  "provenance": {
+    "python": "3.14.0",
+    "pandas": "2.3.3",
+    "source_state": "working tree at snapshot time; no commit revision asserted",
+    "provider_calls": "disabled by empty OPENAI_API_KEY"
+  },
+  "baseline_note": "Offline snapshot from clean_dataframe, detect_semantic_type, and auto_profile. OPENAI_API_KEY was forced empty. Runtime format and cleaning actions are observations; unit, parsing policy, and clarification are unsupported and intentionally omitted.",
+  "predictions": [
+    {
+      "case_id": "id.leading_zero",
+      "decision": {
+        "role": "identifier"
+      },
+      "observed": {
+        "runtime_column_format": "identifier",
+        "profile_default_aggregation": null,
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "currency.usd_explicit",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Could not safely parse 'sales_amount' currency text; retained source values"
+        ]
+      }
+    },
+    {
+      "case_id": "currency.dollar_symbol_without_code",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "sum"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": "sum",
+        "cleaning_actions": [
+          "Converted 'amount' from currency text to numeric"
+        ]
+      }
+    },
+    {
+      "case_id": "currency.mixed_codes",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Could not safely parse 'amount' numeric text; retained source values"
+        ]
+      }
+    },
+    {
+      "case_id": "percentage.equal_weight_average",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "mean"
+      },
+      "observed": {
+        "runtime_column_format": "percentage",
+        "profile_default_aggregation": "mean",
+        "cleaning_actions": [
+          "Converted 'completion_rate' from percentage text to decimal"
+        ]
+      }
+    },
+    {
+      "case_id": "percentage.basis_points",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": "percentage",
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Could not safely parse 'fee_rate_bps' numeric text; retained source values"
+        ]
+      }
+    },
+    {
+      "case_id": "balance.latest_per_account",
+      "decision": {
+        "role": "identifier"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": null,
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "balance.account_token_false_positive",
+      "decision": {
+        "role": "identifier"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": null,
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "date.ambiguous_day_month",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": null,
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Could not safely parse 'transaction_date' as date: ambiguous date order; retained source values"
+        ]
+      }
+    },
+    {
+      "case_id": "number.mixed_locale_formats",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": null,
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Could not safely parse 'measurement' numeric text; retained source values"
+        ]
+      }
+    },
+    {
+      "case_id": "unit.unknown_measurement",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "sum"
+      },
+      "observed": {
+        "runtime_column_format": "number",
+        "profile_default_aggregation": "sum",
+        "cleaning_actions": []
+      }
+    },
+    {
+      "case_id": "missing.numeric_metric",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "sum"
+      },
+      "observed": {
+        "runtime_column_format": "currency",
+        "profile_default_aggregation": "sum",
+        "cleaning_actions": [
+          "Preserved 1 source missing values as null in 'monthly_revenue'"
+        ]
+      }
+    },
+    {
+      "case_id": "unknown.all_missing_column",
+      "decision": {
+        "role": "categorical"
+      },
+      "observed": {
+        "runtime_column_format": null,
+        "profile_default_aggregation": null,
+        "cleaning_actions": [
+          "Preserved 3 source missing values as null in 'field_7'"
+        ]
+      }
+    },
+    {
+      "case_id": "rate.weighted_with_counts",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "mean"
+      },
+      "observed": {
+        "runtime_column_format": "percentage",
+        "profile_default_aggregation": "mean",
+        "cleaning_actions": [
+          "Converted 'conversion_rate_pct' from percentage text to decimal"
+        ]
+      }
+    },
+    {
+      "case_id": "rate.denominator_missing",
+      "decision": {
+        "role": "metric",
+        "recommended_aggregation": "mean"
+      },
+      "observed": {
+        "runtime_column_format": "percentage",
+        "profile_default_aggregation": "mean",
+        "cleaning_actions": [
+          "Converted 'conversion_rate_pct' from percentage text to decimal"
+        ]
+      }
+    }
+  ]
+}

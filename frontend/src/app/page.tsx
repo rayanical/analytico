@@ -1,45 +1,62 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '@/components/Sidebar';
 import { FileUploader } from '@/components/FileUploader';
+import { ColumnProposalSummary } from '@/components/ColumnProposalSummary';
 import { ChatInterface } from '@/components/ChatInterface';
-import { ChartBuilder } from '@/components/ChartBuilder';
 import { SmartChart } from '@/components/SmartChart';
-import { DashboardCanvas } from '@/components/DashboardCanvas';
 import { ChartSkeleton } from '@/components/ChartSkeleton';
 import { DataTable } from '@/components/DataTable';
 import { FilterBar } from '@/components/FilterBar';
 import { DrillDownModal } from '@/components/DrillDownModal';
 import { useData } from '@/context/DataContext';
 import { aggregateData } from '@/lib/api';
-import { exportDashboardReport } from '@/lib/exportReport';
 import { BarChart3, Sparkles, Wand2, Wrench, Table, LineChart, Info, AlertTriangle, X, Filter, Pin, Compass, LayoutGrid, FileDown, Trash2, ChevronDown } from 'lucide-react';
-import { toPng, toSvg } from 'html-to-image';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { getChartAggregationFields, mergeFilters, preserveQueryProvenance } from '@/lib/queryFilters';
+
+const DashboardCanvas = dynamic(
+  () => import('@/components/DashboardCanvas').then(module => module.DashboardCanvas),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
+const ChartBuilder = dynamic(
+  () => import('@/components/ChartBuilder').then(module => module.ChartBuilder),
+  { ssr: false, loading: () => <div className="p-8 text-sm text-muted-foreground">Loading chart builder…</div> },
+);
 
 export default function Home() {
   const {
     dataset, currentChart, isQuerying, viewMode, setViewMode, builderMode, setBuilderMode,
     workspaceMode, setWorkspaceMode, dashboardWidgets, pinCurrentChart, clearDashboard,
     dashboardUiState, setDashboardHeaderCollapsed,
-    filters, setCurrentChart, limit, groupOthers, sortBy, setIsQuerying,
+    filters, setCurrentChart, limit, groupOthers, sortBy, beginQuery, isCurrentQuery, finishQuery, isCurrentDataset,
   } = useData();
+  const hasEnrichmentResults = Boolean(dataset?.summary)
+    || Object.keys(dataset?.interpretationProposals ?? {}).length > 0;
 
   const [showReasoning, setShowReasoning] = useState(false);
   const [expandedFilterColumn, setExpandedFilterColumn] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isExportingReport, setIsExportingReport] = useState(false);
+  const analysisControllerRef = useRef<AbortController | null>(null);
   
   // Track previous filters and settings to detect changes
   const prevFiltersRef = useRef(JSON.stringify(filters));
   const prevLimitRef = useRef(limit);
   const prevGroupOthersRef = useRef(groupOthers);
   const prevSortByRef = useRef(sortBy);
+  const prevDatasetIdRef = useRef(dataset?.datasetId ?? null);
   const isInitialMount = useRef(true);
+
+  useEffect(() => {
+    analysisControllerRef.current?.abort();
+    return () => analysisControllerRef.current?.abort();
+  }, [dataset?.datasetId]);
   
   // Auto-refresh chart when filters or settings change
   useEffect(() => {
@@ -50,6 +67,7 @@ export default function Home() {
       prevLimitRef.current = limit;
       prevGroupOthersRef.current = groupOthers;
       prevSortByRef.current = sortBy;
+      prevDatasetIdRef.current = dataset?.datasetId ?? null;
       return;
     }
     
@@ -59,33 +77,42 @@ export default function Home() {
     const groupOthersChanged = prevGroupOthersRef.current !== groupOthers;
     const sortByChanged = prevSortByRef.current !== sortBy;
     
-    // Only refresh if something actually changed and we have an active chart
-    if ((filtersChanged || limitChanged || groupOthersChanged || sortByChanged) && currentChart && dataset) {
-      prevFiltersRef.current = currentFiltersStr;
-      prevLimitRef.current = limit;
-      prevGroupOthersRef.current = groupOthers;
-      prevSortByRef.current = sortBy;
+    const datasetChanged = prevDatasetIdRef.current !== (dataset?.datasetId ?? null);
+    prevFiltersRef.current = currentFiltersStr;
+    prevLimitRef.current = limit;
+    prevGroupOthersRef.current = groupOthers;
+    prevSortByRef.current = sortBy;
+    prevDatasetIdRef.current = dataset?.datasetId ?? null;
+
+    // Dataset changes establish a fresh baseline; the new dataset's default chart is already queried.
+    if (!datasetChanged && (filtersChanged || limitChanged || groupOthersChanged || sortByChanged) && currentChart && dataset) {
       
       // Only auto-refresh if we have a valid chart config (not empty/text-only response)
       if (currentChart.x_axis_key && currentChart.y_axis_keys.length > 0 && currentChart.chart_type !== 'empty') {
+        const controller = new AbortController();
+        const requestId = beginQuery(dataset.datasetId, controller);
+        const effectiveFilters = mergeFilters(currentChart.llm_filters, filters);
         const refreshChart = async () => {
-          setIsQuerying(true);
           try {
             const response = await aggregateData({
               dataset_id: dataset.datasetId,
-              x_axis_key: currentChart.x_axis_key,
-              y_axis_keys: currentChart.y_axis_keys,
+              ...getChartAggregationFields(currentChart),
               aggregation: currentChart.aggregation || 'sum',
               chart_type: currentChart.chart_type,
-              filters: filters.length > 0 ? filters : undefined,
+              filters: effectiveFilters,
               limit,
               group_others: groupOthers,
               sort_by: sortBy,
+              time_bucket: currentChart.time_bucket,
+              signal: controller.signal,
             });
-            setCurrentChart(response);
+            if (!isCurrentQuery(requestId, dataset.datasetId)) return;
+            setCurrentChart(preserveQueryProvenance(response, currentChart, effectiveFilters));
             
             // Show appropriate success message
-            if (filtersChanged && (limitChanged || groupOthersChanged || sortByChanged)) {
+            if (response.chart_type === 'empty') {
+              toast.message('The chart needs clarification. See the response below.');
+            } else if (filtersChanged && (limitChanged || groupOthersChanged || sortByChanged)) {
               toast.success('Chart updated with filters and settings');
             } else if (filtersChanged) {
               toast.success('Chart updated with filters');
@@ -93,16 +120,22 @@ export default function Home() {
               toast.success('Chart updated with settings');
             }
           } catch (error) {
-            console.error('Chart refresh error:', error);
-            toast.error('Failed to update chart');
+            if (!controller.signal.aborted && isCurrentDataset(dataset.datasetId)) {
+              console.error('Chart refresh error:', error);
+              toast.error(error instanceof Error ? error.message : 'Failed to update chart');
+            }
           } finally {
-            setIsQuerying(false);
+            finishQuery(requestId);
           }
         };
-        refreshChart();
+        void refreshChart();
+        return () => {
+          controller.abort();
+          finishQuery(requestId);
+        };
       }
     }
-  }, [filters, currentChart, dataset, limit, groupOthers, sortBy, setCurrentChart, setIsQuerying]);
+  }, [filters, currentChart, dataset, limit, groupOthers, sortBy, setCurrentChart, beginQuery, isCurrentQuery, finishQuery, isCurrentDataset]);
 
   const downloadChart = async (format: 'png' | 'svg') => {
     const node = document.getElementById('chart-export-container');
@@ -118,6 +151,7 @@ export default function Home() {
       // Small delay to ensure render
       await new Promise(resolve => setTimeout(resolve, 100));
       
+      const { toPng, toSvg } = await import('html-to-image');
       const dataUrl = format === 'png' 
         ? await toPng(node, { backgroundColor: '#09090b', style: { borderRadius: '0' } }) 
         : await toSvg(node, { backgroundColor: '#09090b', style: { borderRadius: '0' } });
@@ -139,28 +173,39 @@ export default function Home() {
     if (!currentChart.x_axis_key || currentChart.y_axis_keys.length === 0) return;
     if (currentChart.chart_type === 'empty') return;
 
+    analysisControllerRef.current?.abort();
+    const controller = new AbortController();
+    analysisControllerRef.current = controller;
+    const requestId = beginQuery(dataset.datasetId, controller);
+    const effectiveFilters = mergeFilters(currentChart.llm_filters, filters);
     setIsAnalyzing(true);
     try {
       const response = await aggregateData({
         dataset_id: dataset.datasetId,
-        x_axis_key: currentChart.x_axis_key,
-        y_axis_keys: currentChart.y_axis_keys,
+        ...getChartAggregationFields(currentChart),
         aggregation: currentChart.aggregation || 'sum',
         chart_type: currentChart.chart_type,
-        filters: filters.length > 0 ? filters : undefined,
+        filters: effectiveFilters,
         limit,
         group_others: groupOthers,
         sort_by: sortBy,
         include_analysis: true,
+        time_bucket: currentChart.time_bucket,
+        signal: controller.signal,
       });
-      setCurrentChart(response);
-      toast.success('Analysis added');
+      if (!isCurrentQuery(requestId, dataset.datasetId)) return;
+      setCurrentChart(preserveQueryProvenance(response, currentChart, effectiveFilters));
+      if (response.chart_type === 'empty') toast.message('The chart needs clarification. See the response below.');
+      else toast.success('Analysis added');
     } catch (error) {
-      console.error('Analyze error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to analyze chart';
-      toast.error(message);
+      if (!controller.signal.aborted && isCurrentDataset(dataset.datasetId)) {
+        console.error('Analyze error:', error);
+        const message = error instanceof Error ? error.message : 'Failed to analyze chart';
+        toast.error(message);
+      }
     } finally {
       setIsAnalyzing(false);
+      finishQuery(requestId);
     }
   };
 
@@ -180,6 +225,7 @@ export default function Home() {
 
     try {
       setIsExportingReport(true);
+      const { exportDashboardReport } = await import('@/lib/exportReport');
       const safeBase = dataset.filename.replace(/\.[^.]+$/, '').replace(/[^a-z0-9_-]+/gi, '_');
       await exportDashboardReport({
         filename: `analytico-report-${safeBase}.pdf`,
@@ -244,7 +290,7 @@ export default function Home() {
             </div>
           </motion.div>
 
-          {dataset?.summary && (
+          {hasEnrichmentResults && (
             <div className="mb-3">
               <Button
                 variant="ghost"
@@ -261,10 +307,10 @@ export default function Home() {
           <section className="mb-6">
             <FileUploader />
             <AnimatePresence initial={false}>
-              {dataset?.summary && showDatasetSummary && (
+              {hasEnrichmentResults && showDatasetSummary && (
                 <motion.div
                   initial={{ maxHeight: 0, opacity: 0 }}
-                  animate={{ maxHeight: 220, opacity: 1 }}
+                  animate={{ maxHeight: 420, opacity: 1 }}
                   exit={{ maxHeight: 0, opacity: 0 }}
                   transition={{ duration: 0.2, ease: 'easeOut' }}
                   className="mt-4 overflow-hidden rounded-lg border border-primary/20 bg-primary/5 p-4"
@@ -275,7 +321,16 @@ export default function Home() {
                     </div>
                     <div>
                       <h3 className="mb-1 text-sm font-semibold text-foreground">Dataset Context</h3>
-                      <p className="text-sm leading-relaxed text-muted-foreground">{dataset.summary}</p>
+                      {dataset?.summary && (
+                        <p className="text-sm leading-relaxed text-muted-foreground">{dataset.summary}</p>
+                      )}
+                      {Object.keys(dataset?.interpretationProposals ?? {}).length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs font-medium text-foreground">AI column meanings</p>
+                          <ColumnProposalSummary proposals={dataset?.interpretationProposals ?? {}} columns={dataset?.columns ?? []} />
+                          <p className="mt-2 text-xs text-muted-foreground">Compatible column roles apply automatically. Review data to make changes.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>

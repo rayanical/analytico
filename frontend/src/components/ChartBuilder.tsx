@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3, LineChart, AreaChart, PieChart, Layers, Play, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { useData } from '@/context/DataContext';
 import { aggregateData } from '@/lib/api';
 import { ChartType, AggregationType } from '@/types';
 import { toast } from 'sonner';
+import { getColumnDisplayName, getColumnSourceName } from '@/lib/columnLabels';
 
 const CHART_TYPES: { type: ChartType; icon: React.ReactNode; label: string }[] = [
   { type: 'bar', icon: <BarChart3 className="h-5 w-5" />, label: 'Bar' },
@@ -27,7 +28,7 @@ const AGGREGATIONS: { type: AggregationType; label: string }[] = [
 ];
 
 export function ChartBuilder() {
-  const { dataset, numericColumns, filters, currentChart, setCurrentChart, addToHistory, isQuerying, setIsQuerying, groupOthers, limit, sortBy } = useData();
+  const { dataset, numericColumns, filters, currentChart, setCurrentChart, addToHistory, isQuerying, beginQuery, isCurrentQuery, finishQuery, isCurrentDataset, groupOthers, limit, sortBy } = useData();
   
   const [chartType, setChartType] = useState<ChartType>('bar');
   const [xAxis, setXAxis] = useState<string>('');
@@ -42,6 +43,16 @@ export function ChartBuilder() {
   } | null>(null);
 
   const allColumns = dataset?.columns ?? [];
+  const measureColumns = numericColumns.filter(column => column.semantic_type !== 'identifier');
+  const columnLabel = (key: string) => getColumnDisplayName(allColumns.find(column => column.name === key) ?? { name: key });
+
+  useEffect(() => {
+    setXAxis('');
+    setYAxes([]);
+    setChartType('bar');
+    setAggregation('sum');
+    setLastPlotConfig(null);
+  }, [dataset?.datasetId]);
 
   const handleYAxisToggle = (col: string) => {
     setYAxes(prev => 
@@ -57,7 +68,8 @@ export function ChartBuilder() {
       return;
     }
 
-    setIsQuerying(true);
+    const controller = new AbortController();
+    const requestId = beginQuery(dataset.datasetId, controller);
 
     try {
       const response = await aggregateData({
@@ -71,27 +83,34 @@ export function ChartBuilder() {
         sort_by: sortBy,
         group_others: groupOthers,
         include_analysis: false,
+        signal: controller.signal,
       });
 
+      if (!isCurrentQuery(requestId, dataset.datasetId)) return;
       setCurrentChart(response);
       setLastPlotConfig({ chartType, xAxis, yAxes, aggregation });
       addToHistory(
-        `${chartType} chart: ${yAxes.join(', ')} by ${xAxis}`,
+        `${chartType} chart: ${yAxes.map(columnLabel).join(', ')} by ${columnLabel(xAxis)}`,
         response,
         true
       );
-      toast.success(`Generated chart with ${response.row_count} data points`);
+      if (response.chart_type === 'empty') toast.message('The chart needs clarification. See the response below.');
+      else toast.success(`Generated chart with ${response.row_count} data points`);
     } catch (error) {
-      console.error('Aggregate error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to generate chart';
-      toast.error(message);
+      if (!controller.signal.aborted && isCurrentDataset(dataset.datasetId)) {
+        console.error('Aggregate error:', error);
+        const message = error instanceof Error ? error.message : 'Failed to generate chart';
+        toast.error(message);
+      }
     } finally {
-      setIsQuerying(false);
+      finishQuery(requestId);
     }
   };
 
   const handleAnalyze = async () => {
     if (!dataset || !lastPlotConfig) return;
+    const controller = new AbortController();
+    const requestId = beginQuery(dataset.datasetId, controller);
     setIsAnalyzing(true);
     try {
       const response = await aggregateData({
@@ -105,21 +124,27 @@ export function ChartBuilder() {
         sort_by: sortBy,
         group_others: groupOthers,
         include_analysis: true,
+        signal: controller.signal,
       });
 
+      if (!isCurrentQuery(requestId, dataset.datasetId)) return;
       setCurrentChart(response);
       addToHistory(
-        `Analysis: ${lastPlotConfig.yAxes.join(', ')} by ${lastPlotConfig.xAxis}`,
+        `Analysis: ${lastPlotConfig.yAxes.map(columnLabel).join(', ')} by ${columnLabel(lastPlotConfig.xAxis)}`,
         response,
         true
       );
-      toast.success('Analysis added');
+      if (response.chart_type === 'empty') toast.message('The chart needs clarification. See the response below.');
+      else toast.success('Analysis added');
     } catch (error) {
-      console.error('Analyze error:', error);
-      const message = error instanceof Error ? error.message : 'Failed to analyze chart';
-      toast.error(message);
+      if (!controller.signal.aborted && isCurrentDataset(dataset.datasetId)) {
+        console.error('Analyze error:', error);
+        const message = error instanceof Error ? error.message : 'Failed to analyze chart';
+        toast.error(message);
+      }
     } finally {
       setIsAnalyzing(false);
+      finishQuery(requestId);
     }
   };
 
@@ -168,8 +193,8 @@ export function ChartBuilder() {
         >
           <option value="">Select column...</option>
           {allColumns.map(col => (
-            <option key={col.name} value={col.name}>
-              {col.name} {col.is_numeric ? '(numeric)' : col.is_datetime ? '(date)' : ''}
+            <option key={col.name} value={col.name} title={getColumnSourceName(col)}>
+              {getColumnDisplayName(col)} {col.is_numeric ? '(numeric)' : col.is_datetime ? '(date)' : ''}
             </option>
           ))}
         </select>
@@ -181,27 +206,28 @@ export function ChartBuilder() {
           Y-Axis (Values) — Select numeric columns
         </label>
         <div className="flex flex-wrap gap-2">
-          {numericColumns.length === 0 ? (
+          {measureColumns.length === 0 ? (
             <p className="text-sm text-muted-foreground/60">No numeric columns available</p>
           ) : (
-            numericColumns.map(col => (
+            measureColumns.map(col => (
               <button
                 key={col.name}
                 onClick={() => handleYAxisToggle(col.name)}
+                title={getColumnSourceName(col)}
                 className={`rounded-full px-3 py-1.5 text-sm transition-all ${
                   yAxes.includes(col.name)
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-white/5 text-muted-foreground hover:bg-white/10'
                 }`}
               >
-                {col.name}
+                {getColumnDisplayName(col)}
               </button>
             ))
           )}
         </div>
         {yAxes.length > 0 && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Selected: {yAxes.join(', ')}
+            Selected: {yAxes.map(columnLabel).join(', ')}
           </p>
         )}
       </div>
