@@ -191,13 +191,13 @@ def preview_import(import_id, settings=None):
         _release(item)
 
 
-def confirm_import(import_id, settings=None, column_overrides=None):
+def confirm_import(import_id, settings=None, column_overrides=None, *, ai_column_analysis=False):
     item = _acquire(import_id)
     try:
         if not item.preview_valid or (settings is not None and settings != item.settings):
             raise HTTPException(409, "Refresh the preview with these settings before confirming.")
         response = ingest_csv(item.path, item.filename, "/imports/confirm", import_settings=item.settings,
-                              column_overrides=column_overrides or [])
+                              column_overrides=column_overrides or [], ai_column_analysis=ai_column_analysis)
         item.removed = True
         return response
     except CSVStructureError as error:

@@ -77,6 +77,7 @@ def _columns_for(dataset: Any) -> list[dict[str, Any]]:
             "parse_as": item.get("parse_as", inferred_parse),
             "role": item.get("role") or semantic_types.get(name) or getattr(summary, "semantic_type", None),
             "format": item.get("format") or formats.get(name) or getattr(summary, "format", None),
+            "display_name": item.get("display_name"),
             "unit": item.get("unit"),
             "aggregation": item.get("aggregation"),
             "provenance": provenance,
@@ -135,6 +136,10 @@ def _merge_overrides(dataset: Any, changes: list[Any]) -> list[ColumnOverride]:
             raise HTTPException(status_code=422, detail="Stored column policy is invalid.") from error
         merged[validated.column] = validated.model_dump(mode="python")
 
+    for item in getattr(dataset, "column_schema", []) or []:
+        if item.get("display_name"):
+            merged.setdefault(item["column"], {"column": item["column"]})["display_name"] = item["display_name"]
+
     seen: set[str] = set()
     for change in changes:
         payload = _override_payload(change)
@@ -160,7 +165,7 @@ def _merge_overrides(dataset: Any, changes: list[Any]) -> list[ColumnOverride]:
             final = ColumnOverride.model_validate(base)
         except ValidationError as error:
             raise HTTPException(status_code=422, detail="Column override is invalid.") from error
-        if final.parse_as == "auto" and all(getattr(final, field) is None for field in ("role", "format", "unit", "aggregation")):
+        if final.parse_as == "auto" and all(getattr(final, field) is None for field in ("role", "format", "unit", "aggregation", "display_name")):
             merged.pop(final.column, None)
         else:
             merged[final.column] = final.model_dump(mode="python")
@@ -168,6 +173,52 @@ def _merge_overrides(dataset: Any, changes: list[Any]) -> list[ColumnOverride]:
         return [ColumnOverride.model_validate(row) for row in merged.values()]
     except ValidationError as error:
         raise HTTPException(status_code=422, detail="Column override is invalid.") from error
+
+
+
+def _apply_label_edits(dataset: Any, expected_version: str, changes: list[Any], overrides: list[ColumnOverride]):
+    """Update cosmetic metadata under the same optimistic edit/version contract."""
+    from copy import deepcopy
+    from storage import DATASETS, _DATASETS_LOCK
+    from services.response_builders import build_upload_response
+
+    with _DATASETS_LOCK:
+        if DATASETS.get(dataset.id) is not dataset or dataset.cache_version != expected_version:
+            raise HTTPException(status_code=409, detail="Dataset schema has changed. Refresh before applying edits.")
+        previous_status = get_enrichment_status(dataset.id, expected_version)
+        schema = deepcopy(dataset.column_schema)
+        by_name = {item['column']: item for item in schema}
+        for change in changes:
+            payload = _override_payload(change)
+            validated = ColumnOverride.model_validate(payload)
+            by_name[validated.column]['display_name'] = validated.display_name
+            by_name[validated.column]['display_name_provenance'] = 'user' if validated.display_name else None
+        dataset.column_schema = schema
+        dataset.column_overrides = overrides
+        dataset.invalidate_cached_results()
+        disk = getattr(dataset, 'disk', None)
+        if disk:
+            with disk._lock:
+                disk.column_schema = schema
+                disk.column_overrides = overrides
+                disk.cache_version = dataset.cache_version
+                for name, item in by_name.items():
+                    disk._column_policies[name]['display_name'] = item.get('display_name')
+                disk.column_summaries = [summary.model_copy(update={
+                    'display_name': by_name[summary.name].get('display_name')}) for summary in disk.column_summaries]
+                response = disk.to_upload_response(dataset.id, dataset.filename)
+        else:
+            dataset.df.attrs['column_schema'] = schema
+            quality = max(0, 100 - sum(dataset.missing_counts.values()) / max(dataset.row_count * len(dataset.column_names), 1) * 100)
+            response = build_upload_response(
+                ds_info=dataset, df=dataset.df, col_types=dataset.column_types, col_formats=dataset.column_formats,
+                missing_counts=dataset.missing_counts, cleaning_actions=dataset.cleaning_actions,
+                quality=quality, profile=dataset.profile, default_chart=dataset.default_chart,
+                suggestions=dataset.suggestions, summary=dataset.summary, column_stats=dataset.column_stats)
+        response.summary = previous_status.get('summary') or response.summary
+        response.version = dataset.cache_version
+        response.column_schema = schema
+        return response
 
 
 def _source_path(dataset: Any) -> Path:
@@ -209,6 +260,11 @@ def apply_schema(
             # Column identities may change. Never transfer old overrides to a
             # different set of source fields merely because names coincide.
             overrides = []
+        label_only = column_overrides and all(
+            set(_override_payload(change)) <= {'column', 'display_name'}
+            for change in column_overrides)
+        if label_only and settings == previous_settings:
+            return _apply_label_edits(dataset, expected_version, column_overrides, overrides)
         source = _source_path(dataset)
 
         # The lease keeps the old source alive through the ingestion copy and

@@ -31,6 +31,9 @@ class _Job:
     error: str | None = None
     reason: str | None = None
     coverage: dict[str, Any] | None = None
+    column_roles: dict[str, str] = field(default_factory=dict)
+    column_labels: dict[str, str] = field(default_factory=dict)
+    semantic_revision: int = 0
     future: Future[None] | None = None
 
     def snapshot(self) -> dict[str, Any]:
@@ -44,6 +47,9 @@ class _Job:
             "error": self.error,
             "reason": self.reason,
             "coverage": deepcopy(self.coverage),
+            "column_roles": dict(self.column_roles),
+            "column_labels": dict(self.column_labels),
+            "semantic_revision": self.semantic_revision,
         }
 
 
@@ -164,6 +170,9 @@ class EnrichmentManager:
                 for name, value in islice(proposals.items(), 256)
                 if isinstance(name, str)
             }
+        job.column_roles = dict(result.get("column_roles", {}))
+        job.column_labels = dict(result.get("column_labels", {}))
+        job.semantic_revision = int(result.get("semantic_revision", 0))
         coverage = result.get("coverage")
         job.coverage = deepcopy(coverage) if isinstance(coverage, dict) else None
 
@@ -198,6 +207,9 @@ class EnrichmentManager:
                 job.summary = prepared.summary
                 job.interpretation_proposals = prepared.interpretation_proposals
                 job.coverage = prepared.coverage
+                job.column_roles = prepared.column_roles
+                job.column_labels = prepared.column_labels
+                job.semantic_revision = prepared.semantic_revision
                 job.status = "done"
                 job.progress = 100
                 job.error = None

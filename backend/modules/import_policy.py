@@ -76,6 +76,7 @@ class ColumnOverride(BaseModel):
     column: str = Field(min_length=1, max_length=256)
     parse_as: ParseAs = "auto"
     role: Optional[ColumnRole] = None
+    display_name: Optional[str] = Field(default=None, min_length=1, max_length=80)
     unit: Optional[str] = Field(default=None, max_length=64)
     aggregation: Optional[Aggregation] = None
     format: Optional[ColumnFormat] = None
@@ -84,6 +85,13 @@ class ColumnOverride(BaseModel):
     @classmethod
     def normalize_column(cls, value: str) -> str:
         return normalize_column_name(value)
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and any(unicodedata.category(c).startswith("C") for c in value):
+            raise ValueError("Display names cannot contain control characters.")
+        return value
 
     @field_validator("unit")
     @classmethod
@@ -328,6 +336,7 @@ def resolve_column_policy(
         "column": normalize_column_name(column),
         "parse_as": override.parse_as if override else "auto",
         "role": override.role if override else None,
+        "display_name": override.display_name if override else None,
         "unit": override.unit if override else None,
         "aggregation": override.aggregation if override else None,
         "format": override.format if override else None,
@@ -734,6 +743,8 @@ def apply_column_policy(
         item = {
             "column": column_name,
             "original_name": (original_names or {}).get(column_name, column_name),
+            "display_name": resolved["display_name"],
+            "display_name_provenance": "user" if resolved["display_name"] else None,
             "parse_as": parse_as,
             "role": role,
             "format": column_format,

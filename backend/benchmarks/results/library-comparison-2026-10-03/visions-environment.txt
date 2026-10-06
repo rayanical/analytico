@@ -1,0 +1,14 @@
+attrs==26.1.0
+ImageHash==4.3.2
+multimethod==2.1
+networkx==3.7
+numpy==2.5.3
+pandas==3.0.6
+pillow==12.3.0
+puremagic==2.2.0
+python-dateutil==2.9.0.post0
+PyWavelets==1.10.0
+scipy==1.18.1
+shapely==2.1.2
+six==1.17.0
+visions==0.8.2

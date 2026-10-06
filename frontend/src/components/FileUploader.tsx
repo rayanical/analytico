@@ -9,20 +9,15 @@ import { previewImport, previewDemoImport, updateImportPreview, confirmImport, c
 import { ImportPreviewResponse, ImportSettings, VersionedUploadResponse } from '@/types';
 import { toast } from 'sonner';
 import { formatValue } from '@/lib/formatValue';
+import { getColumnDisplayName, getColumnSourceName } from '@/lib/columnLabels';
 import { ImportPreview } from '@/components/ImportPreview';
 import { DataReview } from '@/components/DataReview';
 
 type DemoDataset = 'taxi' | 'gapminder';
 
-// Format column name for display
-function formatName(name: string): string {
-  return name
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
-}
-
 export function FileUploader() {
   const { dataset, enrichment, setDataset, setCurrentChart, addToHistory, setIsUploading, isUploading, clearData, beginQuery, isCurrentQuery, finishQuery } = useData();
+  const [aiColumnAnalysis, setAiColumnAnalysis] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreviewResponse | null>(null);
@@ -110,7 +105,7 @@ export function FileUploader() {
       return;
     }
     try {
-      const response = await confirmImport(preview.import_id, preview.settings);
+      const response = await confirmImport(preview.import_id, preview.settings, aiColumnAnalysis);
       if (uploadRequestRef.current !== requestId) return;
       stagedImportRef.current = null;
       setImportPreview(null);
@@ -120,7 +115,7 @@ export function FileUploader() {
         setUploadError(error instanceof Error ? error.message : 'The file could not be prepared.');
       }
     }
-  }, [applyUploadResponse]);
+  }, [applyUploadResponse, aiColumnAnalysis]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -199,7 +194,7 @@ export function FileUploader() {
     setPreviewAction('confirm');
     setPreviewActionError(null);
     try {
-      const response = await confirmImport(importPreview.import_id, settings);
+      const response = await confirmImport(importPreview.import_id, settings, aiColumnAnalysis);
       if (uploadRequestRef.current !== requestId) return;
       stagedImportRef.current = null;
       setImportPreview(null);
@@ -212,7 +207,7 @@ export function FileUploader() {
     } finally {
       if (uploadRequestRef.current === requestId) setPreviewAction(null);
     }
-  }, [importPreview, previewAction, applyUploadResponse]);
+  }, [importPreview, previewAction, applyUploadResponse, aiColumnAnalysis]);
 
   const handleCancelPreview = useCallback(async () => {
     if (!importPreview || previewAction) return;
@@ -327,10 +322,11 @@ export function FileUploader() {
                     {profile.top_metrics.slice(0, 2).map(m => {
                       const isAverage = m.aggregation === 'mean';
                       const value = isAverage ? m.average : m.total;
+                      const column = dataset.columns.find(item => item.name === m.name) ?? { name: m.name };
                       return (
                         <div key={m.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <TrendingUp className="h-3 w-3 text-primary" />
-                          <span className="font-medium">{formatName(m.name)}:</span>
+                          <span className="font-medium" title={getColumnSourceName(column)}>{getColumnDisplayName(column)}:</span>
                           <span>{formatValue(value, dataset.columnFormats[m.name] || 'number', { compact: true })} {isAverage ? 'average' : 'total'}</span>
                         </div>
                       );
@@ -353,6 +349,7 @@ export function FileUploader() {
           open={isDataReviewOpen}
           datasetId={dataset.datasetId}
           datasetVersion={dataset.version}
+          currentColumns={dataset.columns}
           dataHealth={dataHealth}
           rowCount={dataset.rowCount}
           onClose={() => setIsDataReviewOpen(false)}
@@ -381,6 +378,23 @@ export function FileUploader() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full">
+      <div className="mb-3 rounded-xl border border-border/50 bg-card/40 p-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={aiColumnAnalysis}
+          aria-describedby="ai-column-analysis-description"
+          disabled={isUploading || isDemoLoading || importPreview !== null}
+          onClick={() => setAiColumnAnalysis(enabled => !enabled)}
+          className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium disabled:opacity-60"
+        >
+          <span className="inline-flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" />AI column semantic analysis</span>
+          <span className={`rounded-full px-3 py-1 text-xs ${aiColumnAnalysis ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>{aiColumnAnalysis ? 'On' : 'Off'}</span>
+        </button>
+        <p id="ai-column-analysis-description" className="mt-1 text-xs text-muted-foreground">
+          {aiColumnAnalysis ? 'Luna interprets columns in the background and applies compatible roles and readable labels automatically. Sampled values are sent to your AI provider. Review data to make changes.' : 'Use automatic local column detection. Turn on AI for additional column interpretation suggestions.'}
+        </p>
+      </div>
       <div {...getRootProps()} className={`relative cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-all duration-300
         ${isDragActive ? 'border-primary bg-primary/5 scale-[1.02]' : 'border-border/50 hover:border-primary/50 hover:bg-white/[0.02]'}
         ${isUploading ? 'pointer-events-none opacity-60' : ''} ${uploadError ? 'border-destructive/50' : ''}`}>

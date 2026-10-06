@@ -1,0 +1,26 @@
+{
+  "scope": "Offline replay of fifteen earlier Luna responses using production automatic-role guards and full-column input profiles; not a new live accuracy benchmark.",
+  "runs": [
+    {
+      "trial": 1,
+      "correct": 72,
+      "unknown": 2,
+      "wrong": 0,
+      "total": 74
+    },
+    {
+      "trial": 2,
+      "correct": 73,
+      "unknown": 1,
+      "wrong": 0,
+      "total": 74
+    },
+    {
+      "trial": 3,
+      "correct": 73,
+      "unknown": 1,
+      "wrong": 0,
+      "total": 74
+    }
+  ]
+}

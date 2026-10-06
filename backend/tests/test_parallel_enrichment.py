@@ -27,7 +27,7 @@ class ParallelEnrichmentTests(unittest.TestCase):
             with patch.dict(os.environ, {'OPENAI_API_KEY': 'offline-test', 'COLUMN_INTERPRETER': 'luna'}), \
                  patch('services.enrichment_service.manager', manager), \
                  patch('services.ingestion_service._generate_business_summary', return_value='Summary'), \
-                 patch('modules.column_interpretation.interpret_column', return_value=result) as interpret:
+                 patch('modules.schema_interpretation.analyze_schema', return_value={'interpretation_proposals': {f'measure_{i}': {'status': 'uncertain', 'decision': None} for i in range(20)}, 'coverage': {'complete': True}}) as interpret:
                 response = ingest_dataframe(frame, 'wide.csv', '/test', defer_enrichment=True)
                 schema = DATASETS[response.dataset_id].column_schema
                 deadline = time.monotonic() + 2
@@ -35,7 +35,7 @@ class ParallelEnrichmentTests(unittest.TestCase):
                     self.assertLess(time.monotonic(), deadline)
                     time.sleep(.005)
                 status = manager.get_status(response.dataset_id)
-                self.assertEqual(interpret.call_count, 20)
+                self.assertEqual(interpret.call_count, 1)
                 self.assertEqual(len(status['interpretation_proposals']), 20)
                 self.assertTrue(status['coverage']['complete'])
                 self.assertEqual(DATASETS[response.dataset_id].column_schema, schema)

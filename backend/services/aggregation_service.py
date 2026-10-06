@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from core.config import MAX_CHART_POINTS, OPENAI_MODEL, chat_completion_options, get_openai_client
 from models import AggregateRequest, ChartResponse
 from modules import aggregate_data, enforce_semantic_rules, smart_group_top_n, smart_resample_dates
+from modules.overall_aggregation import overall_chart, result_keys
 from storage import get_dataset, lease_dataset
 from utils.dataframe_utils import df_to_markdown
 from utils.bounded_cache import BoundedTTLCache
@@ -81,7 +82,7 @@ def _chart_cache_key(dataset: Any, request: AggregateRequest) -> str:
         sort_keys=True,
         separators=(",", ":"),
     )
-    payload = f"{version}:{serialized_request}".encode("utf-8")
+    payload = f"{version}:{getattr(dataset, 'semantic_revision', 0)}:{serialized_request}".encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
 
@@ -91,7 +92,11 @@ def _with_analysis(chart: ChartResponse, request: AggregateRequest) -> ChartResp
     prompt = f"""Analyze this computed chart result in two concise sentences.
 State what the aggregation shows and one pattern or exception visible in these values.
 Do not claim trends beyond the rows provided.
+For an overall chart, explain the single computed aggregate; do not invent comparisons.
+A row count counts all filtered rows; a column count counts non-missing values.
 
+Chart scope: {chart.aggregation_scope}
+Row count operation: {chart.count_rows}
 X-axis: {request.x_axis_key}
 Measures: {', '.join(request.y_axis_keys)}
 Aggregation: {chart.aggregation}
@@ -141,7 +146,7 @@ def _run_dataset_aggregate(ds, request: AggregateRequest) -> ChartResponse:
         return _with_analysis(chart, request) if request.include_analysis else chart
     df = ds.df
 
-    valid, missing, suggestions = validate_columns(df, [request.x_axis_key, *request.y_axis_keys])
+    valid, missing, suggestions = validate_columns(df, [*([request.x_axis_key] if request.x_axis_key is not None else []), *request.y_axis_keys])
     if not valid:
         message = "; ".join(
             f"'{column}' not found, try: {suggestions.get(column, [])}" for column in missing
@@ -164,6 +169,21 @@ def _run_dataset_aggregate(ds, request: AggregateRequest) -> ChartResponse:
         filtered, applied_filters = apply_filters(df, request.filters)
         if filtered.empty:
             raise HTTPException(status_code=400, detail="No data matches filters.")
+
+        if request.x_axis_key is None:
+            axis, measures = result_keys(df.columns, request.y_axis_keys)
+            values = []
+            for column in request.y_axis_keys:
+                series = filtered[column]
+                if aggregation != "count" and not pd.api.types.is_numeric_dtype(series):
+                    raise HTTPException(400, f"Measure '{column}' is not numeric; choose count or a numeric measure.")
+                value = series.sum(min_count=1) if aggregation == "sum" else getattr(series, aggregation)()
+                values.append(_json_value(value))
+            if not request.y_axis_keys:
+                values = [len(filtered)]
+            chart = overall_chart(request, axis, measures, values, applied_filters)
+            _CHART_CACHE.set(cache_key, chart)
+            return _with_analysis(chart, request) if request.include_analysis else chart
 
         limit, cap_warning = resolve_effective_limit(request.limit, default_limit=50)
         group_others = request.group_others if request.group_others is not None else True

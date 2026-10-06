@@ -13,6 +13,8 @@ const aggregations = ['sum', 'mean', 'median', 'count', 'min', 'max'] as const;
 function isColumnSummary(value: unknown): boolean {
   return isRecord(value)
     && typeof value.name === 'string'
+    && (value.display_name === undefined || value.display_name === null || typeof value.display_name === 'string')
+    && (value.original_name === undefined || value.original_name === null || typeof value.original_name === 'string')
     && typeof value.dtype === 'string'
     && typeof value.is_numeric === 'boolean'
     && typeof value.is_datetime === 'boolean'
@@ -49,13 +51,21 @@ function isDefaultChart(value: unknown): boolean {
     && typeof value.analysis === 'string';
 }
 
-function isInterpretationProposal(value: unknown): boolean {
+function isInterpretationDecision(value: unknown): boolean {
   return isRecord(value)
+    && (value.display_name === undefined || value.display_name === null || typeof value.display_name === 'string')
+    && (value.label_evidence_strength === undefined || ['strong', 'tentative', 'unknown'].includes(String(value.label_evidence_strength)))
     && semanticTypes.includes(value.role as SemanticType)
     && typeof value.unit === 'string'
     && typeof value.parsing_policy === 'string'
     && typeof value.recommended_aggregation === 'string'
     && typeof value.needs_clarification === 'boolean';
+}
+
+function isInterpretationProposal(value: unknown): boolean {
+  return isRecord(value) && typeof value.status === 'string'
+    && (value.label_runtime_status === undefined || ['applied', 'clarification'].includes(String(value.label_runtime_status)))
+    && (value.decision === null || isInterpretationDecision(value.decision));
 }
 
 export function isDatasetState(value: unknown): value is DatasetState {

@@ -16,6 +16,7 @@ import {
   EnrichmentStatusResponse,
 } from '@/types';
 import { isDatasetState } from '@/lib/storageValidation';
+import { mergeColumnLabels } from '@/lib/columnLabels';
 import { getEnrichmentStatus } from '@/lib/api';
 
 interface DataContextType {
@@ -427,9 +428,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setEnrichment(status);
         setDatasetInternal(current => {
           if (!stillOwnsDataset() || current?.datasetId !== datasetId) return current;
+          let rolesChanged = false;
+          const columnsWithRoles = status.column_roles
+            ? current.columns.map(column => {
+              const semanticType = status.column_roles?.[column.name] ?? column.semantic_type;
+              if (semanticType === column.semantic_type) return column;
+              rolesChanged = true;
+              return { ...column, semantic_type: semanticType };
+            })
+            : current.columns;
+          const roleColumns = rolesChanged ? columnsWithRoles : current.columns;
+          const columns = mergeColumnLabels(roleColumns, status.column_labels);
           return {
             ...current,
             enrichmentStatus: status.status,
+            ...(columns !== current.columns ? { columns } : {}),
             ...(status.summary ? { summary: status.summary } : {}),
             ...(Object.keys(status.interpretation_proposals).length > 0
               ? { interpretationProposals: status.interpretation_proposals }

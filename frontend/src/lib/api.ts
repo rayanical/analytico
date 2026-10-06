@@ -154,11 +154,12 @@ export async function updateImportPreview(importId: string, settings: ImportSett
 export async function confirmImport(
   importId: string,
   settings: ImportSettings,
+  aiColumnAnalysis = false,
 ): Promise<VersionedUploadResponse> {
   try {
     const response = await api.post<VersionedUploadResponse>(
       `/imports/${encodeURIComponent(importId)}/confirm`,
-      { settings, column_overrides: [] },
+      { settings, column_overrides: [], ai_column_analysis: aiColumnAnalysis },
     );
     return response.data;
   } catch (error) {

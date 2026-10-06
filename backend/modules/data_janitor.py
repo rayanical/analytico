@@ -3,6 +3,8 @@ Analytico Backend - Data Janitor Module
 Smart ingestion, header normalization, type repair, and data cleaning
 """
 
+from modules.column_statistics import MIN_CALENDAR_YEAR, MAX_CALENDAR_YEAR
+
 import os
 import math
 import re
@@ -221,21 +223,12 @@ def llm_clean_headers(headers: list[str], df: pd.DataFrame) -> list[str]:
 
 
 def detect_column_format(series: pd.Series, col_name: str) -> str:
-    """Detect the display format for a column"""
-    col_lower = col_name.lower()
-    
-    if _is_identifier_name(col_name) and not any(kw in col_lower for kw in UNIVERSAL_CURRENCY_KEYWORDS):
-        return 'identifier'
-    
-    # Currency keywords (domain-agnostic set)
-    if any(kw in col_lower for kw in UNIVERSAL_CURRENCY_KEYWORDS):
-        return 'currency'
-    
-    # Percentage keywords
-    if any(kw in col_lower for kw in ['percent', 'pct', 'rate', 'ratio']):
-        return 'percentage'
-    
-    return 'number'
+    """Physical display format; units require source syntax or explicit metadata."""
+    if _is_identifier_name(col_name):
+        return "identifier"
+    if pd.api.types.is_datetime64_any_dtype(series):
+        return "date"
+    return "number" if pd.api.types.is_numeric_dtype(series) else "general"
 
 
 def _contains_currency_symbol(value: str) -> bool:
@@ -261,42 +254,6 @@ def _currency_symbols_in_values(values: pd.Series) -> set[str]:
 def _strip_currency_symbols(value: str) -> str:
     return "".join(ch for ch in value if unicodedata.category(ch) != "Sc").strip()
 
-
-def _is_coded_numeric_column(
-    series: pd.Series,
-    col_name: str,
-    semantic_types: dict[str, str],
-    column_formats: dict[str, str],
-) -> bool:
-    """Detect numeric columns that are categorical/identifier-like codes using generic signals."""
-    sem = semantic_types.get(col_name)
-    col_lower = col_name.lower()
-    non_null = series.dropna()
-    if len(non_null) == 0:
-        return False
-
-    if column_formats.get(col_name) in {"currency", "percentage"}:
-        return False
-
-    if sem == "identifier":
-        return True
-
-    keyword_hint = any(kw in col_lower for kw in IDENTIFIER_HINT_KEYWORDS)
-    numeric_vals = pd.to_numeric(non_null, errors="coerce").dropna()
-    if len(numeric_vals) == 0:
-        return False
-
-    integer_like = (numeric_vals.round() == numeric_vals).mean() > 0.95
-    unique_count = int(numeric_vals.nunique())
-    unique_ratio = unique_count / max(len(numeric_vals), 1)
-    repeat_ratio = 1.0 - unique_ratio
-    low_cardinality = unique_count <= max(20, int(len(numeric_vals) * 0.05))
-
-    if sem == "categorical" and integer_like and low_cardinality and repeat_ratio >= 0.5:
-        return True
-    if keyword_hint and integer_like and low_cardinality:
-        return True
-    return False
 
 
 def llm_fix_data_issues(df: pd.DataFrame, column_types: dict[str, str]) -> tuple[pd.DataFrame, list[str]]:
@@ -421,9 +378,9 @@ def _parse_numeric_text(series: pd.Series, col: str, *, allow_metric_name: bool 
         normalized,
         lambda value: bool(re.fullmatch(r"[+-]?[\d.,\s]+", value))
     )
-    if numeric_like.mean() >= 0.5:
+    if numeric_like.any():
         return None, None, f"Could not safely parse '{col}' numeric text; retained source values"
-    if _column_tokens(col) & (UNIVERSAL_CURRENCY_KEYWORDS | {"percent", "percentage", "pct", "rate", "ratio"}):
+    if not _is_date_name(col) and _column_tokens(col) & (UNIVERSAL_CURRENCY_KEYWORDS | {"percent", "percentage", "pct", "rate", "ratio"}):
         return None, None, f"Could not safely parse '{col}' numeric text; retained source values"
     return None, None, None
 
@@ -476,7 +433,7 @@ def _validated_llm_semantic(series: pd.Series, col: str, value: Optional[str]) -
     tokens = _column_tokens(col)
     if "year" in tokens and pd.api.types.is_numeric_dtype(series):
         values = series.dropna()
-        if len(values) and values.map(lambda value: float(value).is_integer() and 1000 <= value <= 2200).all():
+        if len(values) and values.map(lambda value: float(value).is_integer() and MIN_CALENDAR_YEAR <= value <= MAX_CALENDAR_YEAR).all():
             return "temporal" if semantic == "temporal" else None
     if semantic == "metric" and (
         not pd.api.types.is_numeric_dtype(series) or _is_identifier_name(col)
@@ -487,7 +444,7 @@ def _validated_llm_semantic(series: pd.Series, col: str, value: Optional[str]) -
             return semantic
         if "year" in tokens and pd.api.types.is_numeric_dtype(series):
             values = series.dropna()
-            if len(values) and values.map(lambda value: float(value).is_integer() and 1000 <= value <= 2200).all():
+            if len(values) and values.map(lambda value: float(value).is_integer() and MIN_CALENDAR_YEAR <= value <= MAX_CALENDAR_YEAR).all():
                 return semantic
         return None
     if semantic == "categorical" and pd.api.types.is_datetime64_any_dtype(series):
@@ -831,7 +788,7 @@ def clean_dataframe(
             column_formats[col] = "identifier"
         elif column_policy["role"] == "unknown":
             column_formats[col] = "general"
-        elif _is_identifier_name(col) and not any(kw in col.lower() for kw in UNIVERSAL_CURRENCY_KEYWORDS):
+        elif _is_identifier_name(col):
             column_formats[col] = "identifier"
         elif col not in column_formats:
             inferred = detect_column_format(series, col)

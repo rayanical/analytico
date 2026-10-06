@@ -12,24 +12,43 @@ function loadTypeScript(relativePath) {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
       target: ts.ScriptTarget.ES2020,
+      jsx: ts.JsxEmit.ReactJSX,
     },
   });
   const loaded = new Module(filename, module);
   loaded.filename = filename;
   loaded.paths = Module._nodeModulePaths(path.dirname(filename));
+  const nativeRequire = loaded.require.bind(loaded);
+  loaded.require = request => request === '@/lib/columnLabels'
+    ? loadTypeScript('lib/columnLabels.ts')
+    : nativeRequire(request);
   loaded._compile(outputText, filename);
   return loaded.exports;
 }
 
 const { formatValue } = loadTypeScript('lib/formatValue.ts');
-const { getNextPeriodStart, mergeFilters, preserveQueryProvenance } = loadTypeScript('lib/queryFilters.ts');
+const { getChartAggregationFields, getNextPeriodStart, mergeFilters, preserveQueryProvenance } = loadTypeScript('lib/queryFilters.ts');
 const { isDatasetState } = loadTypeScript('lib/storageValidation.ts');
+const { getColumnDisplayName, getColumnSourceName, mergeColumnLabels } = loadTypeScript('lib/columnLabels.ts');
 const { normalizeChartResponse } = loadTypeScript('lib/api.ts');
 
 assert.equal(formatValue(0.2, 'percentage'), '20%');
 assert.equal(formatValue(1200, 'currency', { aggregation: 'count' }), '1,200');
 assert.equal(formatValue(null), '—');
 assert.equal(formatValue('001', 'identifier'), '001');
+assert.equal(getColumnDisplayName({ name: 'life_expectancy', original_name: 'LifeExp' }), 'Life Expectancy');
+assert.equal(getColumnDisplayName({ name: 'LifeExp' }), 'Life Exp');
+assert.equal(getColumnDisplayName({ name: 'GdpPercap' }), 'Gdp Percap');
+assert.equal(getColumnDisplayName({ name: 'gdp_per_cap', display_name: 'GDP per Capita', original_name: 'GDPpc' }), 'GDP per Capita');
+assert.equal(getColumnSourceName({ name: 'life_expectancy', original_name: 'LifeExp' }), 'LifeExp');
+const unlabeledColumns = [{ name: 'life_expectancy' }, { name: 'gdp_per_cap', display_name: 'Old label' }];
+const labeledColumns = mergeColumnLabels(unlabeledColumns, {
+  life_expectancy: 'Life Expectancy',
+  gdp_per_cap: 'GDP per Capita',
+});
+assert.deepEqual(labeledColumns.map(column => column.name), ['life_expectancy', 'gdp_per_cap']);
+assert.deepEqual(labeledColumns.map(column => getColumnDisplayName(column)), ['Life Expectancy', 'GDP per Capita']);
+assert.equal(unlabeledColumns[0].display_name, undefined, 'merging display labels must not mutate source column metadata');
 process.env.TZ = 'America/New_York';
 assert.equal(getNextPeriodStart('2026-03-01T00:00:00', 'month'), '2026-04-01T00:00:00.000Z');
 assert.equal(getNextPeriodStart(null, 'month'), null);
@@ -84,7 +103,7 @@ const savedGapminder = {
   columns: [
     { name: 'country', dtype: 'object', is_numeric: false, is_datetime: false, semantic_type: 'categorical', format: 'general', unique_count: 142, sample_values: ['Afghanistan'] },
     { name: 'year', dtype: 'int64', is_numeric: true, is_datetime: false, semantic_type: 'temporal', format: 'number', unique_count: 12, sample_values: [1952] },
-    { name: 'life_expectancy', dtype: 'float64', is_numeric: true, is_datetime: false, semantic_type: 'metric', format: 'number', unique_count: 1626, sample_values: [28.8] },
+    { name: 'life_expectancy', original_name: 'LifeExp', display_name: 'Life Expectancy', dtype: 'float64', is_numeric: true, is_datetime: false, semantic_type: 'metric', format: 'number', unique_count: 1626, sample_values: [28.8] },
   ],
   columnFormats: { country: 'general', year: 'number', life_expectancy: 'number' },
   dataHealth: { missing_values: {}, cleaning_actions: [], quality_score: 100 },
@@ -103,3 +122,31 @@ assert.equal(isDatasetState({ ...savedGapminder, columns: [{ ...savedGapminder.c
 assert.equal(isDatasetState({ ...savedGapminder, defaultChart: { ...savedGapminder.defaultChart, chart_type: 'empty' } }), false);
 
 console.log('Frontend helper checks passed.');
+
+const React = require('react');
+const { renderToStaticMarkup } = require('react-dom/server');
+const { ColumnProposalSummary } = loadTypeScript('components/ColumnProposalSummary.tsx');
+const decision = { role: 'metric', unit: 'none', parsing_policy: 'parse_plain_number', recommended_aggregation: 'mean', needs_clarification: true };
+const liveProposals = { amount: { status: 'ok', decision }, unavailable: { status: 'error', decision: null } };
+const markup = renderToStaticMarkup(React.createElement(ColumnProposalSummary, {
+  proposals: liveProposals,
+  columns: [{ name: 'amount', original_name: 'GrossAmount', display_name: 'Amount' }],
+}));
+assert.ok(markup.includes('title="GrossAmount"'), 'source header should remain available as a tooltip');
+assert.ok(markup.includes('Amount:'), 'AI proposal list should use the current display label');
+assert.ok(markup.includes('metric, none, mean'), 'render actual nested provider decision');
+assert.ok(markup.includes('No suggestion available'), 'failed provider result must render safely');
+assert.equal(isDatasetState({ ...savedGapminder, interpretationProposals: liveProposals }), true, 'persist live nested proposals');
+assert.equal(isDatasetState({ ...savedGapminder, interpretationProposals: { amount: { status: 'ok', decision: {} } } }), false);
+console.log('AI proposal rendering checks passed.');
+const semanticMarkup = renderToStaticMarkup(React.createElement(ColumnProposalSummary, {
+  proposals: { count: { status: 'ok', decision: { ...decision, scope: 'role_only', needs_clarification: false } },
+    location_id: { status: 'uncertain', decision: { ...decision, scope: 'role_only' } } },
+}));
+assert.ok(semanticMarkup.includes('metric (suggested)'));
+assert.ok(semanticMarkup.includes('metric (needs review)'));
+assert.ok(!semanticMarkup.includes('none, mean'), 'role-only results must not imply units or aggregation');
+
+assert.deepEqual(getChartAggregationFields({ aggregation_scope: 'overall', x_axis_key: '__overall__', y_axis_keys: ['fare'] }), { x_axis_key: null, y_axis_keys: ['fare'] });
+assert.deepEqual(getChartAggregationFields({ aggregation_scope: 'overall', count_rows: true, x_axis_key: '__overall__', y_axis_keys: ['__row_count__'] }), { x_axis_key: null, y_axis_keys: [] });
+assert.equal(preserveQueryProvenance({}, { aggregation_scope: 'overall', x_axis_key: '__overall__' }, []).source_x_axis_key, undefined);

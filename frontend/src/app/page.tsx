@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '@/components/Sidebar';
 import { FileUploader } from '@/components/FileUploader';
+import { ColumnProposalSummary } from '@/components/ColumnProposalSummary';
 import { ChatInterface } from '@/components/ChatInterface';
 import { SmartChart } from '@/components/SmartChart';
 import { ChartSkeleton } from '@/components/ChartSkeleton';
@@ -16,7 +17,7 @@ import { aggregateData } from '@/lib/api';
 import { BarChart3, Sparkles, Wand2, Wrench, Table, LineChart, Info, AlertTriangle, X, Filter, Pin, Compass, LayoutGrid, FileDown, Trash2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { mergeFilters, preserveQueryProvenance } from '@/lib/queryFilters';
+import { getChartAggregationFields, mergeFilters, preserveQueryProvenance } from '@/lib/queryFilters';
 
 const DashboardCanvas = dynamic(
   () => import('@/components/DashboardCanvas').then(module => module.DashboardCanvas),
@@ -95,8 +96,7 @@ export default function Home() {
           try {
             const response = await aggregateData({
               dataset_id: dataset.datasetId,
-              x_axis_key: currentChart.source_x_axis_key || currentChart.x_axis_key,
-              y_axis_keys: currentChart.y_axis_keys,
+              ...getChartAggregationFields(currentChart),
               aggregation: currentChart.aggregation || 'sum',
               chart_type: currentChart.chart_type,
               filters: effectiveFilters,
@@ -182,8 +182,7 @@ export default function Home() {
     try {
       const response = await aggregateData({
         dataset_id: dataset.datasetId,
-        x_axis_key: currentChart.source_x_axis_key || currentChart.x_axis_key,
-        y_axis_keys: currentChart.y_axis_keys,
+        ...getChartAggregationFields(currentChart),
         aggregation: currentChart.aggregation || 'sum',
         chart_type: currentChart.chart_type,
         filters: effectiveFilters,
@@ -327,16 +326,9 @@ export default function Home() {
                       )}
                       {Object.keys(dataset?.interpretationProposals ?? {}).length > 0 && (
                         <div className="mt-3">
-                          <p className="text-xs font-medium text-foreground">Suggested column meanings</p>
-                          <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
-                            {Object.entries(dataset?.interpretationProposals ?? {}).slice(0, 5).map(([column, proposal]) => (
-                              <li key={column}>
-                                <span className="font-medium text-foreground">{column}:</span>{' '}
-                                {proposal.role}, {proposal.unit}, {proposal.recommended_aggregation.replace(/_/g, ' ')}
-                              </li>
-                            ))}
-                          </ul>
-                          <p className="mt-2 text-xs text-muted-foreground">These are suggestions ready for review.</p>
+                          <p className="text-xs font-medium text-foreground">AI column meanings</p>
+                          <ColumnProposalSummary proposals={dataset?.interpretationProposals ?? {}} columns={dataset?.columns ?? []} />
+                          <p className="mt-2 text-xs text-muted-foreground">Compatible column roles apply automatically. Review data to make changes.</p>
                         </div>
                       )}
                     </div>

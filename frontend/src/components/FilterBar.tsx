@@ -6,6 +6,7 @@ import { Filter, X, ChevronDown, Check, Settings, XCircle } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { FilterConfig } from '@/types';
 import { Button } from '@/components/ui/button';
+import { getColumnDisplayName, getColumnSourceName } from '@/lib/columnLabels';
 
 interface FilterBarProps {
   /** Externally controlled column to expand */
@@ -145,11 +146,6 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
   if (!dataset) return null;
 
   const activeFilterCount = filters.length;
-
-  // Format column name for display (convert snake_case to Title Case)
-  const formatColumnName = (name: string) => {
-    return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-  };
 
   return (
     <motion.div
@@ -323,6 +319,7 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
             <div key={column.name} className="relative">
               <button
                 onClick={() => handleExpandChange(isExpanded ? null : column.name)}
+                title={getColumnSourceName(column)}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-all ${
                   appliedFilter
                     ? 'bg-primary text-primary-foreground'
@@ -331,7 +328,7 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
                     : 'bg-white/5 text-muted-foreground hover:bg-white/10'
                 }`}
               >
-                {formatColumnName(column.name)}
+                {getColumnDisplayName(column)}
                 {pendingFilter && (
                   <span className="text-xs opacity-75">
                     ({(pendingFilter.values?.length ?? 0)})
@@ -409,7 +406,9 @@ export function FilterBar({ expandColumn, onExpandChange }: FilterBarProps) {
               key={filter.column}
               className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs text-primary"
             >
-              {formatColumnName(filter.column)}: {(filter.values as string[])?.slice(0, 2).join(', ')}
+              <span title={getColumnSourceName(dataset.columns.find(column => column.name === filter.column) ?? { name: filter.column })}>
+                {getColumnDisplayName(dataset.columns.find(column => column.name === filter.column) ?? { name: filter.column })}
+              </span>: {(filter.values as string[])?.slice(0, 2).join(', ')}
               {((filter.values as string[])?.length ?? 0) > 2 && ` +${((filter.values as string[])?.length ?? 0) - 2}`}
               <button
                 onClick={() => {

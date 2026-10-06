@@ -76,6 +76,8 @@ export interface ColumnInterpretationMetadata {
 // Column metadata
 export interface ColumnSummary {
   name: string;
+  display_name?: string | null;
+  original_name?: string | null;
   dtype: string;
   is_numeric: boolean;
   is_datetime: boolean;
@@ -146,6 +148,7 @@ export type ColumnAggregation = 'sum' | 'mean' | 'count' | 'none';
 export interface DatasetColumnSchema {
   column: string;
   original_name: string;
+  display_name?: string | null;
   parse_as?: ParseAs;
   role: SemanticType | null;
   format: ColumnFormat | null;
@@ -157,6 +160,7 @@ export interface DatasetColumnSchema {
 
 export interface ColumnSchemaOverride {
   column: string;
+  display_name?: string | null;
   parse_as?: ParseAs;
   role?: SemanticType | null;
   format?: ColumnFormat | null;
@@ -165,6 +169,9 @@ export interface ColumnSchemaOverride {
 }
 
 export interface DatasetColumnProposalDecision {
+  scope?: 'role_only';
+  display_name?: string | null;
+  label_evidence_strength?: 'strong' | 'tentative' | 'unknown';
   role?: SemanticType;
   unit?: string;
   parsing_policy?: string;
@@ -173,6 +180,8 @@ export interface DatasetColumnProposalDecision {
 }
 
 export interface DatasetColumnProposal {
+  runtime_status?: 'applied' | 'clarification';
+  label_runtime_status?: 'applied' | 'clarification';
   status?: string;
   decision?: DatasetColumnProposalDecision | null;
 }
@@ -194,7 +203,10 @@ export type VersionedUploadResponse = UploadResponse & { version: string; column
 export type EnrichmentStatus = 'pending' | 'running' | 'done' | 'error' | 'disabled';
 
 /** Optional model suggestions that remain separate from active column types. */
-export interface InterpretationProposal {
+export interface InterpretationDecision {
+  scope?: 'role_only';
+  display_name?: string | null;
+  label_evidence_strength?: 'strong' | 'tentative' | 'unknown';
   role: SemanticType;
   unit: string;
   parsing_policy: string;
@@ -202,7 +214,18 @@ export interface InterpretationProposal {
   needs_clarification: boolean;
 }
 
+/** Provider result wraps a decision; unavailable results have no decision. */
+export interface InterpretationProposal {
+  runtime_status?: 'applied' | 'clarification';
+  label_runtime_status?: 'applied' | 'clarification';
+  status: string;
+  decision: InterpretationDecision | null;
+}
+
 export interface EnrichmentStatusResponse {
+  column_roles?: Record<string, SemanticType>;
+  column_labels?: Record<string, string>;
+  semantic_revision?: number;
   dataset_id: string;
   version?: string | null;
   status: EnrichmentStatus;
@@ -252,7 +275,7 @@ export interface FilterConfig {
 // Aggregation request
 export interface AggregateRequest {
   dataset_id: string;
-  x_axis_key: string;
+  x_axis_key: string | null;
   y_axis_keys: string[];
   aggregation: AggregationType;
   chart_type: ChartType;
@@ -267,6 +290,8 @@ export interface AggregateRequest {
 
 // Chart response with labels and applied filters
 export interface ChartResponse {
+  aggregation_scope?: 'grouped' | 'overall';
+  count_rows?: boolean;
   data: Record<string, unknown>[];
   x_axis_key: string;
   y_axis_keys: string[];

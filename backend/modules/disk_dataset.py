@@ -16,6 +16,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
+from time import perf_counter
 from typing import Any, BinaryIO, Optional, TextIO
 
 import numpy as np
@@ -26,7 +27,8 @@ from models import (
     AggregateRequest, ChartResponse, ColumnSummary, DataHealth, DataProfile,
     DefaultChart, DrillDownRequest, MetricSummary, TimeRange, UploadResponse,
 )
-from modules.column_statistics import ColumnStatistics
+from modules.column_usage import infer_column_usage, default_chart_plan
+from modules.column_statistics import ColumnStatistics, MIN_CALENDAR_YEAR, MAX_CALENDAR_YEAR
 from modules.import_policy import (
     ColumnOverride, ImportSettings, parse_locale_numbers, policy_date_formats,
     read_csv_headers, reader_options, resolve_column_policy, validate_csv_structure,
@@ -47,8 +49,24 @@ MAX_PREVIEW_ROWS = 1_000
 DEFAULT_MAX_FILE_BYTES = 256 * 1024 * 1024
 DEFAULT_MAX_ROWS = 5_000_000
 DUCKDB_MEMORY_LIMIT = "64MB"
-DUCKDB_THREADS = 2
+DUCKDB_THREADS = 4
 DUCKDB_TEMP_LIMIT = "1GB"
+
+def _duckdb_thread_count() -> int:
+    """Cap the per-dataset worker budget to the host; allow a lower local budget."""
+    available = max(1, os.cpu_count() or 2)
+    configured = os.getenv("ANALYTICO_DUCKDB_THREADS")
+    if configured is None:
+        requested = DUCKDB_THREADS
+    else:
+        try:
+            requested = int(configured)
+        except ValueError as error:
+            raise RuntimeError("ANALYTICO_DUCKDB_THREADS must be an integer from 1 to 8.") from error
+        if not 1 <= requested <= 8:
+            raise RuntimeError("ANALYTICO_DUCKDB_THREADS must be an integer from 1 to 8.")
+    return min(requested, available)
+
 
 _PLAIN_NUMBER = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$")
 _US_GROUPED_NUMBER = re.compile(r"^[+-]?\d{1,3}(?:,\d{3})+\.\d+$")
@@ -230,6 +248,7 @@ class DiskDataset:
         self._plans: dict[str, _Plan] = {}
         self._clean_to_raw: dict[str, str] = {}
         self._max_rows = DEFAULT_MAX_ROWS
+        self.ingestion_timings: dict[str, float] = {}
         self.csv_loader = "pandas"
         self.csv_fallback_reason: Optional[str] = None
         self.import_settings = ImportSettings()
@@ -258,6 +277,7 @@ class DiskDataset:
             raise ValueError("max_file_bytes must be a positive integer.")
         if type(max_rows) is not int or max_rows <= 0:
             raise ValueError("max_rows must be a positive integer.")
+        thread_count = _duckdb_thread_count()
         try:
             import duckdb
         except ImportError as error:
@@ -281,7 +301,10 @@ class DiskDataset:
             dataset.database_path = managed / "dataset.duckdb"
             spill_path = managed / "spill"
             spill_path.mkdir(mode=0o700)
+            stage_started = perf_counter()
             _copy_source(source, dataset.raw_source_path, max_file_bytes)
+            dataset.ingestion_timings["source_copy"] = perf_counter() - stage_started
+            stage_started = perf_counter()
             try:
                 validate_csv_structure(
                     dataset.raw_source_path, dataset.import_settings,
@@ -292,18 +315,23 @@ class DiskDataset:
                 )
             except (UnicodeDecodeError, csv.Error):
                 dataset.original_headers = []
+            dataset.ingestion_timings["structure_validation"] = perf_counter() - stage_started
+            stage_started = perf_counter()
             os.chmod(dataset.raw_source_path, 0o400)
             dataset._connection = duckdb.connect(
                 str(dataset.database_path),
                 config={
                     "memory_limit": DUCKDB_MEMORY_LIMIT,
-                    "threads": str(DUCKDB_THREADS),
+                    "threads": str(thread_count),
                     "temp_directory": str(spill_path),
                     "max_temp_directory_size": DUCKDB_TEMP_LIMIT,
                     "preserve_insertion_order": "true",
                 },
             )
+            dataset.ingestion_timings["engine_setup"] = perf_counter() - stage_started
+            stage_started = perf_counter()
             dataset._ingest_csv(chunk_size)
+            dataset.ingestion_timings["csv_load"] = perf_counter() - stage_started
             dataset._analyze_and_build()
             if dataset.row_count > max_rows:
                 raise ValueError(f"CSV file exceeds the {max_rows}-row ingestion limit.")
@@ -852,6 +880,7 @@ class DiskDataset:
         ), None
 
     def _analyze_and_build(self) -> None:
+        stage_started = perf_counter()
         self._ensure_open()
         first_values = {column: [] for column in self._raw_columns}
         selection = ", ".join([_q("_row_ordinal"), *(_q(column) for column in self._raw_columns)])
@@ -983,14 +1012,21 @@ class DiskDataset:
             self.column_formats[clean] = policy["format"] or self._format_for_column(clean, plan)
             typed_select.append(f"{plan.expression} AS {_q(clean)}")
 
+        self.ingestion_timings["column_validation_and_type_plan"] = perf_counter() - stage_started
+        stage_started = perf_counter()
         self._connection.execute(
             f"CREATE TABLE typed_data AS SELECT {', '.join(typed_select)} FROM source_data"
         )
+        self.ingestion_timings["typed_materialization"] = perf_counter() - stage_started
+        stage_started = perf_counter()
         for clean in self.columns:
             column = _q(clean)
-            unique_count = int(self._connection.execute(
-                f"SELECT COUNT(DISTINCT {column}) FROM typed_data"
-            ).fetchone()[0] or 0)
+            numeric = self._plans[clean].kind in {"integer", "unsigned", "number", "percentage", "currency"}
+            fractional_expression = (f"BOOL_OR({column} != TRUNC({column}))"
+                                     if self._plans[clean].kind not in {"integer", "unsigned"} else "FALSE")
+            extra_stats = f", MIN({column}), MAX({column}), {fractional_expression}" if numeric else ""
+            stats_row = self._connection.execute(f"SELECT COUNT(DISTINCT {column}){extra_stats} FROM typed_data").fetchone()
+            unique_count = int(stats_row[0] or 0)
             samples = self._connection.execute(
                 f"SELECT {column} FROM typed_data WHERE {column} IS NOT NULL "
                 f"GROUP BY {column} ORDER BY MIN(_row_ordinal) LIMIT 20"
@@ -999,7 +1035,14 @@ class DiskDataset:
             self.unique_counts[clean] = unique_count
             self.sample_values[clean] = sample_values
             numeric_year = self._numeric_year(clean)
-            self.column_stats[clean] = ColumnStatistics(unique_count, sample_values, numeric_year)
+            sequence = False
+            if self.row_count >= 3 and unique_count == self.row_count and self._plans[clean].kind in {"integer", "unsigned"}:
+                sequence = bool(self._connection.execute(
+                    f"SELECT BOOL_AND({column} = _row_ordinal) OR BOOL_AND({column} = _row_ordinal + 1) FROM typed_data"
+                ).fetchone()[0])
+            self.column_stats[clean] = ColumnStatistics(unique_count, sample_values, numeric_year, sequence,
+                stats_row[1] if numeric else None, stats_row[2] if numeric else None,
+                bool(stats_row[3]) if numeric else False)
             policy = self._column_policies[clean]
             resolved_role = policy["role"] or self._semantic_type(clean)
             self.column_types[clean] = resolved_role
@@ -1015,6 +1058,8 @@ class DiskDataset:
                 "column": clean,
                 "original_name": self.original_headers[len(self.column_schema)]
                 if len(self.original_headers) > len(self.column_schema) else self.parsed_headers[len(self.column_schema)],
+                "display_name": policy.get("display_name"),
+                "display_name_provenance": "user" if policy.get("display_name") else None,
                 "parse_as": policy["parse_as"],
                 "role": resolved_role,
                 "format": self.column_formats[clean],
@@ -1022,21 +1067,20 @@ class DiskDataset:
                 "aggregation": policy["aggregation"],
                 "provenance": provenance,
                 "status": "confirmed" if provenance == "override" else "suggested",
+                "usage": self._column_usage(clean).metadata(),
             })
+        self.ingestion_timings["column_profiles"] = perf_counter() - stage_started
+        stage_started = perf_counter()
         self._build_profile_and_suggestions()
+        self.ingestion_timings["chart_metadata"] = perf_counter() - stage_started
 
     def _format_for_column(self, column: str, plan: _Plan) -> str:
         if plan.kind == "date":
             return "date"
         if plan.format:
             return plan.format
-        lower = column.lower()
-        if _is_identifier_name(column) and not any(word in lower for word in UNIVERSAL_CURRENCY_KEYWORDS):
+        if _is_identifier_name(column):
             return "identifier"
-        if any(word in lower for word in UNIVERSAL_CURRENCY_KEYWORDS):
-            return "currency"
-        if any(word in lower for word in ("percent", "pct", "rate", "ratio")):
-            return "percentage"
         return "number" if plan.kind in {"integer", "unsigned", "number"} else "general"
 
     def _numeric_year(self, column: str) -> Optional[bool]:
@@ -1046,48 +1090,24 @@ class DiskDataset:
             return None
         qcolumn = _q(column)
         total, valid = self._connection.execute(
-            f"SELECT COUNT({qcolumn}), COUNT(*) FILTER (WHERE {qcolumn} BETWEEN 1000 AND 2200 "
+            f"SELECT COUNT({qcolumn}), COUNT(*) FILTER (WHERE {qcolumn} BETWEEN {MIN_CALENDAR_YEAR} AND {MAX_CALENDAR_YEAR} "
             f"AND {qcolumn} = FLOOR({qcolumn})) FROM typed_data"
         ).fetchone()
         return bool(total and total == valid)
 
-    def _semantic_type(self, column: str) -> str:
-        plan = self._plans[column]
-        tokens = set(column.lower().split("_"))
-        if plan.kind == "date":
-            return "temporal"
-        if tokens & {
-            "id", "code", "key", "name", "email", "phone", "address",
-            "zip", "postal", "ssn", "account", "serial", "ref",
-        }:
-            return "identifier"
-        if plan.kind in {"integer", "unsigned", "number", "percentage", "currency"}:
-            if "year" in tokens and self.column_stats[column].numeric_year:
-                return "temporal"
-            if self.unique_counts[column] / max(self.row_count, 1) > 0.5:
-                return "metric"
-            return "categorical" if self.unique_counts[column] < 20 else "metric"
-        return "categorical" if self.unique_counts[column] < 50 else "identifier"
+    def _column_usage(self, column):
+        kind = self._plans[column].kind
+        physical = "datetime" if kind == "date" else ("number" if kind in {"integer", "unsigned", "number", "percentage", "currency"} else "text")
+        policy = self._column_policies[column]
+        return infer_column_usage(column, physical, self.column_stats[column],
+            role_override=policy["role"], aggregation_override=policy["aggregation"])
 
-    @staticmethod
-    def _non_additive_metric(column: str, column_format: Optional[str]) -> bool:
-        tokens = set(str(column).lower().split("_"))
-        name = str(column).lower()
-        return column_format == "percentage" or "life_exp" in name or bool(
-            tokens & {
-                "rate", "ratio", "pct", "percent", "percentage", "lifeexp",
-                "expectancy", "score", "index", "average", "mean", "age",
-                "temperature",
-            }
-        )
+    def _semantic_type(self, column: str) -> str:
+        return self._column_usage(column).role
 
     def _build_profile_and_suggestions(self) -> None:
-        metric_columns = [
-            column for column in self.columns
-            if self.column_types[column] == "metric"
-            and self._plans[column].kind in {"integer", "unsigned", "number", "percentage", "currency"}
-            and self._column_policies[column].get("aggregation") != "none"
-        ]
+        usages = {column: self._column_usage(column) for column in self.columns}
+        metric_columns = [column for column in self.columns if usages[column].automatic_measure]
         temporal_columns = [
             column for column in self.columns
             if self.column_types[column] == "temporal"
@@ -1133,29 +1153,7 @@ class DiskDataset:
             "column_count": len(self.columns),
         }
 
-        default_chart = None
-        chart_metrics = [
-            (column, self._metric_chart_aggregation(column))
-            for column in metric_columns
-            if self._metric_chart_aggregation(column) is not None
-        ]
-        if chart_metrics:
-            metric, aggregation = chart_metrics[0]
-            axis = temporal_columns[0] if temporal_columns else None
-            chart_type = "line"
-            if axis is None and categorical_columns:
-                axis = min(categorical_columns, key=lambda item: abs(self.unique_counts[item] - 10))
-                chart_type = "bar"
-            if axis is not None:
-                default_chart = {
-                    "x_axis_key": axis,
-                    "y_axis_keys": [metric],
-                    "chart_type": chart_type,
-                    "aggregation": aggregation,
-                    "title": f"{aggregation.title()} {metric} by {axis}".replace("_", " ").title(),
-                    "analysis": f"Shows the {aggregation} of {metric} for each observed {axis} value.",
-                }
-        self.default_chart = default_chart
+        self.default_chart = default_chart_plan(self.columns, usages, self.column_stats)
         self.suggestions = self._build_suggestions(metric_columns, temporal_columns, categorical_columns)
 
         summaries: list[ColumnSummary] = []
@@ -1167,6 +1165,8 @@ class DiskDataset:
             )
             summaries.append(ColumnSummary(
                 name=column,
+                original_name=next(item["original_name"] for item in self.column_schema if item["column"] == column),
+                display_name=self._column_policies[column].get("display_name"),
                 dtype=plan.dtype,
                 is_numeric=plan.kind in {"integer", "unsigned", "number", "percentage", "currency"},
                 is_datetime=plan.kind == "date",
@@ -1184,7 +1184,7 @@ class DiskDataset:
             return None
         if explicit in {"sum", "mean"}:
             return explicit
-        return "mean" if self._non_additive_metric(column, self.column_formats[column]) else "sum"
+        return "mean"
 
     def _metric_chart_aggregation(self, column: str) -> Optional[str]:
         """Honor all supported chart aggregations and omit explicitly disabled metrics."""
@@ -1193,7 +1193,7 @@ class DiskDataset:
             return None
         if explicit in {"sum", "mean", "count"}:
             return explicit
-        return "mean" if self._non_additive_metric(column, self.column_formats[column]) else "sum"
+        return "mean"
 
     @staticmethod
     def _build_suggestions(
@@ -1290,51 +1290,54 @@ class DiskDataset:
 
     def interpretation_inputs(self, limit: int = 12) -> list[tuple[str, dict[str, Any]]]:
         """Build bounded, source-grounded interpretation proposals for a worker."""
-        self._ensure_open()
-        if type(limit) is not int or not 0 <= limit <= MAX_COLUMNS:
-            raise ValueError(f"Interpretation limit must be between 0 and {MAX_COLUMNS}.")
-        if not limit or not self.columns:
-            return []
-        positions = sorted({
-            round(index * (self.row_count - 1) / 11)
-            for index in range(12)
-        }) if self.row_count else []
-        if positions:
-            placeholders = ", ".join("?" for _ in positions)
-            projection = ", ".join([_q("_row_ordinal"), *(_q(column) for column in self._raw_columns)])
-            rows = self._connection.execute(
-                f"SELECT {projection} FROM source_data WHERE _row_ordinal IN ({placeholders}) "
-                "ORDER BY _row_ordinal",
-                positions,
-            ).fetchall()
-        else:
-            rows = []
-        by_position = {int(row[0]): row for row in rows}
-        headers = self.parsed_headers
-        output: list[tuple[str, dict[str, Any]]] = []
-        for column_index, clean_column in enumerate(self.columns[:limit]):
-            values: list[Any] = []
-            for position in positions:
-                row = by_position.get(position)
-                value = row[column_index + 1] if row is not None else None
-                values.append(None if value is None else str(value)[:160])
-            non_null = [value for value in values if value is not None]
-            output.append((clean_column, {
-                "column_name": headers[column_index][:256],
-                "values": values,
-                "context": {
-                    "purpose": "Conservative dataset ingestion; no requested calculation or external unit metadata.",
-                    "row_count": self.row_count,
-                    "missing_count": self.missing_counts.get(clean_column, 0),
-                    "sample_unique_count": len({str(value) for value in non_null}),
-                    "sample_is_complete": self.row_count <= 12,
-                    "other_column_names": [
-                        header[:128] for index, header in enumerate(headers)
-                        if index != column_index
-                    ][:20],
-                },
-            }))
-        return output
+        with self._lock:
+            self._ensure_open()
+            if type(limit) is not int or not 0 <= limit <= MAX_COLUMNS:
+                raise ValueError(f"Interpretation limit must be between 0 and {MAX_COLUMNS}.")
+            if not limit or not self.columns:
+                return []
+            positions = sorted({
+                round(index * (self.row_count - 1) / 11)
+                for index in range(12)
+            }) if self.row_count else []
+            if positions:
+                placeholders = ", ".join("?" for _ in positions)
+                projection = ", ".join([_q("_row_ordinal"), *(_q(column) for column in self._raw_columns)])
+                rows = self._connection.execute(
+                    f"SELECT {projection} FROM source_data WHERE _row_ordinal IN ({placeholders}) "
+                    "ORDER BY _row_ordinal",
+                    positions,
+                ).fetchall()
+            else:
+                rows = []
+            by_position = {int(row[0]): row for row in rows}
+            headers = self.parsed_headers
+            output: list[tuple[str, dict[str, Any]]] = []
+            for column_index, clean_column in enumerate(self.columns[:limit]):
+                values: list[Any] = []
+                for position in positions:
+                    row = by_position.get(position)
+                    value = row[column_index + 1] if row is not None else None
+                    values.append(None if value is None else str(value)[:160])
+                non_null = [value for value in values if value is not None]
+                output.append((clean_column, {
+                    "column_name": headers[column_index][:256],
+                    "values": values,
+                    "context": {
+                        "purpose": "Conservative dataset ingestion; no requested calculation or external unit metadata.",
+                        "row_count": self.row_count,
+                        "missing_count": self.missing_counts.get(clean_column, 0),
+                        "sample_unique_count": len({str(value) for value in non_null}),
+                        "column_unique_count": self.column_stats[clean_column].unique_count,
+                        "row_position_sequence": self.column_stats[clean_column].row_position_sequence,
+                        "sample_is_complete": self.row_count <= 12,
+                        "other_column_names": [
+                            header[:128] for index, header in enumerate(headers)
+                            if index != column_index
+                        ][:20],
+                    },
+                }))
+            return output
 
     def _resolve_column(self, name: str) -> str:
         if name in self._clean_to_raw:
@@ -1446,8 +1449,7 @@ class DiskDataset:
                     options.append(f"{qcolumn} IS NULL")
                 predicates.append("(" + " OR ".join(options or ["FALSE"]) + ")")
                 descriptions = _filter_descriptions(item)
-                if len(descriptions) > 1:
-                    applied.append(descriptions[1])
+                applied.append(descriptions[1 if item.operator is not None else 0])
 
             if item.min_val is not None and item.max_val is not None:
                 lower = self._filter_operand(column, item.min_val)
@@ -1488,9 +1490,32 @@ class DiskDataset:
             raise ValueError(f"Unsupported aggregation '{aggregation}'.")
         return allowed[aggregation]
 
+    def _aggregate_overall(self, request: AggregateRequest) -> ChartResponse:
+        from modules.overall_aggregation import overall_chart, result_keys
+        for column in request.y_axis_keys:
+            self._resolve_column(column)
+            if request.aggregation != "count" and not self._is_numeric(column):
+                raise ValueError(f"Measure '{column}' is not numeric; choose count or a numeric measure.")
+            if request.aggregation != "count" and self.column_types.get(column) == "identifier":
+                raise ValueError("Identifier measures require count aggregation.")
+        predicates, parameters, applied = self._compile_filters(request.filters)
+        where = " WHERE " + " AND ".join(predicates) if predicates else ""
+        expressions = [self._aggregate_expression(request.aggregation, _q(column)) for column in request.y_axis_keys]
+        with self._lock:
+            row = self._connection.execute(
+                f"SELECT COUNT(*){', ' + ', '.join(expressions) if expressions else ''} FROM typed_data{where}", parameters,
+            ).fetchone()
+        if not row[0]:
+            raise ValueError("No data matches filters.")
+        axis, measures = result_keys(self.columns, request.y_axis_keys)
+        values = [_json_value(value) for value in (row[1:] if expressions else row[:1])]
+        return overall_chart(request, axis, measures, values, applied)
+
     def aggregate(self, request: AggregateRequest) -> ChartResponse:
         """Execute a closed AggregateRequest plan directly in DuckDB."""
         self._ensure_open()
+        if request.x_axis_key is None:
+            return self._aggregate_overall(request)
         self._resolve_column(request.x_axis_key)
         for column in request.y_axis_keys:
             self._resolve_column(column)

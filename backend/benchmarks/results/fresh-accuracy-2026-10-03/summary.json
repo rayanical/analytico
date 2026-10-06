@@ -1,0 +1,1884 @@
+{
+  "title": "Fresh local ingestion and Luna query accuracy benchmark",
+  "benchmark_date": "2026-10-03",
+  "frozen_gold_path": "/Users/rayan/.gemini/antigravity/scratch/analytico/backend/evals/fresh_accuracy_gold_2026-10-03.json",
+  "frozen_gold_sha256": "7d52429b8b5c3e1d9517ed03ce292ec34600dd1ca26a8be659064d51420f2b60",
+  "question_count": 20,
+  "datasets": [
+    {
+      "id": "bike",
+      "rows_expected": 17379,
+      "question_count": 3,
+      "columns_expected": 17,
+      "file_bytes": 1156736
+    },
+    {
+      "id": "bank",
+      "rows_expected": 45211,
+      "question_count": 3,
+      "columns_expected": 17,
+      "file_bytes": 4610348
+    },
+    {
+      "id": "retail",
+      "rows_expected": 541909,
+      "question_count": 3,
+      "columns_expected": 8,
+      "file_bytes": 47758972
+    },
+    {
+      "id": "taxi",
+      "rows_expected": 1068755,
+      "question_count": 3,
+      "columns_expected": 20,
+      "file_bytes": 139634545
+    },
+    {
+      "id": "wine",
+      "rows_expected": 4898,
+      "question_count": 1,
+      "columns_expected": 12,
+      "file_bytes": 264426
+    },
+    {
+      "id": "diamonds",
+      "rows_expected": 53940,
+      "question_count": 2,
+      "columns_expected": 10,
+      "file_bytes": 2772143
+    },
+    {
+      "id": "penguins",
+      "rows_expected": 344,
+      "question_count": 2,
+      "columns_expected": 7,
+      "file_bytes": 13478
+    },
+    {
+      "id": "tips",
+      "rows_expected": 244,
+      "question_count": 3,
+      "columns_expected": 7,
+      "file_bytes": 9729
+    }
+  ],
+  "arms": [
+    "local_only",
+    "auto_luna_schema"
+  ],
+  "repeats_per_dataset_arm": 3,
+  "overall": {
+    "ingestion_runs_requested": 48,
+    "ingestion_runs_completed": 48,
+    "role_correct": 527,
+    "role_evaluated": 588,
+    "role_wrong": 0,
+    "role_abstentions": 61,
+    "role_accuracy": 0.8962585034013606,
+    "role_nonabstained_precision": 1.0,
+    "query_cases_requested": 40,
+    "query_cases_completed": 40,
+    "query_correct": 38,
+    "query_accuracy": 0.95,
+    "query_failure_categories": {
+      "wrong_answer_kind": 2
+    },
+    "live_query_wall_seconds": 68.33851116313599,
+    "successful_query_wall_seconds": 64.4784977461677
+  },
+  "dataset_arm_results": [
+    {
+      "dataset": "bank",
+      "arm": "auto_luna_schema",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.09252954204566777,
+      "median_local_ready_seconds": 0.9693361669778824,
+      "median_confirm_total_seconds": 0.8742262080777436,
+      "median_background_wait_seconds": 4.634505541995168,
+      "median_schema_luna_seconds": 4.546495417132974,
+      "role_correct": 47,
+      "role_evaluated": 51,
+      "role_wrong": 0,
+      "role_abstentions": 4,
+      "role_accuracy": 0.9215686274509803,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "chart_metadata": 0.00042325002141296864,
+        "column_statistics": 0.009677249938249588,
+        "csv_parse": 0.11536599998362362,
+        "data_cleaning": 0.7284643750172108,
+        "data_profiling": 0.0006176668684929609,
+        "llm_summary": 2.919696271419525e-07,
+        "raw_copy": 0.001625334145501256,
+        "response_and_storage": 0.013708041980862617,
+        "semantic_detection": 0.0003532920964062214,
+        "source_copy": 0.001529583940282464
+      },
+      "query_cases": 3,
+      "query_correct": 3,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.4026725420262665,
+      "median_planner_call_seconds": 1.3881456248927861,
+      "median_aggregate_execution_seconds": 0.012399625033140182
+    },
+    {
+      "dataset": "bank",
+      "arm": "local_only",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.10764429182745516,
+      "median_local_ready_seconds": 0.9836996248923242,
+      "median_confirm_total_seconds": 0.8786055829841644,
+      "median_background_wait_seconds": null,
+      "median_schema_luna_seconds": null,
+      "role_correct": 42,
+      "role_evaluated": 51,
+      "role_wrong": 0,
+      "role_abstentions": 9,
+      "role_accuracy": 0.8235294117647058,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "chart_metadata": 0.0004505410324782133,
+        "column_statistics": 0.010079790838062763,
+        "csv_parse": 0.11577187501825392,
+        "data_cleaning": 0.7342488749418408,
+        "data_profiling": 0.0006520419847220182,
+        "llm_summary": 2.50060111284256e-07,
+        "raw_copy": 0.0016384159680455923,
+        "response_and_storage": 0.013903917046263814,
+        "semantic_detection": 0.0003590418491512537,
+        "source_copy": 0.001578624825924635
+      },
+      "query_cases": 3,
+      "query_correct": 3,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.8651816670317203,
+      "median_planner_call_seconds": 1.8637371249496937,
+      "median_aggregate_execution_seconds": 0.014214999973773956
+    },
+    {
+      "dataset": "bike",
+      "arm": "auto_luna_schema",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.05764695908874273,
+      "median_local_ready_seconds": 0.36529370909556746,
+      "median_confirm_total_seconds": 0.3045489159412682,
+      "median_background_wait_seconds": 5.113964250078425,
+      "median_schema_luna_seconds": 5.025620749918744,
+      "role_correct": 48,
+      "role_evaluated": 51,
+      "role_wrong": 0,
+      "role_abstentions": 3,
+      "role_accuracy": 0.9411764705882353,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "chart_metadata": 0.00041758292354643345,
+        "column_statistics": 0.0021656660828739405,
+        "csv_parse": 0.04012433299794793,
+        "data_cleaning": 0.2500468329526484,
+        "data_profiling": 0.000905041815713048,
+        "llm_summary": 2.50060111284256e-07,
+        "raw_copy": 0.0006260829977691174,
+        "response_and_storage": 0.005759041057899594,
+        "semantic_detection": 0.00034900009632110596,
+        "source_copy": 0.0011237079743295908
+      },
+      "query_cases": 3,
+      "query_correct": 3,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.920042249839753,
+      "median_planner_call_seconds": 1.912818209035322,
+      "median_aggregate_execution_seconds": 0.006047562463209033
+    },
+    {
+      "dataset": "bike",
+      "arm": "local_only",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.0665602080989629,
+      "median_local_ready_seconds": 0.3723893330898136,
+      "median_confirm_total_seconds": 0.3043856672011316,
+      "median_background_wait_seconds": null,
+      "median_schema_luna_seconds": null,
+      "role_correct": 21,
+      "role_evaluated": 51,
+      "role_wrong": 0,
+      "role_abstentions": 30,
+      "role_accuracy": 0.4117647058823529,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "chart_metadata": 0.0004235000815242529,
+        "column_statistics": 0.002295666839927435,
+        "csv_parse": 0.039647917030379176,
+        "data_cleaning": 0.2520259579177946,
+        "data_profiling": 0.0009572501294314861,
+        "llm_summary": 2.919696271419525e-07,
+        "raw_copy": 0.0006477909628301859,
+        "response_and_storage": 0.005718375090509653,
+        "semantic_detection": 0.0003637499175965786,
+        "source_copy": 0.0012195419985800982
+      },
+      "query_cases": 3,
+      "query_correct": 3,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.8614272081758827,
+      "median_planner_call_seconds": 1.8520699578803033,
+      "median_aggregate_execution_seconds": 0.006658708560280502
+    },
+    {
+      "dataset": "diamonds",
+      "arm": "auto_luna_schema",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.04632249986752868,
+      "median_local_ready_seconds": 0.607590249972418,
+      "median_confirm_total_seconds": 0.5588593750726432,
+      "median_background_wait_seconds": 3.4060084999073297,
+      "median_schema_luna_seconds": 3.3864483339712024,
+      "role_correct": 30,
+      "role_evaluated": 30,
+      "role_wrong": 0,
+      "role_abstentions": 0,
+      "role_accuracy": 1.0,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "chart_metadata": 0.0002624581102281809,
+        "column_statistics": 0.004548332886770368,
+        "csv_parse": 0.0817352500744164,
+        "data_cleaning": 0.4585462079849094,
+        "data_profiling": 0.0008812500163912773,
+        "llm_summary": 2.9103830456733704e-07,
+        "raw_copy": 0.001073499908670783,
+        "response_and_storage": 0.009939916199073195,
+        "semantic_detection": 0.00022366689518094063,
+        "source_copy": 0.0015202080830931664
+      },
+      "query_cases": 2,
+      "query_correct": 2,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.4621781669557095,
+      "median_planner_call_seconds": 1.4455015209969133,
+      "median_aggregate_execution_seconds": 0.014769104542210698
+    },
+    {
+      "dataset": "diamonds",
+      "arm": "local_only",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.06732674990780652,
+      "median_local_ready_seconds": 0.6242445409297943,
+      "median_confirm_total_seconds": 0.5581180001609027,
+      "median_background_wait_seconds": null,
+      "median_schema_luna_seconds": null,
+      "role_correct": 30,
+      "role_evaluated": 30,
+      "role_wrong": 0,
+      "role_abstentions": 0,
+      "role_accuracy": 1.0,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "chart_metadata": 0.0002736670430749655,
+        "column_statistics": 0.004534000065177679,
+        "csv_parse": 0.08235012483783066,
+        "data_cleaning": 0.4580260841175914,
+        "data_profiling": 0.000861374894157052,
+        "llm_summary": 2.9103830456733704e-07,
+        "raw_copy": 0.000977167161181569,
+        "response_and_storage": 0.009517375146970153,
+        "semantic_detection": 0.0002187499776482582,
+        "source_copy": 0.001523457933217287
+      },
+      "query_cases": 2,
+      "query_correct": 2,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.7696598541224375,
+      "median_planner_call_seconds": 1.7542648538947105,
+      "median_aggregate_execution_seconds": 0.01430120796430856
+    },
+    {
+      "dataset": "penguins",
+      "arm": "auto_luna_schema",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.025650541996583343,
+      "median_local_ready_seconds": 0.0652955831028521,
+      "median_confirm_total_seconds": 0.037539124954491854,
+      "median_background_wait_seconds": 2.9970238748937845,
+      "median_schema_luna_seconds": 2.9417789590079337,
+      "role_correct": 21,
+      "role_evaluated": 21,
+      "role_wrong": 0,
+      "role_abstentions": 0,
+      "role_accuracy": 1.0,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "chart_metadata": 0.00019845901988446712,
+        "column_statistics": 0.00036212499253451824,
+        "csv_parse": 0.0013047500979155302,
+        "data_cleaning": 0.033784291008487344,
+        "data_profiling": 0.00041395798325538635,
+        "llm_summary": 2.50060111284256e-07,
+        "raw_copy": 2.7125002816319466e-05,
+        "response_and_storage": 0.0003148750402033329,
+        "semantic_detection": 0.0001682499423623085,
+        "source_copy": 0.0004552500322461128
+      },
+      "query_cases": 2,
+      "query_correct": 2,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.8083917496260256,
+      "median_planner_call_seconds": 1.8027768544852734,
+      "median_aggregate_execution_seconds": 0.003423437476158142
+    },
+    {
+      "dataset": "penguins",
+      "arm": "local_only",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.035657000029459596,
+      "median_local_ready_seconds": 0.07371999998576939,
+      "median_confirm_total_seconds": 0.03730549989268184,
+      "median_background_wait_seconds": null,
+      "median_schema_luna_seconds": null,
+      "role_correct": 18,
+      "role_evaluated": 21,
+      "role_wrong": 0,
+      "role_abstentions": 3,
+      "role_accuracy": 0.8571428571428571,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "chart_metadata": 0.00019816705025732517,
+        "column_statistics": 0.00034087500534951687,
+        "csv_parse": 0.001297416863963008,
+        "data_cleaning": 0.033983916975557804,
+        "data_profiling": 0.000404000049456954,
+        "llm_summary": 2.498272806406021e-07,
+        "raw_copy": 2.950010821223259e-05,
+        "response_and_storage": 0.00030037504620850086,
+        "semantic_detection": 0.00016400008462369442,
+        "source_copy": 0.00044295890256762505
+      },
+      "query_cases": 2,
+      "query_correct": 2,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.4781493750633672,
+      "median_planner_call_seconds": 1.4736117500578985,
+      "median_aggregate_execution_seconds": 0.0033146459609270096
+    },
+    {
+      "dataset": "retail",
+      "arm": "auto_luna_schema",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.041064332937821746,
+      "median_local_ready_seconds": 3.3649029578082263,
+      "median_confirm_total_seconds": 3.3223956250585616,
+      "median_background_wait_seconds": 2.7754517500288785,
+      "median_schema_luna_seconds": 2.7085080000106245,
+      "role_correct": 24,
+      "role_evaluated": 24,
+      "role_wrong": 0,
+      "role_abstentions": 0,
+      "role_accuracy": 1.0,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "disk/chart_metadata": 0.004663124913349748,
+        "disk/column_profiles": 0.05948050017468631,
+        "disk/column_validation_and_type_plan": 1.5104889168869704,
+        "disk/csv_load": 0.6807137501891702,
+        "disk/engine_setup": 0.005167166003957391,
+        "disk/source_copy": 0.011180416215211153,
+        "disk/structure_validation": 0.6749963329639286,
+        "disk/typed_materialization": 0.36808479111641645,
+        "disk_ingestion": 3.320444333134219,
+        "response_and_storage": 3.91670037060976e-05
+      },
+      "query_cases": 3,
+      "query_correct": 3,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.601014707935974,
+      "median_planner_call_seconds": 1.5886691671330482,
+      "median_aggregate_execution_seconds": 0.008924458059482276
+    },
+    {
+      "dataset": "retail",
+      "arm": "local_only",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.05432462482713163,
+      "median_local_ready_seconds": 3.414078999776393,
+      "median_confirm_total_seconds": 3.358547917101532,
+      "median_background_wait_seconds": null,
+      "median_schema_luna_seconds": null,
+      "role_correct": 24,
+      "role_evaluated": 24,
+      "role_wrong": 0,
+      "role_abstentions": 0,
+      "role_accuracy": 1.0,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "disk/chart_metadata": 0.004716082941740751,
+        "disk/column_profiles": 0.059513207990676165,
+        "disk/column_validation_and_type_plan": 1.5311172080691904,
+        "disk/csv_load": 0.6880472078919411,
+        "disk/engine_setup": 0.0052995828446000814,
+        "disk/source_copy": 0.010743499966338277,
+        "disk/structure_validation": 0.6868070419877768,
+        "disk/typed_materialization": 0.36819262499921024,
+        "disk_ingestion": 3.3312262918334454,
+        "response_and_storage": 4.112487658858299e-05
+      },
+      "query_cases": 3,
+      "query_correct": 3,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.5637419999111444,
+      "median_planner_call_seconds": 1.553948791930452,
+      "median_aggregate_execution_seconds": 0.009200313012115657
+    },
+    {
+      "dataset": "taxi",
+      "arm": "auto_luna_schema",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.10052641690708697,
+      "median_local_ready_seconds": 13.462077831849456,
+      "median_confirm_total_seconds": 13.359206916065887,
+      "median_background_wait_seconds": 6.1164590830449015,
+      "median_schema_luna_seconds": 6.00442316592671,
+      "role_correct": 57,
+      "role_evaluated": 60,
+      "role_wrong": 0,
+      "role_abstentions": 3,
+      "role_accuracy": 0.95,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "disk/chart_metadata": 0.01363020809367299,
+        "disk/column_profiles": 0.33602341706864536,
+        "disk/column_validation_and_type_plan": 6.149603291880339,
+        "disk/csv_load": 3.3230214999057353,
+        "disk/engine_setup": 0.005199583014473319,
+        "disk/source_copy": 0.03233129205182195,
+        "disk/structure_validation": 2.1729574580676854,
+        "disk/typed_materialization": 1.3059561250265688,
+        "disk_ingestion": 13.356849209172651,
+        "response_and_storage": 4.2125117033720016e-05
+      },
+      "query_cases": 3,
+      "query_correct": 3,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.5378907499834895,
+      "median_planner_call_seconds": 1.5109970839694142,
+      "median_aggregate_execution_seconds": 0.017385145532898605
+    },
+    {
+      "dataset": "taxi",
+      "arm": "local_only",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.10291758319362998,
+      "median_local_ready_seconds": 13.651662832824513,
+      "median_confirm_total_seconds": 13.549149625003338,
+      "median_background_wait_seconds": null,
+      "median_schema_luna_seconds": null,
+      "role_correct": 57,
+      "role_evaluated": 60,
+      "role_wrong": 0,
+      "role_abstentions": 3,
+      "role_accuracy": 0.95,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "disk/chart_metadata": 0.013674332993105054,
+        "disk/column_profiles": 0.33402770780958235,
+        "disk/column_validation_and_type_plan": 6.057981083868071,
+        "disk/csv_load": 3.3851069160737097,
+        "disk/engine_setup": 0.005216249963268638,
+        "disk/source_copy": 0.03255749982781708,
+        "disk/structure_validation": 2.347970541100949,
+        "disk/typed_materialization": 1.3255082920659333,
+        "disk_ingestion": 13.549032207811251,
+        "response_and_storage": 4.316703416407108e-05
+      },
+      "query_cases": 3,
+      "query_correct": 3,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.5448154578916728,
+      "median_planner_call_seconds": 1.5257546671200544,
+      "median_aggregate_execution_seconds": 0.016260250005871058
+    },
+    {
+      "dataset": "tips",
+      "arm": "auto_luna_schema",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.02580195781774819,
+      "median_local_ready_seconds": 0.06984854163601995,
+      "median_confirm_total_seconds": 0.042230666847899556,
+      "median_background_wait_seconds": 2.5668763329740614,
+      "median_schema_luna_seconds": 2.5479202498681843,
+      "role_correct": 21,
+      "role_evaluated": 21,
+      "role_wrong": 0,
+      "role_abstentions": 0,
+      "role_accuracy": 1.0,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "chart_metadata": 0.00019008293747901917,
+        "column_statistics": 0.00023699994198977947,
+        "csv_parse": 0.0009550000540912151,
+        "data_cleaning": 0.0395410000346601,
+        "data_profiling": 0.000266459072008729,
+        "llm_summary": 2.919696271419525e-07,
+        "raw_copy": 2.4124979972839355e-05,
+        "response_and_storage": 0.00026962487027049065,
+        "semantic_detection": 0.00015770900063216686,
+        "source_copy": 0.00035829213447868824
+      },
+      "query_cases": 3,
+      "query_correct": 2,
+      "query_accuracy": 0.6666666666666666,
+      "query_failure_categories": {
+        "wrong_answer_kind": 1
+      },
+      "median_query_seconds": 2.2464626249857247,
+      "median_planner_call_seconds": 2.2395211250986904,
+      "median_aggregate_execution_seconds": 0.004639375023543835
+    },
+    {
+      "dataset": "tips",
+      "arm": "local_only",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.04466495802626014,
+      "median_local_ready_seconds": 0.0907583748921752,
+      "median_confirm_total_seconds": 0.04551579197868705,
+      "median_background_wait_seconds": null,
+      "median_schema_luna_seconds": null,
+      "role_correct": 18,
+      "role_evaluated": 21,
+      "role_wrong": 0,
+      "role_abstentions": 3,
+      "role_accuracy": 0.8571428571428571,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "chart_metadata": 0.00019149994477629662,
+        "column_statistics": 0.00025445898063480854,
+        "csv_parse": 0.0011562081053853035,
+        "data_cleaning": 0.042743417201563716,
+        "data_profiling": 0.0002800421789288521,
+        "llm_summary": 2.50060111284256e-07,
+        "raw_copy": 2.9250048100948334e-05,
+        "response_and_storage": 0.0002769581042230129,
+        "semantic_detection": 0.00015704194083809853,
+        "source_copy": 0.00043066684156656265
+      },
+      "query_cases": 3,
+      "query_correct": 2,
+      "query_accuracy": 0.6666666666666666,
+      "query_failure_categories": {
+        "wrong_answer_kind": 1
+      },
+      "median_query_seconds": 1.6194972088560462,
+      "median_planner_call_seconds": 1.6152807918842882,
+      "median_aggregate_execution_seconds": 0.0035000001080334187
+    },
+    {
+      "dataset": "wine",
+      "arm": "auto_luna_schema",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.036481125047430396,
+      "median_local_ready_seconds": 0.11282866704277694,
+      "median_confirm_total_seconds": 0.07414187514223158,
+      "median_background_wait_seconds": 4.18574924999848,
+      "median_schema_luna_seconds": 4.085958708077669,
+      "role_correct": 36,
+      "role_evaluated": 36,
+      "role_wrong": 0,
+      "role_abstentions": 0,
+      "role_accuracy": 1.0,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "chart_metadata": 0.00031191715970635414,
+        "column_statistics": 0.000626083929091692,
+        "csv_parse": 0.009690874954685569,
+        "data_cleaning": 0.05963829206302762,
+        "data_profiling": 0.0004829589743167162,
+        "llm_summary": 2.9103830456733704e-07,
+        "raw_copy": 0.00010587507858872414,
+        "response_and_storage": 0.0014629170764237642,
+        "semantic_detection": 0.0002634578850120306,
+        "source_copy": 0.0004263340961188078
+      },
+      "query_cases": 1,
+      "query_correct": 1,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 2.1849687080830336,
+      "median_planner_call_seconds": 2.1762771671637893,
+      "median_aggregate_execution_seconds": 0.005151083925738931
+    },
+    {
+      "dataset": "wine",
+      "arm": "local_only",
+      "ingestion_repeats_requested": 3,
+      "ingestion_repeats_completed": 3,
+      "median_stage_import_seconds": 0.045686583034694195,
+      "median_local_ready_seconds": 0.11875312495976686,
+      "median_confirm_total_seconds": 0.07241749996319413,
+      "median_background_wait_seconds": null,
+      "median_schema_luna_seconds": null,
+      "role_correct": 33,
+      "role_evaluated": 36,
+      "role_wrong": 0,
+      "role_abstentions": 3,
+      "role_accuracy": 0.9166666666666666,
+      "role_nonabstained_precision": 1.0,
+      "median_ingestion_phase_seconds": {
+        "chart_metadata": 0.000315624987706542,
+        "column_statistics": 0.0006281249225139618,
+        "csv_parse": 0.009635207941755652,
+        "data_cleaning": 0.05914787482470274,
+        "data_profiling": 0.0005111661739647388,
+        "llm_summary": 2.919696271419525e-07,
+        "raw_copy": 0.00010741711594164371,
+        "response_and_storage": 0.0014356670435518026,
+        "semantic_detection": 0.00025854213163256645,
+        "source_copy": 0.000470208004117012
+      },
+      "query_cases": 1,
+      "query_correct": 1,
+      "query_accuracy": 1.0,
+      "query_failure_categories": {},
+      "median_query_seconds": 1.5476457921322435,
+      "median_planner_call_seconds": 1.5408092078287154,
+      "median_aggregate_execution_seconds": 0.004489833023399115
+    }
+  ],
+  "arm_results": [
+    {
+      "arm": "local_only",
+      "ingestion_runs": 24,
+      "role_correct": 243,
+      "role_wrong": 0,
+      "role_abstentions": 51,
+      "role_evaluated": 294,
+      "role_accuracy": 0.826530612244898,
+      "role_nonabstained_precision": 1.0,
+      "query_correct": 19,
+      "query_cases": 20,
+      "query_accuracy": 0.95,
+      "median_query_seconds": 1.6096756668994203,
+      "median_planner_call_seconds": 1.6066476459382102,
+      "median_aggregate_execution_seconds": 0.0074694795766845345,
+      "schema_full_coverage_runs": 0,
+      "applied_label_count": 0
+    },
+    {
+      "arm": "auto_luna_schema",
+      "ingestion_runs": 24,
+      "role_correct": 284,
+      "role_wrong": 0,
+      "role_abstentions": 10,
+      "role_evaluated": 294,
+      "role_accuracy": 0.9659863945578231,
+      "role_nonabstained_precision": 1.0,
+      "query_correct": 19,
+      "query_cases": 20,
+      "query_accuracy": 0.95,
+      "median_query_seconds": 1.6937314994866028,
+      "median_planner_call_seconds": 1.6845468755345792,
+      "median_aggregate_execution_seconds": 0.007265958469361067,
+      "schema_full_coverage_runs": 24,
+      "applied_label_count": 258
+    }
+  ],
+  "first_repeat_applied_label_maps": {
+    "bike": {
+      "instant": "Instant",
+      "dteday": "Date",
+      "season": "Season",
+      "yr": "Year",
+      "mnth": "Month",
+      "hr": "Hour",
+      "holiday": "Holiday",
+      "weekday": "Weekday",
+      "workingday": "Working Day",
+      "temp": "Temperature",
+      "hum": "Humidity",
+      "windspeed": "Wind Speed"
+    },
+    "bank": {
+      "age": "Age",
+      "job": "Job",
+      "marital": "Marital status",
+      "education": "Education",
+      "balance": "Balance",
+      "contact": "Contact",
+      "day": "Day",
+      "month": "Month",
+      "duration": "Duration",
+      "campaign": "Campaign"
+    },
+    "retail": {
+      "invoice_no": "Invoice Number",
+      "stock_code": "Stock Code",
+      "description": "Description",
+      "quantity": "Quantity",
+      "invoice_date": "Invoice Date",
+      "unit_price": "Unit Price",
+      "customer_id": "Customer ID",
+      "country": "Country"
+    },
+    "taxi": {
+      "vendor_id": "Vendor ID",
+      "lpep_pickup_datetime": "LPEP pickup datetime",
+      "lpep_dropoff_datetime": "LPEP dropoff datetime",
+      "store_and_fwd_flag": "Store and forward flag",
+      "ratecode_id": "Rate code ID",
+      "pulocation_id": "PU Location ID",
+      "dolocation_id": "DO Location ID",
+      "passenger_count": "Passenger count",
+      "trip_distance": "Trip distance",
+      "fare_amount": "Fare amount",
+      "mta_tax": "MTA tax",
+      "tip_amount": "Tip amount",
+      "tolls_amount": "Tolls amount",
+      "ehail_fee": "E-hail fee",
+      "improvement_surcharge": "Improvement surcharge",
+      "total_amount": "Total amount",
+      "payment_type": "Payment type",
+      "trip_type": "Trip type",
+      "congestion_surcharge": "Congestion surcharge"
+    },
+    "wine": {
+      "fixed_acidity": "Fixed acidity",
+      "volatile_acidity": "Volatile acidity",
+      "citric_acid": "Citric acid",
+      "residual_sugar": "Residual sugar",
+      "chlorides": "Chlorides",
+      "free_sulfur_dioxide": "Free sulfur dioxide",
+      "total_sulfur_dioxide": "Total sulfur dioxide",
+      "density": "Density",
+      "p_h": "pH",
+      "sulphates": "Sulphates",
+      "alcohol": "Alcohol",
+      "quality": "Quality"
+    },
+    "diamonds": {
+      "carat": "Carat",
+      "cut": "Cut",
+      "color": "Color",
+      "clarity": "Clarity",
+      "depth": "Depth",
+      "table": "Table",
+      "price": "Price",
+      "x": "X",
+      "y": "Y",
+      "z": "Z"
+    },
+    "penguins": {
+      "species": "Species",
+      "island": "Island",
+      "bill_length_mm": "Bill length (mm)",
+      "bill_depth_mm": "Bill depth (mm)",
+      "flipper_length_mm": "Flipper length (mm)",
+      "body_mass_g": "Body mass (g)",
+      "sex": "Sex"
+    },
+    "tips": {
+      "total_bill": "Total bill",
+      "tip": "Tip",
+      "sex": "Sex",
+      "smoker": "Smoker",
+      "day": "Day",
+      "time": "Time",
+      "size": "Size"
+    }
+  },
+  "query_call_count_including_scoring_repairs": 44,
+  "source_sha256_matches_frozen_gold": {
+    "bike": true,
+    "bank": true,
+    "retail": true,
+    "taxi": true,
+    "wine": true,
+    "diamonds": true,
+    "penguins": true,
+    "tips": true
+  },
+  "timing_note": "Report medians for small n=3; no p95. stage_import spans source staging plus sample preview; local_ready spans stage_import and confirm_import. Background schema wait and timed analyze_schema call are separate. Disk disk_ingestion is an enclosing stage and must not be summed with disk/* phases.",
+  "accuracy_scope": "Source SHA256, full row count, full missing counts and source-byte retention are checked. Query chart x/y/aggregation plans and full-source grouped values are independently checked with csv.DictReader and Decimal; this does not establish cell-by-cell correctness for every non-query column.",
+  "memory_scope": "Current RSS is a point-in-time snapshot when available; process high-water RSS is lifetime-wide across this benchmark process and repetitions, not per-import peak.",
+  "metadata": {
+    "gold_sha256": "7d52429b8b5c3e1d9517ed03ce292ec34600dd1ca26a8be659064d51420f2b60",
+    "question_count": 20,
+    "datasets": [
+      {
+        "id": "bike",
+        "rows_expected": 17379,
+        "question_count": 3,
+        "columns_expected": 17,
+        "file_bytes": 1156736
+      },
+      {
+        "id": "bank",
+        "rows_expected": 45211,
+        "question_count": 3,
+        "columns_expected": 17,
+        "file_bytes": 4610348
+      },
+      {
+        "id": "retail",
+        "rows_expected": 541909,
+        "question_count": 3,
+        "columns_expected": 8,
+        "file_bytes": 47758972
+      },
+      {
+        "id": "taxi",
+        "rows_expected": 1068755,
+        "question_count": 3,
+        "columns_expected": 20,
+        "file_bytes": 139634545
+      },
+      {
+        "id": "wine",
+        "rows_expected": 4898,
+        "question_count": 1,
+        "columns_expected": 12,
+        "file_bytes": 264426
+      },
+      {
+        "id": "diamonds",
+        "rows_expected": 53940,
+        "question_count": 2,
+        "columns_expected": 10,
+        "file_bytes": 2772143
+      },
+      {
+        "id": "penguins",
+        "rows_expected": 344,
+        "question_count": 2,
+        "columns_expected": 7,
+        "file_bytes": 13478
+      },
+      {
+        "id": "tips",
+        "rows_expected": 244,
+        "question_count": 3,
+        "columns_expected": 7,
+        "file_bytes": 9729
+      }
+    ],
+    "source_commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+    "model": "gpt-6-luna",
+    "schema_prompt_version": "schema-role-label-v2",
+    "schema_system_prompt_sha256": "167b037dcbc6b82ddef095d708ecd3e04a2f5c5ee67b5b658899115ce96142ee",
+    "query_system_prompt_sha256": "9ad0061cfe7e3e9c3dbb4734d2d86db4612c1f8395c3ef8f2c6f2efd452c1009",
+    "schema_json_schema_sha256": "250ed177614481d18cd3e1c40f0d82a8b62ae37a2497915fa2b5f3388db099e1",
+    "code_sha256_before": {
+      "backend/modules/schema_interpretation.py": "a01311ad85f7ce69fbf506cec1570ea35c3d0a7dd51b1254c33290b92c027d7e",
+      "backend/modules/column_usage.py": "64fe8a9963f50f79cb65a7d4200b3d5514068591b0293bd81f1ccb19d8320f89",
+      "backend/modules/column_statistics.py": "ce874513cfa47e2b9626fe8707f7d95a2ea1f37e633fc109bbea03546919c8d0",
+      "backend/modules/data_janitor.py": "97a5f54653462f193af5abb71b9142f4ce4389c36ea17377df0e2bfd23e5739d",
+      "backend/modules/disk_dataset.py": "bdff1b5fb6e1502d90400ea8cc0481e60af177e1be94c99f934f3365affbc9a0",
+      "backend/modules/import_policy.py": "bd20fec8fd8c0e463267e52be0e83c0fcf78fd3b6d5a13c4e1a4a5b27add77fb",
+      "backend/services/import_preview.py": "ba216575060897710bd2856194129b2cd4cd29d6dab3eafd8b37e3226308fe5b",
+      "backend/services/csv_ingestion.py": "6d2b0f981d42bf33c29aa986a37ee5c63e4f9bde9351f228c08d56395b313204",
+      "backend/services/ingestion_service.py": "2956df2dae09f0714e295705fde2a4d79135da328c5bca878c1c01d9c691aa89",
+      "backend/services/enrichment_service.py": "06686145f18f4fe0fa61341adfa1635d4280145cfefb8cee8b5f2d7282c7752b",
+      "backend/services/parallel_enrichment.py": "c3240ee8f006a06bbc910e232b0cb0ba57c82479d20e1e3d34c1a4e22e928e38",
+      "backend/services/query_service.py": "f543f1be65c274a47ecc69c3ebcb9cd184a7295560c412e09c1f781fbc7ce7db",
+      "backend/services/aggregation_service.py": "76957a869d5fdc1c058d9a895fd8448bdd8d10d7edd439eee5977dc9bf046359",
+      "backend/modules/aggregation.py": "8bb56daee33fdcc18eda845490ea8401dca9662aef0ecdfcfb79766f995245ce",
+      "backend/models.py": "881b55ffde645e769b64f1d9708719dff67eb49ba908a664398e2af69d9a1095"
+    },
+    "python": "3.14.0",
+    "platform": "macOS-27.0-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "timing_scope": "stage_import sample/staging plus production confirm_import; production background schema queue; production run_query with isolated planner-call and run_aggregate timers",
+    "source_hashes": {
+      "bike": {
+        "path": "/private/tmp/analytico-real-fixtures/bike.csv",
+        "bytes": 1156736,
+        "sha256": "e03de4ee4ef4dc376ac6e04bf829673c6269e8eba5c60fa121640fa2f829504f"
+      },
+      "bank": {
+        "path": "/private/tmp/analytico-real-fixtures/bank.csv",
+        "bytes": 4610348,
+        "sha256": "d1513ec63b385506f7cfce9f2c5caa9fe99e7ba4e8c3fa264b3aaf0f849ed32d"
+      },
+      "retail": {
+        "path": "/private/tmp/analytico-real-fixtures/retail.csv",
+        "bytes": 47758972,
+        "sha256": "50e9f56b0ee4bd0662a397c68295f48945972135f57322cd5208f4f809eb67ac"
+      },
+      "taxi": {
+        "path": "/Users/rayan/.gemini/antigravity/scratch/analytico/backend/datasets/2021_Green_Taxi_Trip_Data_20260221.csv",
+        "bytes": 139634545,
+        "sha256": "b217661724e4d6270063d1eb460dca49aef1187383d6ce30025405d7bb4945c1"
+      },
+      "wine": {
+        "path": "/private/tmp/analytico-real-fixtures/wine.csv",
+        "bytes": 264426,
+        "sha256": "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836"
+      },
+      "diamonds": {
+        "path": "/private/tmp/analytico-real-fixtures/diamonds.csv",
+        "bytes": 2772143,
+        "sha256": "9574730b03aba241d899c4a97511c5061b19358fab89510774fb6c24168345c4"
+      },
+      "penguins": {
+        "path": "/private/tmp/analytico-real-fixtures/penguins.csv",
+        "bytes": 13478,
+        "sha256": "e07636bd8af74260099ea2f8678e2eabbf35def579940cc76f67061ee16c06c1"
+      },
+      "tips": {
+        "path": "/private/tmp/analytico-real-fixtures/tips.csv",
+        "bytes": 9729,
+        "sha256": "e54cc4d2ce1bff65d32ca60b3e4b802e06bde1d7e7caf6f796f6bf7370e863b0"
+      }
+    },
+    "code_sha256_after": {
+      "backend/modules/schema_interpretation.py": "a01311ad85f7ce69fbf506cec1570ea35c3d0a7dd51b1254c33290b92c027d7e",
+      "backend/modules/column_usage.py": "64fe8a9963f50f79cb65a7d4200b3d5514068591b0293bd81f1ccb19d8320f89",
+      "backend/modules/column_statistics.py": "ce874513cfa47e2b9626fe8707f7d95a2ea1f37e633fc109bbea03546919c8d0",
+      "backend/modules/data_janitor.py": "97a5f54653462f193af5abb71b9142f4ce4389c36ea17377df0e2bfd23e5739d",
+      "backend/modules/disk_dataset.py": "bdff1b5fb6e1502d90400ea8cc0481e60af177e1be94c99f934f3365affbc9a0",
+      "backend/modules/import_policy.py": "bd20fec8fd8c0e463267e52be0e83c0fcf78fd3b6d5a13c4e1a4a5b27add77fb",
+      "backend/services/import_preview.py": "ba216575060897710bd2856194129b2cd4cd29d6dab3eafd8b37e3226308fe5b",
+      "backend/services/csv_ingestion.py": "6d2b0f981d42bf33c29aa986a37ee5c63e4f9bde9351f228c08d56395b313204",
+      "backend/services/ingestion_service.py": "2956df2dae09f0714e295705fde2a4d79135da328c5bca878c1c01d9c691aa89",
+      "backend/services/enrichment_service.py": "06686145f18f4fe0fa61341adfa1635d4280145cfefb8cee8b5f2d7282c7752b",
+      "backend/services/parallel_enrichment.py": "c3240ee8f006a06bbc910e232b0cb0ba57c82479d20e1e3d34c1a4e22e928e38",
+      "backend/services/query_service.py": "f543f1be65c274a47ecc69c3ebcb9cd184a7295560c412e09c1f781fbc7ce7db",
+      "backend/services/aggregation_service.py": "76957a869d5fdc1c058d9a895fd8448bdd8d10d7edd439eee5977dc9bf046359",
+      "backend/modules/aggregation.py": "8bb56daee33fdcc18eda845490ea8401dca9662aef0ecdfcfb79766f995245ce",
+      "backend/models.py": "881b55ffde645e769b64f1d9708719dff67eb49ba908a664398e2af69d9a1095"
+    },
+    "schema_call_metrics": [
+      {
+        "dataset": "bike",
+        "seconds": 5.025620749918744,
+        "columns": 17,
+        "rows": 17379
+      },
+      {
+        "dataset": "bike",
+        "seconds": 5.597975374897942,
+        "columns": 17,
+        "rows": 17379
+      },
+      {
+        "dataset": "bike",
+        "seconds": 4.90355541696772,
+        "columns": 17,
+        "rows": 17379
+      },
+      {
+        "dataset": "bank",
+        "seconds": 4.546495417132974,
+        "columns": 17,
+        "rows": 45211
+      },
+      {
+        "dataset": "bank",
+        "seconds": 5.332328125135973,
+        "columns": 17,
+        "rows": 45211
+      },
+      {
+        "dataset": "bank",
+        "seconds": 4.414901833981276,
+        "columns": 17,
+        "rows": 45211
+      },
+      {
+        "dataset": "retail",
+        "seconds": 2.7085080000106245,
+        "columns": 8,
+        "rows": 541909
+      },
+      {
+        "dataset": "retail",
+        "seconds": 2.764257875038311,
+        "columns": 8,
+        "rows": 541909
+      },
+      {
+        "dataset": "retail",
+        "seconds": 2.583716749912128,
+        "columns": 8,
+        "rows": 541909
+      },
+      {
+        "dataset": "taxi",
+        "seconds": 6.074878750136122,
+        "columns": 20,
+        "rows": 1068755
+      },
+      {
+        "dataset": "taxi",
+        "seconds": 5.698034540982917,
+        "columns": 20,
+        "rows": 1068755
+      },
+      {
+        "dataset": "taxi",
+        "seconds": 6.00442316592671,
+        "columns": 20,
+        "rows": 1068755
+      },
+      {
+        "dataset": "wine",
+        "seconds": 4.085958708077669,
+        "columns": 12,
+        "rows": 4898
+      },
+      {
+        "dataset": "wine",
+        "seconds": 4.567478250013664,
+        "columns": 12,
+        "rows": 4898
+      },
+      {
+        "dataset": "wine",
+        "seconds": 3.631552916020155,
+        "columns": 12,
+        "rows": 4898
+      },
+      {
+        "dataset": "diamonds",
+        "seconds": 3.3864483339712024,
+        "columns": 10,
+        "rows": 53940
+      },
+      {
+        "dataset": "diamonds",
+        "seconds": 3.292058499995619,
+        "columns": 10,
+        "rows": 53940
+      },
+      {
+        "dataset": "diamonds",
+        "seconds": 3.6372177498415112,
+        "columns": 10,
+        "rows": 53940
+      },
+      {
+        "dataset": "penguins",
+        "seconds": 2.9417789590079337,
+        "columns": 7,
+        "rows": 344
+      },
+      {
+        "dataset": "penguins",
+        "seconds": 2.491314083104953,
+        "columns": 7,
+        "rows": 344
+      },
+      {
+        "dataset": "penguins",
+        "seconds": 3.3315368748735636,
+        "columns": 7,
+        "rows": 344
+      },
+      {
+        "dataset": "tips",
+        "seconds": 2.945764415897429,
+        "columns": 7,
+        "rows": 244
+      },
+      {
+        "dataset": "tips",
+        "seconds": 2.488683042116463,
+        "columns": 7,
+        "rows": 244
+      },
+      {
+        "dataset": "tips",
+        "seconds": 2.5479202498681843,
+        "columns": 7,
+        "rows": 244
+      }
+    ],
+    "post_run_query_repairs": [
+      {
+        "dataset": "taxi",
+        "arm": "local_only",
+        "row_count": 1068755,
+        "enrichment_status": {
+          "status": "disabled"
+        },
+        "background_wait_seconds": null,
+        "ingestion_telemetry": {
+          "event": "ingestion_performance",
+          "endpoint": "/imports/confirm",
+          "status": "ok",
+          "total_seconds": 13.644370459020138,
+          "phase_seconds": {
+            "disk_ingestion": 13.319404915906489,
+            "disk/source_copy": 0.04466995899565518,
+            "disk/structure_validation": 2.1558784160297364,
+            "disk/engine_setup": 0.007476582890376449,
+            "disk/csv_load": 3.346000000135973,
+            "disk/column_validation_and_type_plan": 5.9382103339303285,
+            "disk/typed_materialization": 1.3217215000186116,
+            "disk/column_profiles": 0.34632891695946455,
+            "disk/chart_metadata": 0.014965707901865244,
+            "response_and_storage": 6.35411124676466e-05
+          },
+          "rows": 1068755,
+          "columns": 20,
+          "process_peak_rss_start_bytes": 113508352,
+          "process_peak_rss_bytes": 305070080,
+          "memory_scope": "process_lifetime_high_water",
+          "timing_scope": "handler_parse_through_storage_excludes_transfer_and_serialization"
+        },
+        "queries_repeated": [
+          "Show average trip distance by payment type",
+          "Show total fare_amount by payment_type"
+        ],
+        "query_results": [
+          {
+            "prompt": "Show average trip distance by payment type",
+            "expected_kind": "chart",
+            "actual_kind": "chart",
+            "correct": true,
+            "seconds": 1.5448154578916728,
+            "planner_call_seconds": [
+              1.5257546671200544
+            ],
+            "aggregate_execution_seconds": [
+              0.013042374979704618
+            ],
+            "post_planning_overhead_seconds": 0.006018415791913867,
+            "actual_plan": {
+              "x": "payment_type",
+              "ys": [
+                "trip_distance"
+              ],
+              "aggregation": "mean"
+            },
+            "validation": {
+              "kind_match": true,
+              "plan_shape_match": true,
+              "category_keys_match": true,
+              "aggregate_values_match": true,
+              "expected_groups": 6,
+              "actual_groups": 6
+            },
+            "failure_category": null,
+            "failure_status": null,
+            "dataset": "taxi",
+            "trial": "post_run_repair",
+            "arm": "local_only"
+          },
+          {
+            "prompt": "Show total fare_amount by payment_type",
+            "expected_kind": "chart",
+            "actual_kind": "chart",
+            "correct": true,
+            "seconds": 1.448599125025794,
+            "planner_call_seconds": [
+              1.4252945829648525
+            ],
+            "aggregate_execution_seconds": [
+              0.019478125032037497
+            ],
+            "post_planning_overhead_seconds": 0.003826417028903961,
+            "actual_plan": {
+              "x": "payment_type",
+              "ys": [
+                "fare_amount"
+              ],
+              "aggregation": "sum"
+            },
+            "validation": {
+              "kind_match": true,
+              "plan_shape_match": true,
+              "category_keys_match": true,
+              "aggregate_values_match": true,
+              "expected_groups": 6,
+              "actual_groups": 6
+            },
+            "failure_category": null,
+            "failure_status": null,
+            "dataset": "taxi",
+            "trial": "post_run_repair",
+            "arm": "local_only"
+          }
+        ]
+      },
+      {
+        "dataset": "taxi",
+        "arm": "auto_luna_schema",
+        "row_count": 1068755,
+        "enrichment_status": {
+          "dataset_id": "a4cfbd92-f8bf-4dbc-bc4b-c49447c7b751",
+          "version": "658ba98a-c480-48ca-bd7c-bd9b564100c9",
+          "status": "done",
+          "progress": 100,
+          "summary": null,
+          "interpretation_proposals": {
+            "vendor_id": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "clarification",
+              "status": "uncertain",
+              "latency_ms": 6420.9,
+              "error_code": "role_conflict",
+              "decision": {
+                "scope": "role_only",
+                "role": "categorical",
+                "display_name": "Vendor ID",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": true,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "lpep_pickup_datetime": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "clarification",
+              "status": "ok",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "temporal",
+                "display_name": "LPEP pickup date and time",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "date_time"
+              },
+              "label_runtime_status": "applied"
+            },
+            "lpep_dropoff_datetime": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "clarification",
+              "status": "ok",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "temporal",
+                "display_name": "LPEP dropoff date and time",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "date_time"
+              },
+              "label_runtime_status": "applied"
+            },
+            "store_and_fwd_flag": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "applied",
+              "status": "ok",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "categorical",
+                "display_name": "Store and forward flag",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "ratecode_id": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "clarification",
+              "status": "uncertain",
+              "latency_ms": 6420.9,
+              "error_code": "role_conflict",
+              "decision": {
+                "scope": "role_only",
+                "role": "categorical",
+                "display_name": "Rate code ID",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": true,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "pulocation_id": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "clarification",
+              "status": "uncertain",
+              "latency_ms": 6420.9,
+              "error_code": "role_conflict",
+              "decision": {
+                "scope": "role_only",
+                "role": "categorical",
+                "display_name": "Pickup location ID",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": true,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "dolocation_id": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "clarification",
+              "status": "uncertain",
+              "latency_ms": 6420.9,
+              "error_code": "role_conflict",
+              "decision": {
+                "scope": "role_only",
+                "role": "categorical",
+                "display_name": "Dropoff location ID",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": true,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "passenger_count": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "applied",
+              "status": "ok",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "metric",
+                "display_name": "Passenger count",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "trip_distance": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "applied",
+              "status": "ok",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "metric",
+                "display_name": "Trip distance",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "fare_amount": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "applied",
+              "status": "ok",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "metric",
+                "display_name": "Fare amount",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "extra": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "clarification",
+              "status": "uncertain",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "metric",
+                "display_name": "Extra",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": true,
+                "evidence_strength": "tentative",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "mta_tax": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "applied",
+              "status": "ok",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "metric",
+                "display_name": "MTA tax",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "tip_amount": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "applied",
+              "status": "ok",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "metric",
+                "display_name": "Tip amount",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "tolls_amount": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "applied",
+              "status": "ok",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "metric",
+                "display_name": "Tolls amount",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "ehail_fee": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "clarification",
+              "status": "uncertain",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "unknown",
+                "display_name": "E-hail fee",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": true,
+                "evidence_strength": "unknown",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "improvement_surcharge": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "applied",
+              "status": "ok",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "metric",
+                "display_name": "Improvement surcharge",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "total_amount": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "applied",
+              "status": "ok",
+              "latency_ms": 6420.9,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "metric",
+                "display_name": "Total amount",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "payment_type": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "applied",
+              "status": "ok",
+              "latency_ms": 6421.0,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "categorical",
+                "display_name": "Payment type",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "trip_type": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "applied",
+              "status": "ok",
+              "latency_ms": 6421.0,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "categorical",
+                "display_name": "Trip type",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            },
+            "congestion_surcharge": {
+              "provider": "openai",
+              "model": "gpt-6-luna",
+              "prompt_version": "schema-role-label-v2",
+              "runtime_status": "applied",
+              "status": "ok",
+              "latency_ms": 6421.0,
+              "error_code": null,
+              "decision": {
+                "scope": "role_only",
+                "role": "metric",
+                "display_name": "Congestion surcharge",
+                "label_evidence_strength": "strong",
+                "unit": "unknown",
+                "parsing_policy": "preserve_source",
+                "recommended_aggregation": "unknown",
+                "needs_clarification": false,
+                "evidence_strength": "strong",
+                "temporal_kind": "none"
+              },
+              "label_runtime_status": "applied"
+            }
+          },
+          "error": null,
+          "reason": null,
+          "coverage": {
+            "total_columns": 20,
+            "selected_columns": 20,
+            "completed_columns": 20,
+            "failed_columns": 0,
+            "skipped_columns": 0,
+            "complete": true,
+            "stop_reason": null
+          },
+          "column_roles": {
+            "vendor_id": "identifier",
+            "lpep_pickup_datetime": "temporal",
+            "lpep_dropoff_datetime": "temporal",
+            "store_and_fwd_flag": "categorical",
+            "ratecode_id": "identifier",
+            "pulocation_id": "identifier",
+            "dolocation_id": "identifier",
+            "passenger_count": "metric",
+            "trip_distance": "metric",
+            "fare_amount": "metric",
+            "extra": "metric",
+            "mta_tax": "metric",
+            "tip_amount": "metric",
+            "tolls_amount": "metric",
+            "ehail_fee": "unknown",
+            "improvement_surcharge": "metric",
+            "total_amount": "metric",
+            "payment_type": "categorical",
+            "trip_type": "categorical",
+            "congestion_surcharge": "metric"
+          },
+          "column_labels": {
+            "vendor_id": "Vendor ID",
+            "lpep_pickup_datetime": "LPEP pickup date and time",
+            "lpep_dropoff_datetime": "LPEP dropoff date and time",
+            "store_and_fwd_flag": "Store and forward flag",
+            "ratecode_id": "Rate code ID",
+            "pulocation_id": "Pickup location ID",
+            "dolocation_id": "Dropoff location ID",
+            "passenger_count": "Passenger count",
+            "trip_distance": "Trip distance",
+            "fare_amount": "Fare amount",
+            "extra": "Extra",
+            "mta_tax": "MTA tax",
+            "tip_amount": "Tip amount",
+            "tolls_amount": "Tolls amount",
+            "ehail_fee": "E-hail fee",
+            "improvement_surcharge": "Improvement surcharge",
+            "total_amount": "Total amount",
+            "payment_type": "Payment type",
+            "trip_type": "Trip type",
+            "congestion_surcharge": "Congestion surcharge"
+          },
+          "semantic_revision": 1
+        },
+        "background_wait_seconds": 6.529094166820869,
+        "ingestion_telemetry": {
+          "event": "ingestion_performance",
+          "endpoint": "/imports/confirm",
+          "status": "ok",
+          "total_seconds": 13.533889833139256,
+          "phase_seconds": {
+            "disk_ingestion": 13.528093416942284,
+            "disk/source_copy": 0.07344479183666408,
+            "disk/structure_validation": 2.211403040913865,
+            "disk/engine_setup": 0.005649207858368754,
+            "disk/csv_load": 3.3176580409053713,
+            "disk/column_validation_and_type_plan": 6.271260208915919,
+            "disk/typed_materialization": 1.3079234999604523,
+            "disk/column_profiles": 0.3269104999490082,
+            "disk/chart_metadata": 0.013420334085822105,
+            "response_and_storage": 4.924996756017208e-05
+          },
+          "rows": 1068755,
+          "columns": 20,
+          "process_peak_rss_start_bytes": 323665920,
+          "process_peak_rss_bytes": 341360640,
+          "memory_scope": "process_lifetime_high_water",
+          "timing_scope": "handler_parse_through_storage_excludes_transfer_and_serialization"
+        },
+        "queries_repeated": [
+          "Show average trip distance by payment type",
+          "Show total fare_amount by payment_type"
+        ],
+        "query_results": [
+          {
+            "prompt": "Show average trip distance by payment type",
+            "expected_kind": "chart",
+            "actual_kind": "chart",
+            "correct": true,
+            "seconds": 1.5378907499834895,
+            "planner_call_seconds": [
+              1.5109970839694142
+            ],
+            "aggregate_execution_seconds": [
+              0.015995541121810675
+            ],
+            "post_planning_overhead_seconds": 0.010898124892264605,
+            "actual_plan": {
+              "x": "payment_type",
+              "ys": [
+                "trip_distance"
+              ],
+              "aggregation": "mean"
+            },
+            "validation": {
+              "kind_match": true,
+              "plan_shape_match": true,
+              "category_keys_match": true,
+              "aggregate_values_match": true,
+              "expected_groups": 6,
+              "actual_groups": 6
+            },
+            "failure_category": null,
+            "failure_status": null,
+            "dataset": "taxi",
+            "trial": "post_run_repair",
+            "arm": "auto_luna_schema"
+          },
+          {
+            "prompt": "Show total fare_amount by payment_type",
+            "expected_kind": "chart",
+            "actual_kind": "chart",
+            "correct": true,
+            "seconds": 1.107128458097577,
+            "planner_call_seconds": [
+              1.0847450839355588
+            ],
+            "aggregate_execution_seconds": [
+              0.018774749943986535
+            ],
+            "post_planning_overhead_seconds": 0.003608624218031764,
+            "actual_plan": {
+              "x": "payment_type",
+              "ys": [
+                "fare_amount"
+              ],
+              "aggregation": "sum"
+            },
+            "validation": {
+              "kind_match": true,
+              "plan_shape_match": true,
+              "category_keys_match": true,
+              "aggregate_values_match": true,
+              "expected_groups": 6,
+              "actual_groups": 6
+            },
+            "failure_category": null,
+            "failure_status": null,
+            "dataset": "taxi",
+            "trial": "post_run_repair",
+            "arm": "auto_luna_schema"
+          }
+        ]
+      }
+    ],
+    "query_accuracy_repair_note": "The first scoring pass incorrectly omitted null X-axis groups from the independent oracle. Taxi explicit charts include a missing payment_type group in production; both arms were reimported once and those four chart requests were repeated and rescored. Main ingestion repeat counts remain unchanged.",
+    "source_hashes_after_repairs": {
+      "bike": {
+        "path": "/private/tmp/analytico-real-fixtures/bike.csv",
+        "bytes": 1156736,
+        "sha256": "e03de4ee4ef4dc376ac6e04bf829673c6269e8eba5c60fa121640fa2f829504f"
+      },
+      "bank": {
+        "path": "/private/tmp/analytico-real-fixtures/bank.csv",
+        "bytes": 4610348,
+        "sha256": "d1513ec63b385506f7cfce9f2c5caa9fe99e7ba4e8c3fa264b3aaf0f849ed32d"
+      },
+      "retail": {
+        "path": "/private/tmp/analytico-real-fixtures/retail.csv",
+        "bytes": 47758972,
+        "sha256": "50e9f56b0ee4bd0662a397c68295f48945972135f57322cd5208f4f809eb67ac"
+      },
+      "taxi": {
+        "path": "/Users/rayan/.gemini/antigravity/scratch/analytico/backend/datasets/2021_Green_Taxi_Trip_Data_20260221.csv",
+        "bytes": 139634545,
+        "sha256": "b217661724e4d6270063d1eb460dca49aef1187383d6ce30025405d7bb4945c1"
+      },
+      "wine": {
+        "path": "/private/tmp/analytico-real-fixtures/wine.csv",
+        "bytes": 264426,
+        "sha256": "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836"
+      },
+      "diamonds": {
+        "path": "/private/tmp/analytico-real-fixtures/diamonds.csv",
+        "bytes": 2772143,
+        "sha256": "9574730b03aba241d899c4a97511c5061b19358fab89510774fb6c24168345c4"
+      },
+      "penguins": {
+        "path": "/private/tmp/analytico-real-fixtures/penguins.csv",
+        "bytes": 13478,
+        "sha256": "e07636bd8af74260099ea2f8678e2eabbf35def579940cc76f67061ee16c06c1"
+      },
+      "tips": {
+        "path": "/private/tmp/analytico-real-fixtures/tips.csv",
+        "bytes": 9729,
+        "sha256": "e54cc4d2ce1bff65d32ca60b3e4b802e06bde1d7e7caf6f796f6bf7370e863b0"
+      }
+    },
+    "benchmark_harness_sha256_final": "9b647ad7e701c9f73a00e2cec75f552fd5587514693dbefa488cd012ed7c3fcc",
+    "pre_change_config_source_sha256": "578f90e87e62ca5c4227c00e438102bf16215be19aa2d3f668a0f108dfdb4617",
+    "frozen_gold_sha256_matches_current_manifest": true
+  }
+}

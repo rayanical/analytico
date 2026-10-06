@@ -14,6 +14,7 @@ class ImportPreviewRequest(BaseModel):
 
 class ImportConfirmRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    ai_column_analysis: bool = False
     settings: Optional[ImportSettings] = None
     column_overrides: list[ColumnOverride] = Field(default_factory=list, max_length=256)
 
@@ -92,6 +93,8 @@ class ColumnInterpretationMetadata(BaseModel):
 
 class ColumnSummary(BaseModel):
     name: str
+    original_name: Optional[str] = None
+    display_name: Optional[str] = None
     dtype: str
     is_numeric: bool
     is_datetime: bool
@@ -153,8 +156,8 @@ class AggregateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     dataset_id: StrictStr = Field(min_length=1, max_length=128)
-    x_axis_key: StrictStr = Field(min_length=1, max_length=256)
-    y_axis_keys: list[StrictStr] = Field(min_length=1, max_length=16)
+    x_axis_key: Optional[StrictStr] = Field(default=None, min_length=1, max_length=256)
+    y_axis_keys: list[StrictStr] = Field(max_length=16)
     aggregation: Aggregation = "sum"
     chart_type: ChartType = "bar"
     filters: Optional[list[FilterConfig]] = Field(default=None, max_length=50)
@@ -166,12 +169,18 @@ class AggregateRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_measure_columns(self):
+        if not self.y_axis_keys and (self.x_axis_key is not None or self.aggregation != "count"):
+            raise ValueError("Measures are required except for an overall row count.")
+        if self.x_axis_key is None and self.time_bucket is not None:
+            raise ValueError("Overall aggregations cannot use time bucketing.")
         if len(set(self.y_axis_keys)) != len(self.y_axis_keys):
             raise ValueError("Measure columns must be unique.")
         return self
 
 
 class ChartResponse(BaseModel):
+    aggregation_scope: Literal["grouped", "overall"] = "grouped"
+    count_rows: bool = False
     data: list[dict[str, Any]]
     x_axis_key: str
     y_axis_keys: list[str]
@@ -228,8 +237,10 @@ class QueryPlan(BaseModel):
     def validate_plan_shape(self):
         if len(set(self.y_axis_keys)) != len(self.y_axis_keys):
             raise ValueError("Measure columns must be unique.")
-        if self.kind == "chart" and (not self.x_axis_key or not self.y_axis_keys):
-            raise ValueError("Chart plans require an X-axis and at least one measure.")
+        if self.kind == "chart" and not self.y_axis_keys and (self.x_axis_key is not None or self.aggregation != "count"):
+            raise ValueError("Chart plans require measures except for an overall row count.")
+        if self.x_axis_key is not None and not self.x_axis_key.strip():
+            raise ValueError("A grouping column must not be blank.")
         if self.kind == "clarification" and not self.clarification:
             raise ValueError("Clarification plans require a user-facing explanation.")
         return self

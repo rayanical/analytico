@@ -57,6 +57,36 @@ class ImportPreviewTests(unittest.TestCase):
         self.assertEqual(dataset.raw_df.iloc[0, 0], "001")
         self.assertEqual(self.confirm(preview).status_code, 404)
 
+    def test_ai_columns_are_opt_in_for_both_ingestion_engines(self):
+        from modules.column_interpretation import InterpretationResult
+        results = []
+
+        def run_job(dataset_id, version, work):
+            results.append(work())
+            return {"status": "done"}
+
+        for engine in ("pandas", "disk"):
+            for enabled in (False, True):
+                with self.subTest(engine=engine, enabled=enabled), \
+                     patch.dict(os.environ, {"OPENAI_API_KEY": "offline-test", "COLUMN_INTERPRETER": "off",
+                                             "ANALYTICO_INGESTION_ENGINE": engine}), \
+                     patch("services.enrichment_service.enqueue_enrichment", side_effect=run_job), \
+                     patch("services.ingestion_service._generate_business_summary", return_value="Summary"), \
+                     patch("modules.schema_interpretation.analyze_schema", return_value={
+                         "interpretation_proposals": {c: {"status": "uncertain", "decision": None} for c in ("group", "amount")},
+                         "coverage": {"complete": True}}) as interpret:
+                    preview = self.stage("group,amount\nA,12\nB,34\n")
+                    # Omitted flag must retain local column detection.
+                    response = self.confirm(preview, **({"ai_column_analysis": True} if enabled else {}))
+                    self.assertEqual(response.status_code, 200, response.text)
+                    self.assertEqual(interpret.call_count, 1 if enabled else 0)
+                    self.assertEqual(len(results[-1]["interpretation_proposals"]), 2 if enabled else 0)
+                    self.assertEqual(results[-1]["summary"], "Summary")
+                    if not enabled:
+                        self.assertIsNone(results[-1]["coverage"])
+                    dataset = get_dataset(response.json()["dataset_id"])
+                    self.assertEqual(dataset.column_types["amount"], "metric")
+
     def test_semicolon_decimal_comma_preview_and_confirmation(self):
         preview = self.stage("group;Amount\nA;1.234,56\nB;2.000,50\n")
         self.assertEqual(preview["settings"]["delimiter"], ";")

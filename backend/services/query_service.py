@@ -46,10 +46,11 @@ Row count: {row_count}
 Exact column names: {json.dumps(df.columns.tolist())}
 Preferred measures: {json.dumps(preferred_metrics)}
 Preferred date columns: {json.dumps(preferred_dates)}
-Reviewed column schema: {json.dumps(getattr(dataset, 'column_schema', []), ensure_ascii=False)}
+Active column schema (AI roles are inferences; do not treat them as proof of business definitions): {json.dumps(getattr(dataset, 'column_schema', []), ensure_ascii=False)}
 
 Use reviewed units and aggregation recommendations. Do not invent units or weights.
 If a requested measure explicitly has aggregation=none, ask for clarification.
+Display names are cosmetic aliases. Always use exact column keys in the plan.
 Use the supplied schema exactly. For unsupported calculations, return a clarification plan."""
 
     try:
@@ -79,26 +80,25 @@ Use the supplied schema exactly. For unsupported calculations, return a clarific
     # an invalid plan and never interpret or execute its arguments.
     if getattr(message, "tool_calls", None):
         return _clarification(
-            "The query planner returned an unsupported action. Please rephrase this as a grouped chart or ask for a supported aggregation."
+            "The query planner returned an unsupported action. Please ask for a grouped chart or an overall total, average, or count."
         )
     content = message.content or ""
     try:
         plan = QueryPlan.model_validate_json(content)
     except (ValidationError, ValueError, TypeError):
         return _clarification(
-            "I couldn't build a valid chart plan from that request. Try a grouped sum, average, count, minimum, or maximum."
+            "I couldn't build a valid chart plan from that request. Try an overall or grouped sum, average, count, minimum, or maximum."
         )
 
     if plan.kind == "clarification":
         return _clarification(plan.clarification or "Please clarify the calculation you want to see.")
 
-    assert plan.x_axis_key is not None
     blocked_measures = [item["column"] for item in getattr(dataset, "column_schema", [])
                         if item.get("aggregation") == "none" and item["column"] in plan.y_axis_keys]
     if blocked_measures:
         return _clarification("The reviewed schema marks these columns as not aggregatable: "
                               + ", ".join(blocked_measures) + ". Review their column settings first.")
-    all_requested_columns = [plan.x_axis_key, *plan.y_axis_keys, *(item.column for item in plan.filters)]
+    all_requested_columns = [*([plan.x_axis_key] if plan.x_axis_key is not None else []), *plan.y_axis_keys, *(item.column for item in plan.filters)]
     valid, missing, _ = validate_columns(df, all_requested_columns)
     if not valid:
         return _clarification(
@@ -125,7 +125,7 @@ Use the supplied schema exactly. For unsupported calculations, return a clarific
         x_axis_key=plan.x_axis_key,
         y_axis_keys=plan.y_axis_keys,
         aggregation=plan.aggregation,
-        chart_type=plan.chart_type,
+        chart_type=plan.chart_type if plan.x_axis_key is not None else "bar",
         filters=effective_filters or None,
         limit=request.limit,
         sort_by=request.sort_by,

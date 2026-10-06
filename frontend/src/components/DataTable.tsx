@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useData } from '@/context/DataContext';
 import { formatValue } from '@/lib/formatValue';
+import { getColumnDisplayName, getColumnSourceName } from '@/lib/columnLabels';
 import type { ChartResponse } from '@/types';
 
 const ROWS_PER_PAGE = 10;
@@ -71,9 +72,10 @@ export function DataTable() {
               {columns.map(col => (
                 <th
                   key={col}
+                  title={getColumnSourceName(dataset?.columns.find(column => column.name === col) ?? { name: col })}
                   className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground"
                 >
-                  {col}
+                  {getColumnDisplayName(dataset?.columns.find(column => column.name === col) ?? { name: col })}
                 </th>
               ))}
             </tr>

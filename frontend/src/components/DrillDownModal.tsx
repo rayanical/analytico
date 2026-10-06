@@ -4,9 +4,10 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ExternalLink } from 'lucide-react';
 import { useData } from '@/context/DataContext';
+import { getColumnDisplayName, getColumnSourceName } from '@/lib/columnLabels';
 
 export function DrillDownModal() {
-  const { drillDownData, isDrillDownOpen, setIsDrillDownOpen } = useData();
+  const { drillDownData, isDrillDownOpen, setIsDrillDownOpen, dataset } = useData();
 
   if (!isDrillDownOpen || !drillDownData) return null;
 
@@ -52,7 +53,9 @@ export function DrillDownModal() {
                 <tr>
                   {columns.map((col) => (
                     <th key={col} className="px-4 py-3 font-medium border-b border-border">
-                      {col.replace(/_/g, ' ')}
+                      <span title={getColumnSourceName(dataset?.columns.find(column => column.name === col) ?? { name: col })}>
+                        {getColumnDisplayName(dataset?.columns.find(column => column.name === col) ?? { name: col })}
+                      </span>
                     </th>
                   ))}
                 </tr>

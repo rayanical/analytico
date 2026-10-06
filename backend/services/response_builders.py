@@ -30,8 +30,11 @@ def get_column_summary(
     statistics = column_stats.get(col) if column_stats is not None else None
     unique_vals = statistics.sample_values if statistics is not None else series.dropna().unique()[:20]
     sample_vals = sorted([str(v) for v in unique_vals[:20]], key=str.lower)
+    schema = next((item for item in df.attrs.get("column_schema", []) if item["column"] == col), {})
     return ColumnSummary(
         name=col,
+        original_name=schema.get("original_name", col),
+        display_name=schema.get("display_name"),
         dtype=str(series.dtype),
         is_numeric=pd.api.types.is_numeric_dtype(series),
         is_datetime=pd.api.types.is_datetime64_any_dtype(series),

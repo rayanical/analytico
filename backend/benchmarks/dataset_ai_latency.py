@@ -60,25 +60,7 @@ def all_inputs(dataset, source_frame):
         headers = [str(column) for column in source_frame.columns]
         return [(dataset.column_names[index], _interpretation_input(header, source_frame.iloc[:, index], headers))
                 for index, header in enumerate(headers)]
-    # Same bounded raw row positions/context as production, extended beyond its
-    # twelve-column ceiling only inside this comparison harness.
-    from modules.disk_dataset import _q
-    disk = dataset.disk
-    positions = sorted({round(index * (disk.row_count - 1) / 11) for index in range(12)})
-    raw = disk._connection.execute(
-        f"SELECT {', '.join(_q(column) for column in disk._raw_columns)} FROM source_data "
-        f"WHERE _row_ordinal IN ({', '.join('?' for _ in positions)}) ORDER BY _row_ordinal", positions,
-    ).fetchall()
-    result = []
-    for index, column in enumerate(disk.columns):
-        values = [None if row[index] is None else str(row[index])[:160] for row in raw]
-        result.append((column, {'column_name': disk.parsed_headers[index][:256], 'values': values,
-            'context': {'purpose': 'Conservative dataset ingestion; no requested calculation or external unit metadata.',
-                'row_count': disk.row_count, 'missing_count': disk.missing_counts.get(column, 0),
-                'sample_unique_count': len({str(value) for value in values if value is not None}),
-                'sample_is_complete': disk.row_count <= 12,
-                'other_column_names': [header[:128] for offset, header in enumerate(disk.parsed_headers) if offset != index][:20]}}))
-    return result
+    return dataset.disk.interpretation_inputs(limit=256)
 
 
 def worker(path, label, strategy, live, parallelism=4):

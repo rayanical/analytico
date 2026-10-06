@@ -29,7 +29,8 @@ export function preserveQueryProvenance(
 ): ChartResponse {
   return {
     ...response,
-    source_x_axis_key: previous.source_x_axis_key || previous.x_axis_key,
+    ...(previous.aggregation_scope === 'overall' ? { title: previous.title, x_axis_label: previous.x_axis_label, y_axis_label: previous.y_axis_label } : {}),
+    source_x_axis_key: previous.aggregation_scope === 'overall' ? undefined : previous.source_x_axis_key || previous.x_axis_key,
     time_bucket: response.time_bucket ?? null,
     filters: response.filters ?? effectiveFilters,
     llm_filters: previous.llm_filters,
@@ -47,4 +48,12 @@ export function getNextPeriodStart(value: string, bucket: 'year' | 'month' | 'we
   else if (bucket === 'month') date.setUTCMonth(date.getUTCMonth() + 1);
   else date.setUTCDate(date.getUTCDate() + 7);
   return date.toISOString();
+}
+
+/** Synthetic overall chart keys are presentation fields, never source columns. */
+export function getChartAggregationFields(chart: ChartResponse) {
+  return {
+    x_axis_key: chart.aggregation_scope === 'overall' ? null : chart.source_x_axis_key || chart.x_axis_key,
+    y_axis_keys: chart.count_rows ? [] : chart.y_axis_keys,
+  };
 }

@@ -8,6 +8,7 @@ import { useData } from '@/context/DataContext';
 import { aggregateData } from '@/lib/api';
 import { ChartType, AggregationType } from '@/types';
 import { toast } from 'sonner';
+import { getColumnDisplayName, getColumnSourceName } from '@/lib/columnLabels';
 
 const CHART_TYPES: { type: ChartType; icon: React.ReactNode; label: string }[] = [
   { type: 'bar', icon: <BarChart3 className="h-5 w-5" />, label: 'Bar' },
@@ -43,6 +44,7 @@ export function ChartBuilder() {
 
   const allColumns = dataset?.columns ?? [];
   const measureColumns = numericColumns.filter(column => column.semantic_type !== 'identifier');
+  const columnLabel = (key: string) => getColumnDisplayName(allColumns.find(column => column.name === key) ?? { name: key });
 
   useEffect(() => {
     setXAxis('');
@@ -88,7 +90,7 @@ export function ChartBuilder() {
       setCurrentChart(response);
       setLastPlotConfig({ chartType, xAxis, yAxes, aggregation });
       addToHistory(
-        `${chartType} chart: ${yAxes.join(', ')} by ${xAxis}`,
+        `${chartType} chart: ${yAxes.map(columnLabel).join(', ')} by ${columnLabel(xAxis)}`,
         response,
         true
       );
@@ -128,7 +130,7 @@ export function ChartBuilder() {
       if (!isCurrentQuery(requestId, dataset.datasetId)) return;
       setCurrentChart(response);
       addToHistory(
-        `Analysis: ${lastPlotConfig.yAxes.join(', ')} by ${lastPlotConfig.xAxis}`,
+        `Analysis: ${lastPlotConfig.yAxes.map(columnLabel).join(', ')} by ${columnLabel(lastPlotConfig.xAxis)}`,
         response,
         true
       );
@@ -191,8 +193,8 @@ export function ChartBuilder() {
         >
           <option value="">Select column...</option>
           {allColumns.map(col => (
-            <option key={col.name} value={col.name}>
-              {col.name} {col.is_numeric ? '(numeric)' : col.is_datetime ? '(date)' : ''}
+            <option key={col.name} value={col.name} title={getColumnSourceName(col)}>
+              {getColumnDisplayName(col)} {col.is_numeric ? '(numeric)' : col.is_datetime ? '(date)' : ''}
             </option>
           ))}
         </select>
@@ -211,20 +213,21 @@ export function ChartBuilder() {
               <button
                 key={col.name}
                 onClick={() => handleYAxisToggle(col.name)}
+                title={getColumnSourceName(col)}
                 className={`rounded-full px-3 py-1.5 text-sm transition-all ${
                   yAxes.includes(col.name)
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-white/5 text-muted-foreground hover:bg-white/10'
                 }`}
               >
-                {col.name}
+                {getColumnDisplayName(col)}
               </button>
             ))
           )}
         </div>
         {yAxes.length > 0 && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Selected: {yAxes.join(', ')}
+            Selected: {yAxes.map(columnLabel).join(', ')}
           </p>
         )}
       </div>

@@ -3,7 +3,7 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
-  PieChart, Pie, Cell, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  PieChart, Pie, Cell, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
 } from 'recharts';
 import { Loader2 } from 'lucide-react';
 import { useData } from '@/context/DataContext';
@@ -12,7 +12,8 @@ import { aggregateData, drillDown } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { formatValue } from '@/lib/formatValue';
-import { getNextPeriodStart, mergeFilters, preserveQueryProvenance } from '@/lib/queryFilters';
+import { getChartAggregationFields, getNextPeriodStart, mergeFilters, preserveQueryProvenance } from '@/lib/queryFilters';
+import { getColumnDisplayName, getColumnSourceName } from '@/lib/columnLabels';
 
 const COLORS = [
   'hsl(252, 87%, 64%)', 'hsl(173, 80%, 40%)', 'hsl(43, 96%, 56%)',
@@ -61,6 +62,7 @@ interface CustomTooltipProps {
   formats: Record<string, ColumnFormat>;
   aggregation?: ChartResponse['aggregation'];
   primaryFormat: ColumnFormat;
+  seriesLabels: Record<string, string>;
 }
 
 const CustomTooltip = memo(function CustomTooltip({ 
@@ -70,6 +72,7 @@ const CustomTooltip = memo(function CustomTooltip({
   formats,
   aggregation,
   primaryFormat,
+  seriesLabels,
 }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   
@@ -82,7 +85,7 @@ const CustomTooltip = memo(function CustomTooltip({
             className="h-3 w-3 rounded-full" 
             style={{ backgroundColor: entry.color }} 
           />
-          <span className="text-muted-foreground">{entry.name}:</span>
+          <span className="text-muted-foreground">{seriesLabels[String(entry.dataKey ?? '')] || entry.name}:</span>
           <span className="font-medium">
             {formatValue(entry.value, (formats[String(entry.dataKey ?? '')] || primaryFormat) as ColumnFormat, { aggregation })}
           </span>
@@ -107,12 +110,22 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
   const x_axis_key = data?.x_axis_key ?? '';
   const y_axis_keys = data?.y_axis_keys ?? [];
   const chart_type = data?.chart_type ?? 'empty';
-  const y_axis_label = data?.y_axis_label;
   const answer = data?.answer;
   const analysis = data?.analysis;
   const aggregation = data?.aggregation;
   const llm_filters = data?.llm_filters;
   const formats = dataset?.columnFormats ?? {};
+  const columnsByName = useMemo(
+    () => new Map((dataset?.columns ?? []).map(column => [column.name, column])),
+    [dataset?.columns],
+  );
+  const getColumnLabel = (key: string) => data?.count_rows ? 'Rows' : getColumnDisplayName(columnsByName.get(key) ?? { name: key });
+  const getColumnSource = (key: string) => data?.count_rows ? 'Rows' : data?.aggregation_scope === 'overall' && key === x_axis_key ? 'Overall' : getColumnSourceName(columnsByName.get(key) ?? { name: key });
+  const x_axis_label = data?.aggregation_scope === 'overall' ? 'Overall' : data?.x_axis_label?.trim()
+    || getColumnLabel(data?.source_x_axis_key || x_axis_key);
+  const y_axis_display_label = data?.y_axis_label?.trim()
+    || (y_axis_keys.length === 1 ? getColumnLabel(y_axis_keys[0]) : undefined);
+  const seriesLabels = Object.fromEntries(y_axis_keys.map(key => [key, getColumnLabel(key)]));
   const primaryFormat = (aggregation === 'count' ? 'number' : formats[y_axis_keys[0]] || 'number') as ColumnFormat;
   const tickFormatter = useMemo(() => (value: number) =>
     formatValue(value, primaryFormat, { compact: true, aggregation }), [primaryFormat, aggregation]);
@@ -163,8 +176,7 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
     try {
       const response = await aggregateData({
         dataset_id: dataset.datasetId,
-        x_axis_key: data.source_x_axis_key || x_axis_key,
-        y_axis_keys,
+        ...getChartAggregationFields(data),
         aggregation: aggregation || 'sum',
         chart_type,
         filters: effectiveFilters,
@@ -214,7 +226,7 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
     try {
       const effectiveFilters = data.filters ?? mergeFilters(filters, llm_filters);
       const nextPeriodStart = data.time_bucket ? getNextPeriodStart(String(xVal), data.time_bucket) : null;
-      const clickedFilters = data.time_bucket && nextPeriodStart
+      const clickedFilters = data.aggregation_scope === 'overall' ? [] : data.time_bucket && nextPeriodStart
         ? [
             { column: sourceAxis, operator: 'gte' as const, value: String(xVal) },
             { column: sourceAxis, operator: 'lt' as const, value: nextPeriodStart },
@@ -243,15 +255,8 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
     }
   };
 
-  // Format legend names from snake_case to Title Case
-  const formatLegendName = (value: string) => {
-    return value
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, c => c.toUpperCase());
-  };
-
   // Create tooltip element with formats passed as prop
-  const tooltipContent = <CustomTooltip formats={formats} aggregation={aggregation} primaryFormat={primaryFormat} />;
+  const tooltipContent = <CustomTooltip formats={formats} aggregation={aggregation} primaryFormat={primaryFormat} seriesLabels={seriesLabels} />;
 
   const renderChart = () => {
     switch (chart_type) {
@@ -264,7 +269,7 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
               tick={axisStyle} 
               axisLine={{ stroke: '#3f3f46' }} 
               tickFormatter={tickFormatter} 
-              label={y_axis_label ? { value: y_axis_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined} 
+              label={y_axis_display_label ? { value: y_axis_display_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined}
             />
             <Tooltip content={tooltipContent} />
             {y_axis_keys.map((k, i) => (
@@ -300,7 +305,7 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
             <XAxis dataKey={x_axis_key} tick={axisStyle} />
-            <YAxis tick={axisStyle} tickFormatter={tickFormatter} />
+            <YAxis tick={axisStyle} tickFormatter={tickFormatter} label={y_axis_display_label ? { value: y_axis_display_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined} />
             <Tooltip content={tooltipContent} />
             {y_axis_keys.map((k, i) => (
               <Area 
@@ -344,7 +349,7 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
               ))}
             </Pie>
             <Tooltip content={tooltipContent} />
-            <Legend formatter={formatLegendName} />
+            <Legend />
           </PieChart>
         );
       case 'composed':
@@ -352,7 +357,7 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
           <ComposedChart {...commonProps}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
             <XAxis dataKey={x_axis_key} tick={axisStyle} />
-            <YAxis tick={axisStyle} tickFormatter={tickFormatter} />
+            <YAxis tick={axisStyle} tickFormatter={tickFormatter} label={y_axis_display_label ? { value: y_axis_display_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined} />
             <Tooltip content={tooltipContent} />
             {y_axis_keys.map((k, i) => i % 2 === 0
               ? <Bar key={k} dataKey={k} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} opacity={0.8} />
@@ -368,7 +373,7 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
             <YAxis 
               tick={axisStyle} 
               tickFormatter={tickFormatter}
-              label={y_axis_label ? { value: y_axis_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined}
+              label={y_axis_display_label ? { value: y_axis_display_label, angle: -90, position: 'insideLeft', style: { fontSize: 11 } } : undefined}
             />
             <Tooltip content={tooltipContent} />
             {y_axis_keys.map((k, i) => (
@@ -382,7 +387,11 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
                   if (row) void handleDrillDown(row);
                 }}
                 cursor="pointer"
-              />
+              >
+                {data?.aggregation_scope === 'overall' && (
+                  <LabelList dataKey={k} position="top" fill="currentColor" formatter={(value: unknown) => formatValue(value, primaryFormat, { aggregation })} />
+                )}
+              </Bar>
             ))}
           </BarChart>
         );
@@ -406,7 +415,7 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
                 style={{ backgroundColor: COLORS[i % COLORS.length] }} 
               />
               <span className="text-sm text-muted-foreground">
-                {formatLegendName(key)}
+                <span title={getColumnSource(key)}>{getColumnLabel(key)}</span>
               </span>
             </div>
           ))}
@@ -431,8 +440,8 @@ export function SmartChart({ chartData, showAnalyzeButton = true, compact = fals
 
       {/* Fixed X-Axis Label - stays in place during horizontal scroll */}
       {x_axis_key && chart_type !== 'pie' && (
-        <div className="text-center font-medium text-muted-foreground mt-2 text-sm">
-          {formatLegendName(x_axis_key)}
+        <div className="text-center font-medium text-muted-foreground mt-2 text-sm" title={getColumnSource(data?.source_x_axis_key || x_axis_key)}>
+          {x_axis_label}
         </div>
       )}
 

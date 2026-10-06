@@ -1,0 +1,316 @@
+{
+  "version": 1,
+  "label_policy": "Roles follow source codebooks. A second score permits abstention on opaque headers without dictionary metadata. Labels and codebooks are not supplied to Luna in the baseline.",
+  "datasets": [
+    {
+      "id": "bike",
+      "filename": "bike.csv",
+      "delimiter": ",",
+      "source": "https://archive.ics.uci.edu/dataset/275/bike+sharing+dataset",
+      "download": "https://archive.ics.uci.edu/static/public/275/bike+sharing+dataset.zip",
+      "member": "hour.csv",
+      "rows": 17379,
+      "roles": {
+        "instant": "identifier",
+        "dteday": "temporal",
+        "season": "categorical",
+        "yr": "categorical",
+        "mnth": "temporal",
+        "hr": "temporal",
+        "holiday": "categorical",
+        "weekday": "categorical",
+        "workingday": "categorical",
+        "weathersit": "categorical",
+        "temp": "metric",
+        "atemp": "metric",
+        "hum": "metric",
+        "windspeed": "metric",
+        "casual": "metric",
+        "registered": "metric",
+        "cnt": "metric"
+      },
+      "opaque_columns": [
+        "season",
+        "yr",
+        "mnth",
+        "hr",
+        "holiday",
+        "weekday",
+        "workingday",
+        "weathersit",
+        "temp",
+        "atemp",
+        "hum",
+        "windspeed",
+        "casual",
+        "registered",
+        "cnt"
+      ],
+      "role_alternatives": {
+        "mnth": [
+          "categorical"
+        ],
+        "hr": [
+          "categorical"
+        ]
+      },
+      "x": "weekday",
+      "y": "cnt",
+      "aggregation": "sum",
+      "queries": [
+        {
+          "prompt": "Show the sum of cnt by weekday",
+          "kind": "chart",
+          "x": "weekday",
+          "y": "cnt",
+          "aggregation": "sum"
+        },
+        {
+          "prompt": "Show average temp by season",
+          "kind": "chart",
+          "x": "season",
+          "y": "temp",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Predict next month's number of rentals",
+          "kind": "clarification"
+        }
+      ]
+    },
+    {
+      "id": "bank",
+      "filename": "bank.csv",
+      "delimiter": ";",
+      "source": "https://archive.ics.uci.edu/dataset/222/bank+marketing",
+      "download": "https://archive.ics.uci.edu/static/public/222/bank+marketing.zip",
+      "member": "bank.zip:bank-full.csv",
+      "rows": 45211,
+      "roles": {
+        "age": "metric",
+        "job": "categorical",
+        "marital": "categorical",
+        "education": "categorical",
+        "default": "categorical",
+        "balance": "metric",
+        "housing": "categorical",
+        "loan": "categorical",
+        "contact": "categorical",
+        "day": "temporal",
+        "month": "temporal",
+        "duration": "metric",
+        "campaign": "metric",
+        "pdays": "metric",
+        "previous": "metric",
+        "poutcome": "categorical",
+        "y": "categorical"
+      },
+      "opaque_columns": [
+        "day",
+        "month",
+        "duration",
+        "campaign",
+        "pdays",
+        "previous",
+        "poutcome",
+        "y"
+      ],
+      "role_alternatives": {
+        "day": [
+          "categorical"
+        ],
+        "month": [
+          "categorical"
+        ]
+      },
+      "x": "job",
+      "y": "age",
+      "aggregation": "mean",
+      "queries": [
+        {
+          "prompt": "Show average age by job",
+          "kind": "chart",
+          "x": "job",
+          "y": "age",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Show average balance by marital status",
+          "kind": "chart",
+          "x": "marital",
+          "y": "balance",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Show a weighted average age by job",
+          "kind": "clarification"
+        }
+      ]
+    },
+    {
+      "id": "retail",
+      "filename": "retail.csv",
+      "delimiter": ",",
+      "source": "https://archive.ics.uci.edu/dataset/352/online+retail",
+      "download": "https://archive.ics.uci.edu/static/public/352/online+retail.zip",
+      "member": "Online Retail.xlsx",
+      "conversion": "Full worksheet exported to CSV using openpyxl read-only, dates serialized as ISO timestamps. No rows removed or cleaned.",
+      "rows": 541909,
+      "roles": {
+        "InvoiceNo": "identifier",
+        "StockCode": "identifier",
+        "Description": "categorical",
+        "Quantity": "metric",
+        "InvoiceDate": "temporal",
+        "UnitPrice": "metric",
+        "CustomerID": "identifier",
+        "Country": "categorical"
+      },
+      "opaque_columns": [],
+      "role_alternatives": {},
+      "x": "country",
+      "y": "quantity",
+      "aggregation": "sum",
+      "queries": [
+        {
+          "prompt": "Show total quantity by country",
+          "kind": "chart",
+          "x": "country",
+          "y": "quantity",
+          "aggregation": "sum"
+        },
+        {
+          "prompt": "Show average unit_price by country",
+          "kind": "chart",
+          "x": "country",
+          "y": "unit_price",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Show net revenue by country",
+          "kind": "clarification"
+        }
+      ]
+    },
+    {
+      "id": "taxi",
+      "filename": "2021_Green_Taxi_Trip_Data_20260221.csv",
+      "delimiter": ",",
+      "source": "https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page",
+      "local_path": "backend/datasets/2021_Green_Taxi_Trip_Data_20260221.csv",
+      "roles": {
+        "VendorID": "identifier",
+        "lpep_pickup_datetime": "temporal",
+        "lpep_dropoff_datetime": "temporal",
+        "store_and_fwd_flag": "categorical",
+        "RatecodeID": "categorical",
+        "PULocationID": "identifier",
+        "DOLocationID": "identifier",
+        "passenger_count": "metric",
+        "trip_distance": "metric",
+        "fare_amount": "metric",
+        "extra": "metric",
+        "mta_tax": "metric",
+        "tip_amount": "metric",
+        "tolls_amount": "metric",
+        "ehail_fee": "metric",
+        "improvement_surcharge": "metric",
+        "total_amount": "metric",
+        "payment_type": "categorical",
+        "trip_type": "categorical",
+        "congestion_surcharge": "metric"
+      },
+      "opaque_columns": [
+        "VendorID",
+        "RatecodeID",
+        "PULocationID",
+        "DOLocationID",
+        "extra",
+        "mta_tax",
+        "ehail_fee",
+        "improvement_surcharge",
+        "payment_type",
+        "trip_type",
+        "congestion_surcharge"
+      ],
+      "role_alternatives": {
+        "VendorID": [
+          "categorical"
+        ],
+        "RatecodeID": [
+          "identifier"
+        ],
+        "payment_type": [
+          "identifier"
+        ],
+        "trip_type": [
+          "identifier"
+        ]
+      },
+      "x": "payment_type",
+      "y": "trip_distance",
+      "aggregation": "mean",
+      "queries": [
+        {
+          "prompt": "Show average trip distance by payment type",
+          "kind": "chart",
+          "x": "payment_type",
+          "y": "trip_distance",
+          "aggregation": "mean"
+        },
+        {
+          "prompt": "Show total fare_amount by payment_type",
+          "kind": "chart",
+          "x": "payment_type",
+          "y": "fare_amount",
+          "aggregation": "sum"
+        },
+        {
+          "prompt": "Show revenue by payment type",
+          "kind": "clarification"
+        }
+      ]
+    },
+    {
+      "id": "wine",
+      "filename": "wine.csv",
+      "delimiter": ";",
+      "source": "https://archive.ics.uci.edu/dataset/186/wine+quality",
+      "download": "https://archive.ics.uci.edu/static/public/186/wine+quality.zip",
+      "member": "winequality-white.csv",
+      "rows": 4898,
+      "holdout": true,
+      "roles": {
+        "fixed acidity": "metric",
+        "volatile acidity": "metric",
+        "citric acid": "metric",
+        "residual sugar": "metric",
+        "chlorides": "metric",
+        "free sulfur dioxide": "metric",
+        "total sulfur dioxide": "metric",
+        "density": "metric",
+        "pH": "metric",
+        "sulphates": "metric",
+        "alcohol": "metric",
+        "quality": "categorical"
+      },
+      "opaque_columns": [
+        "pH",
+        "quality"
+      ],
+      "role_alternatives": {},
+      "x": "quality",
+      "y": "alcohol",
+      "aggregation": "mean",
+      "queries": [
+        {
+          "prompt": "Show average alcohol by quality",
+          "kind": "chart",
+          "x": "quality",
+          "y": "alcohol",
+          "aggregation": "mean"
+        }
+      ]
+    }
+  ]
+}

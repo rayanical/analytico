@@ -17,7 +17,7 @@ Reviewed first-party backend modules, routes, schemas, storage, helpers and test
 | Frontend `npm run build` | Pass | Does not gate on the ESLint failures below. |
 | Frontend `npm run lint` | 16 errors, 4 warnings | Includes conditional hooks, explicit `any`, and render purity errors. |
 | `npm audit --json` | 47 affected package entries: 2 critical, 29 high, 15 moderate, 1 low | Includes transitive/dev packages; not 47 proven exploitable application paths. |
-| Synthetic audit probes | Confirmed aggregation, parsing, filtering and sandbox defects | See [repro script](audit_probes.py); uses synthetic data and its own temporary CSV. |
+| Synthetic audit probes | Confirmed aggregation, parsing, filtering and sandbox defects | Original probe script is archived outside the repo; see [artifact policy](benchmark-artifacts.md). Uses synthetic safety cases, not performance fixtures. |
 | Local taxi demo benchmark, AI disabled | 1,068,755 rows × 20 columns; CSV parse 3.559 s; clean 7.140 s; cleaned frame 198.8 MiB; process peak RSS 1,300.1 MiB | Single local run, not a load test or a production p95. Excludes AI, full response construction and charting. |
 
 Initial tests with a placeholder key attempted schema-enrichment calls and fell back after authentication failure. The offline rerun passed all 14 tests without provider calls. No valid-key model benchmark was performed. A clean-start probe with dotenv disabled confirmed import failure without an AI key.

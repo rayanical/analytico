@@ -35,9 +35,9 @@ def enrichment_status(dataset_id: str):
     return get_enrichment_status(dataset_id, dataset.cache_version)
 
 
-def _ingest(source, filename: str, endpoint: str):
+def _ingest(source, filename: str, endpoint: str, ai_column_analysis: bool = False):
     try:
-        return ingest_csv(source, filename, endpoint)
+        return ingest_csv(source, filename, endpoint, ai_column_analysis=ai_column_analysis)
     except pd.errors.EmptyDataError:
         raise HTTPException(status_code=400, detail="Empty CSV.")
     except HTTPException:
@@ -50,14 +50,14 @@ def _ingest(source, filename: str, endpoint: str):
 
 
 @router.post("/upload", response_model=UploadResponse)
-def upload_csv(file: UploadFile = File(...)):
+def upload_csv(file: UploadFile = File(...), ai_column_analysis: bool = Form(default=False)):
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Please upload a CSV file.")
-    return _ingest(file.file, file.filename, "/upload")
+    return _ingest(file.file, file.filename, "/upload", ai_column_analysis)
 
 
 @router.post("/load-demo", response_model=UploadResponse)
-def load_demo_dataset(dataset: str = Query(default="taxi")):
+def load_demo_dataset(dataset: str = Query(default="taxi"), ai_column_analysis: bool = Query(default=False)):
     selected_demo = DEMO_DATASETS.get(dataset)
     if not selected_demo:
         available = ", ".join(sorted(DEMO_DATASETS.keys()))
@@ -65,7 +65,7 @@ def load_demo_dataset(dataset: str = Query(default="taxi")):
     filename, demo_path = selected_demo["filename"], selected_demo["path"]
     if not demo_path.exists():
         raise HTTPException(status_code=500, detail=f"Demo dataset file not found: {filename}")
-    return _ingest(demo_path, filename, "/load-demo")
+    return _ingest(demo_path, filename, "/load-demo", ai_column_analysis)
 
 
 @router.post("/imports/preview")
@@ -96,7 +96,8 @@ def refresh_csv_preview(import_id: str, request: ImportPreviewRequest):
 
 @router.post("/imports/{import_id}/confirm", response_model=UploadResponse)
 def confirm_csv_preview(import_id: str, request: ImportConfirmRequest):
-    return confirm_import(import_id, request.settings, request.column_overrides)
+    return confirm_import(import_id, request.settings, request.column_overrides,
+                          ai_column_analysis=request.ai_column_analysis)
 
 
 @router.delete("/imports/{import_id}")

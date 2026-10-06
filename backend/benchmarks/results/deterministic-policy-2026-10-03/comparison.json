@@ -1,0 +1,226 @@
+{
+  "before": [
+    {
+      "dataset": "bike",
+      "correct": 15,
+      "total": 17,
+      "unknown": 0,
+      "wrong": [
+        "instant",
+        "hr"
+      ],
+      "ready_seconds": 0.37639833299908787,
+      "peak_rss_mb": 170.3936,
+      "cold_aggregate_ms": 3.1401669839397073,
+      "warm_aggregate_ms": 1.4442079700529575,
+      "default_chart": {
+        "x_axis_key": "dteday",
+        "y_axis_keys": [
+          "hr"
+        ],
+        "chart_type": "line",
+        "aggregation": "mean",
+        "title": "Mean Hr By Dteday",
+        "analysis": "Shows the mean of hr for each observed dteday value."
+      },
+      "full_value_checks": true,
+      "source_bytes_preserved": null
+    },
+    {
+      "dataset": "bank",
+      "correct": 16,
+      "total": 17,
+      "unknown": 0,
+      "wrong": [
+        "day"
+      ],
+      "ready_seconds": 0.965631666011177,
+      "peak_rss_mb": 220.905472,
+      "cold_aggregate_ms": 7.272791932336986,
+      "warm_aggregate_ms": 1.48004200309515,
+      "default_chart": {
+        "x_axis_key": "job",
+        "y_axis_keys": [
+          "age"
+        ],
+        "chart_type": "bar",
+        "aggregation": "mean",
+        "title": "Mean Age By Job",
+        "analysis": "Shows the mean of age for each observed job value."
+      },
+      "full_value_checks": true,
+      "source_bytes_preserved": null
+    },
+    {
+      "dataset": "retail",
+      "correct": 7,
+      "total": 8,
+      "unknown": 0,
+      "wrong": [
+        "description"
+      ],
+      "ready_seconds": 3.396483500022441,
+      "peak_rss_mb": 270.336,
+      "cold_aggregate_ms": 4.329624935053289,
+      "warm_aggregate_ms": 1.547417021356523,
+      "default_chart": {
+        "x_axis_key": "invoice_date",
+        "y_axis_keys": [
+          "quantity"
+        ],
+        "chart_type": "line",
+        "aggregation": "sum",
+        "title": "Sum Quantity By Invoice Date",
+        "analysis": "Shows the sum of quantity for each observed invoice_date value."
+      },
+      "full_value_checks": true,
+      "source_bytes_preserved": null
+    },
+    {
+      "dataset": "taxi",
+      "correct": 15,
+      "total": 20,
+      "unknown": 0,
+      "wrong": [
+        "passenger_count",
+        "mta_tax",
+        "ehail_fee",
+        "improvement_surcharge",
+        "congestion_surcharge"
+      ],
+      "ready_seconds": 13.378296374925412,
+      "peak_rss_mb": 325.55008,
+      "cold_aggregate_ms": 6.711333058774471,
+      "warm_aggregate_ms": 1.506166998296976,
+      "default_chart": {
+        "x_axis_key": "lpep_pickup_datetime",
+        "y_axis_keys": [
+          "trip_distance"
+        ],
+        "chart_type": "line",
+        "aggregation": "sum",
+        "title": "Sum Trip Distance By Lpep Pickup Datetime",
+        "analysis": "Shows the sum of trip_distance for each observed lpep_pickup_datetime value."
+      },
+      "full_value_checks": true,
+      "source_bytes_preserved": null
+    }
+  ],
+  "after": [
+    {
+      "dataset": "bike",
+      "correct": 7,
+      "total": 17,
+      "unknown": 10,
+      "wrong": [],
+      "ready_seconds": 0.3835594580741599,
+      "peak_rss_mb": 170.606592,
+      "cold_aggregate_ms": 3.6653749411925673,
+      "warm_aggregate_ms": 1.5412499196827412,
+      "default_chart": {
+        "x_axis_key": "dteday",
+        "y_axis_keys": [
+          "temp"
+        ],
+        "chart_type": "line",
+        "aggregation": "mean",
+        "title": "Mean Temp By Dteday",
+        "analysis": "Shows the mean of temp for each observed dteday value."
+      },
+      "full_value_checks": true,
+      "source_bytes_preserved": true
+    },
+    {
+      "dataset": "bank",
+      "correct": 14,
+      "total": 17,
+      "unknown": 3,
+      "wrong": [],
+      "ready_seconds": 1.0024562920443714,
+      "peak_rss_mb": 221.51168,
+      "cold_aggregate_ms": 16.249208012595773,
+      "warm_aggregate_ms": 1.6768749337643385,
+      "default_chart": {
+        "x_axis_key": "job",
+        "y_axis_keys": [
+          "age"
+        ],
+        "chart_type": "bar",
+        "aggregation": "mean",
+        "title": "Mean Age By Job",
+        "analysis": "Shows the mean of age for each observed job value."
+      },
+      "full_value_checks": true,
+      "source_bytes_preserved": true
+    },
+    {
+      "dataset": "retail",
+      "correct": 8,
+      "total": 8,
+      "unknown": 0,
+      "wrong": [],
+      "ready_seconds": 3.3529905409086496,
+      "peak_rss_mb": 270.811136,
+      "cold_aggregate_ms": 4.317709011957049,
+      "warm_aggregate_ms": 1.5335839707404375,
+      "default_chart": {
+        "x_axis_key": "invoice_date",
+        "y_axis_keys": [
+          "quantity"
+        ],
+        "chart_type": "line",
+        "aggregation": "mean",
+        "title": "Mean Quantity By Invoice Date",
+        "analysis": "Shows the mean of quantity for each observed invoice_date value."
+      },
+      "full_value_checks": true,
+      "source_bytes_preserved": true
+    },
+    {
+      "dataset": "taxi",
+      "correct": 19,
+      "total": 20,
+      "unknown": 1,
+      "wrong": [],
+      "ready_seconds": 13.154891917016357,
+      "peak_rss_mb": 331.661312,
+      "cold_aggregate_ms": 6.748749990947545,
+      "warm_aggregate_ms": 1.5179580077528954,
+      "default_chart": {
+        "x_axis_key": "lpep_pickup_datetime",
+        "y_axis_keys": [
+          "passenger_count"
+        ],
+        "chart_type": "line",
+        "aggregation": "mean",
+        "title": "Mean Passenger Count By Lpep Pickup Datetime",
+        "analysis": "Shows the mean of passenger_count for each observed lpep_pickup_datetime value."
+      },
+      "full_value_checks": true,
+      "source_bytes_preserved": true
+    },
+    {
+      "dataset": "wine",
+      "correct": 11,
+      "total": 12,
+      "unknown": 1,
+      "wrong": [],
+      "ready_seconds": 0.11547158297616988,
+      "peak_rss_mb": 138.346496,
+      "cold_aggregate_ms": 8.416582946665585,
+      "warm_aggregate_ms": 1.6220830148085952,
+      "default_chart": {
+        "x_axis_key": "quality",
+        "y_axis_keys": [
+          "fixed_acidity"
+        ],
+        "chart_type": "bar",
+        "aggregation": "mean",
+        "title": "Mean Fixed Acidity By Quality",
+        "analysis": "Shows the mean of fixed_acidity for each observed quality value."
+      },
+      "full_value_checks": true,
+      "source_bytes_preserved": true
+    }
+  ]
+}

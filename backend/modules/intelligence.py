@@ -6,7 +6,8 @@ Semantic detection, auto-analysis, chart generation, and profiling
 from typing import Optional
 import pandas as pd
 
-from modules.column_statistics import ColumnStatisticsMap
+from modules.column_statistics import ColumnStatisticsMap, compute_column_statistics, _is_numeric_year as validated_numeric_year
+from modules.column_usage import infer_column_usage, default_chart_plan
 
 
 class SemanticType:
@@ -16,43 +17,32 @@ class SemanticType:
     CATEGORICAL = "categorical"
 
 
-def detect_semantic_type(
-    df: pd.DataFrame,
-    col: str,
-    column_stats: Optional[ColumnStatisticsMap] = None,
-) -> str:
-    """Detect semantic type of a column"""
-    series = df[col]
-    tokens = set(col.lower().split("_"))
-    
-    # Check for datetime
+def _physical_type(series):
     if pd.api.types.is_datetime64_any_dtype(series):
-        return SemanticType.TEMPORAL
-    
-    # Check for identifier patterns
-    if tokens & {"id", "code", "key", "name", "email", "phone", "address", "zip", "postal", "ssn", "account", "serial", "ref"}:
-        return SemanticType.IDENTIFIER
-    
-    # Numeric columns
-    if pd.api.types.is_numeric_dtype(series):
-        if "year" in tokens:
-            if _is_numeric_year(series, col, column_stats):
-                return SemanticType.TEMPORAL
-        unique_count = _unique_count(series, col, column_stats)
-        unique_ratio = unique_count / max(len(series), 1)
-        # High cardinality numeric = likely metric
-        if unique_ratio > 0.5:
-            return SemanticType.METRIC
-        # Low cardinality numeric = could be categorical
-        if unique_count < 20:
-            return SemanticType.CATEGORICAL
-        return SemanticType.METRIC
+        return "datetime"
+    if pd.api.types.is_bool_dtype(series):
+        return "boolean"
+    return "number" if pd.api.types.is_numeric_dtype(series) else "text"
 
-    # Non-numeric with low cardinality = categorical
-    if _unique_count(series, col, column_stats) < 50:
-        return SemanticType.CATEGORICAL
-    
-    return SemanticType.IDENTIFIER
+
+def dataframe_column_usages(df, column_stats=None, column_types=None):
+    statistics = column_stats if column_stats is not None else compute_column_statistics(df)
+    schema = {item["column"]: item for item in df.attrs.get("column_schema", [])}
+    usages = {}
+    for column in df.columns:
+        policy = schema.get(column, {})
+        role = policy.get("role") if policy.get("provenance") == "override" else None
+        if column_types is not None and role is None:
+            # Preserve existing reviewed/applied decisions supplied by ingestion.
+            role = column_types[column] if column_types[column] != infer_column_usage(column, _physical_type(df[column]), statistics[column]).role else None
+        usages[column] = infer_column_usage(column, _physical_type(df[column]), statistics[column],
+            role_override=role, aggregation_override=policy.get("aggregation"))
+    return usages
+
+
+def detect_semantic_type(df, col, column_stats=None) -> str:
+    statistics = column_stats if column_stats is not None else compute_column_statistics(df[[col]])
+    return infer_column_usage(col, _physical_type(df[col]), statistics[col]).role
 
 
 def _accepted_metric_decision(df: pd.DataFrame, column: str) -> Optional[dict]:
@@ -73,64 +63,8 @@ def generate_default_chart(
     column_stats: Optional[ColumnStatisticsMap] = None,
 ) -> Optional[dict]:
     """Generate the best default chart configuration"""
-    # Find temporal, categorical, and metric columns
-    temporal_cols = [
-        c for c, t in column_types.items()
-        if t == SemanticType.TEMPORAL
-        and (pd.api.types.is_datetime64_any_dtype(df[c]) or _is_numeric_year(df[c], c, column_stats))
-    ]
-    categorical_cols = [c for c, t in column_types.items() if t == SemanticType.CATEGORICAL]
-    metric_cols = [
-        c for c, t in column_types.items()
-        if t == SemanticType.METRIC and pd.api.types.is_numeric_dtype(df[c])
-        and (_accepted_metric_decision(df, c) or {}).get("recommended_aggregation") != "none"
-    ]
-    
-    if not metric_cols:
-        return None
-
-    metric = metric_cols[0]
-    decision = _accepted_metric_decision(df, metric)
-    aggregation = decision["recommended_aggregation"] if decision else "mean"
-    
-    # Best case: temporal x-axis with metric y-axis
-    if temporal_cols:
-        temporal = temporal_cols[0]
-        return {
-            "x_axis_key": temporal,
-            "y_axis_keys": [metric],
-            "chart_type": "line",
-            "aggregation": aggregation,
-            "title": f"{aggregation.title()} {metric} by {temporal}".replace('_', ' ').title(),
-            "analysis": f"Shows the {aggregation} of {metric} for each observed {temporal} value.",
-        }
-    
-    # Second best: categorical x-axis with metric y-axis
-    if categorical_cols:
-        # Pick categorical with reasonable cardinality
-        best_cat = min(
-            categorical_cols,
-            key=lambda c: abs(_unique_count(df[c], c, column_stats) - 10),
-        )
-        return {
-            "x_axis_key": best_cat,
-            "y_axis_keys": [metric],
-            "chart_type": "bar",
-            "aggregation": aggregation,
-            "title": f"{aggregation.title()} {metric} by {best_cat}".replace('_', ' ').title(),
-            "analysis": f"Shows the {aggregation} of {metric} for each observed {best_cat} value.",
-        }
-
-    return None
-
-
-def _unique_count(
-    series: pd.Series,
-    col: str,
-    column_stats: Optional[ColumnStatisticsMap],
-) -> int:
-    statistics = column_stats.get(col) if column_stats is not None else None
-    return statistics.unique_count if statistics is not None else int(series.nunique())
+    statistics = column_stats if column_stats is not None else compute_column_statistics(df)
+    return default_chart_plan(list(df.columns), dataframe_column_usages(df, statistics, column_types), statistics)
 
 
 def _is_numeric_year(
@@ -143,16 +77,8 @@ def _is_numeric_year(
     statistics = column_stats.get(col) if column_stats is not None else None
     if statistics is not None and statistics.numeric_year is not None:
         return statistics.numeric_year
-    values = series.dropna()
-    return bool(len(values) and values.map(lambda value: float(value).is_integer() and 1000 <= value <= 2200).all())
+    return validated_numeric_year(series, col)
 
-
-def _non_additive_metric(col: str, column_format: Optional[str]) -> bool:
-    tokens = set(str(col).lower().split("_"))
-    joined_name = str(col).lower()
-    return column_format == "percentage" or "life_exp" in joined_name or bool(
-        tokens & {"rate", "ratio", "pct", "percent", "percentage", "lifeexp", "expectancy", "score", "index", "average", "mean", "age", "temperature"}
-    )
 
 
 def auto_profile(
@@ -170,10 +96,8 @@ def auto_profile(
     }
     
     # Find metric columns for summary
-    metric_cols = [
-        c for c, t in column_types.items()
-        if t == SemanticType.METRIC and pd.api.types.is_numeric_dtype(df[c])
-    ]
+    usages = dataframe_column_usages(df, column_stats, column_types)
+    metric_cols = [c for c in df.columns if usages[c].automatic_measure]
     column_formats = column_formats or {}
     
     for col in metric_cols[:3]:  # Top 3 metrics
@@ -184,9 +108,7 @@ def auto_profile(
         if len(series) == 0:
             continue
         decision = _accepted_metric_decision(df, col)
-        recommended_aggregation = decision["recommended_aggregation"] if decision else (
-            "mean" if _non_additive_metric(col, column_formats.get(col)) else "sum"
-        )
+        recommended_aggregation = decision["recommended_aggregation"] if decision else "mean"
         profile["top_metrics"].append({
             "name": col,
             "total": float(series.sum()),
@@ -219,14 +141,12 @@ def auto_profile(
     return profile
 
 
-def generate_dynamic_suggestions(df: pd.DataFrame, column_types: dict[str, str], column_formats: dict[str, str]) -> list[str]:
+def generate_dynamic_suggestions(df: pd.DataFrame, column_types: dict[str, str], column_formats: dict[str, str], column_stats=None) -> list[str]:
     """Generate concise, intent-diverse, dataset-aware example prompts."""
     suggestions: list[str] = []
     
-    metric_cols = [
-        c for c, t in column_types.items()
-        if t == SemanticType.METRIC and pd.api.types.is_numeric_dtype(df[c])
-    ]
+    usages = dataframe_column_usages(df, column_stats, column_types)
+    metric_cols = [c for c in df.columns if usages[c].automatic_measure]
     categorical_cols = [c for c, t in column_types.items() if t == SemanticType.CATEGORICAL]
     temporal_cols = [c for c, t in column_types.items() if t == SemanticType.TEMPORAL]
     

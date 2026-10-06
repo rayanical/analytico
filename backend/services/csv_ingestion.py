@@ -40,7 +40,7 @@ def _source_size(source):
 
 def ingest_csv(source, filename: str, endpoint_name: str, *, engine=None, defer_enrichment=True,
                import_settings=None, column_overrides=None, replacement=None,
-               enqueue_enrichment=True):
+               enqueue_enrichment=True, ai_column_analysis=None):
     """Read and store a CSV without unbounded simultaneous ingestion work."""
     size = _source_size(source)
     max_bytes = _config_integer("ANALYTICO_MAX_UPLOAD_BYTES", 256 * 1024 * 1024, 1)
@@ -56,7 +56,8 @@ def ingest_csv(source, filename: str, endpoint_name: str, *, engine=None, defer_
     try:
         with IngestionMeasurement(endpoint_name, includes_csv=True) as measurement:
             if selected == "pandas":
-                owner, retained_path, _ = retain_source(source, max_bytes)
+                with measurement.phase("source_copy"):
+                    owner, retained_path, _ = retain_source(source, max_bytes)
                 try:
                     with measurement.phase("csv_parse"):
                         frame = (read_csv_fast(retained_path, settings=import_settings)
@@ -69,7 +70,8 @@ def ingest_csv(source, filename: str, endpoint_name: str, *, engine=None, defer_
                                             defer_enrichment=defer_enrichment,
                                             import_settings=import_settings, column_overrides=column_overrides,
                                             source_owner=owner, source_path=retained_path,
-                                            replacement=replacement, enqueue_enrichment=enqueue_enrichment)
+                                            replacement=replacement, enqueue_enrichment=enqueue_enrichment,
+                                            ai_column_analysis=ai_column_analysis)
                 except Exception:
                     owner.cleanup()
                     raise
@@ -87,6 +89,7 @@ def ingest_csv(source, filename: str, endpoint_name: str, *, engine=None, defer_
                     raise HTTPException(413 if limit_error else 400,
                                         "CSV exceeds the supported ingestion limits." if limit_error
                                         else "CSV is empty or cannot be safely read.") from error
+            measurement.phases.update({f"disk/{name}": seconds for name, seconds in disk.ingestion_timings.items()})
             try:
                 measurement.rows, measurement.columns = disk.row_count, len(disk.columns)
                 dataset = DiskDatasetInfo(disk, filename)
@@ -106,7 +109,7 @@ def ingest_csv(source, filename: str, endpoint_name: str, *, engine=None, defer_
                     response.version = dataset.cache_version
                     response.column_schema = dataset.column_schema
                 if defer_enrichment and enqueue_enrichment:
-                    response.enrichment_status = queue_dataset_enrichment(dataset)
+                    response.enrichment_status = queue_dataset_enrichment(dataset, ai_column_analysis=ai_column_analysis)
                 return response
             except Exception:
                 disk.close()

@@ -8,14 +8,20 @@ _requests = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ai-request")
 
 
 def run_parallel_enrichment(summary, columns, *, total_columns, publish,
-                            is_current, timeout_seconds=60):
+                            is_current, timeout_seconds=60, schema=None):
+    if schema is not None and columns:
+        raise ValueError('Use schema or column requests, not both')
     tasks = iter(([('summary', None, summary)] if summary else []) +
-                 [('column', name, callback) for name, callback in columns])
+                 ([('schema', None, schema)] if schema else [('column', name, callback) for name, callback in columns]))
     pending = {}
     proposals = {}
     description = None
     completed = 0
-    planned = len(columns) + bool(summary)
+    planned = len(columns) + bool(summary) + bool(schema)
+    schema_coverage = None
+    column_roles = {}
+    column_labels = {}
+    semantic_revision = 0
     deadline = monotonic() + timeout_seconds
     stopped = None
     halt_columns = False
@@ -23,11 +29,13 @@ def run_parallel_enrichment(summary, columns, *, total_columns, publish,
     def snapshot():
         failed = sum(item['status'] in {'error', 'unavailable', 'disabled'} for item in proposals.values())
         return {'summary': description, 'interpretation_proposals': dict(proposals),
-                'coverage': {'total_columns': total_columns, 'selected_columns': len(columns),
+                'column_roles': dict(column_roles), 'column_labels': dict(column_labels), 'semantic_revision': semantic_revision,
+                'coverage': ({**schema_coverage, 'stop_reason': stopped or schema_coverage.get('stop_reason')}
+                             if schema_coverage is not None else {'total_columns': total_columns, 'selected_columns': len(columns),
                              'completed_columns': len(proposals), 'failed_columns': failed,
                              'skipped_columns': total_columns - len(columns),
                              'complete': len(proposals) == total_columns and failed == 0,
-                             'stop_reason': stopped},
+                             'stop_reason': stopped}),
                 'progress': min(99, 10 + int(89 * completed / max(1, planned)))}
 
     def fill():
@@ -66,6 +74,17 @@ def run_parallel_enrichment(summary, columns, *, total_columns, publish,
                     result = None if kind == 'summary' else {'status': 'error', 'error_code': 'request_failed'}
                 if kind == 'summary':
                     description = result
+                elif kind == 'schema':
+                    if isinstance(result, dict) and 'interpretation_proposals' in result and 'coverage' in result:
+                        proposals = result['interpretation_proposals']
+                        schema_coverage = result['coverage']
+                        column_roles = result.get('column_roles', {})
+                        column_labels = result.get('column_labels', {})
+                        semantic_revision = result.get('semantic_revision', 0)
+                    else:
+                        schema_coverage = {'total_columns': total_columns, 'selected_columns': 0,
+                            'completed_columns': 0, 'failed_columns': 0, 'skipped_columns': total_columns,
+                            'complete': False, 'stop_reason': 'schema_unavailable'}
                 else:
                     if not isinstance(result, dict) or 'status' not in result:
                         result = {'status': 'error', 'error_code': 'invalid_result'}
