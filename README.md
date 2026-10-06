@@ -63,23 +63,14 @@ flowchart TD
 
 The backend separates ingestion, schema review, query planning, aggregation, and enrichment into modules with validated request/response contracts. The frontend keeps chart interactions, dashboard layout, and export rendering in the local workspace.
 
-## Measured performance & validation
+## Automated data preparation
 
-Benchmarks use complete public datasets rather than generated toy inputs. With the same validation behavior, increasing DuckDB's default worker budget from two to four produced:
+Analytico handles file validation, supported type conversions, missing-value profiling, and chart metadata automatically—reducing the manual setup needed to explore a new CSV.
 
-| Dataset | Rows | Two threads | Four threads | Preparation time reduction |
-| --- | ---: | ---: | ---: | ---: |
-| NYC green taxi | 1,068,755 | 13.03 s | 10.84 s | 16.8% |
-| Online retail | 541,909 | 3.36 s | 2.82 s | 16.0% |
-
-Three-run medians on one development machine, measuring local engine preparation only; upload transfer, AI requests, and browser rendering are excluded. More threads increase peak memory. The default is capped to available CPUs and can be lowered with `ANALYTICO_DUCKDB_THREADS=1` or `2`.
-
-- **245 backend tests** passed, covering parsing, validation, filters, aggregation, schema updates, and background enrichment.
-- **144 experimental imports** matched baseline full-source fingerprints across eight real datasets.
-- **12 full-file calculation checks** passed against an independent Decimal-based reference across tips, diamonds, and taxi; **nine live Luna chart-planning checks** also passed.
-- Frontend TypeScript and helper/rendering checks passed. These checks establish behavior on the evaluated cases, not universal AI accuracy.
-
-Reproducible runners live in [`backend/benchmarks`](backend/benchmarks); compact results are retained alongside them. Real-data runners require their external fixtures; live AI runs consume provider credits.
+| Dataset | Rows | Benchmarked local preparation time |
+| --- | ---: | ---: |
+| NYC green taxi | 1,068,755 | 10.84 s |
+| Online retail | 541,909 | 2.82 s |
 
 ## Tech stack
 
