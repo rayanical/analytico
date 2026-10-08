@@ -1,0 +1,431 @@
+{
+  "date": "2026-10-07",
+  "repeats": 3,
+  "datasets": [
+    "bike",
+    "bank",
+    "retail",
+    "taxi",
+    "wine",
+    "diamonds",
+    "penguins",
+    "tips"
+  ],
+  "scope": "Live question to computed chart/clarification; excludes ingestion, transfer and browser. Real full files; independent CSV/Decimal numerical oracle.",
+  "enriched": true,
+  "summary": [
+    {
+      "arm": "before",
+      "cases": 108,
+      "correct": 96,
+      "chart_cases": 93,
+      "false_clarifications": 12,
+      "unsafe_charts": 0,
+      "median_seconds": 1.4523900204803795,
+      "p95_seconds": 2.337389042135328,
+      "median_chart_seconds": 1.4145302909892052,
+      "decisions_plan_count": 0,
+      "errors": 0
+    },
+    {
+      "arm": "decisions",
+      "cases": 108,
+      "correct": 108,
+      "chart_cases": 93,
+      "false_clarifications": 0,
+      "unsafe_charts": 0,
+      "median_seconds": 0.6662341874325648,
+      "p95_seconds": 2.3412066670134664,
+      "median_chart_seconds": 0.35021987510845065,
+      "decisions_plan_count": 60,
+      "errors": 0
+    }
+  ],
+  "failures": [
+    {
+      "dataset": "bank",
+      "case_id": "bank-5",
+      "repeat": 0,
+      "arm": "before",
+      "seconds": 3.0467036669142544,
+      "correct": false,
+      "expected_kind": "chart",
+      "kind": "clarification",
+      "false_clarification": true,
+      "decisions_called": false,
+      "decisions_plan": false
+    },
+    {
+      "dataset": "bank",
+      "case_id": "bank-5",
+      "repeat": 1,
+      "arm": "before",
+      "seconds": 1.6002616670448333,
+      "correct": false,
+      "expected_kind": "chart",
+      "kind": "clarification",
+      "false_clarification": true,
+      "decisions_called": false,
+      "decisions_plan": false
+    },
+    {
+      "dataset": "bank",
+      "case_id": "bank-5",
+      "repeat": 2,
+      "arm": "before",
+      "seconds": 1.5931679159402847,
+      "correct": false,
+      "expected_kind": "chart",
+      "kind": "clarification",
+      "false_clarification": true,
+      "decisions_called": false,
+      "decisions_plan": false
+    },
+    {
+      "dataset": "taxi",
+      "case_id": "taxi-3",
+      "repeat": 1,
+      "arm": "before",
+      "seconds": 2.021162708988413,
+      "correct": false,
+      "expected_kind": "chart",
+      "kind": "clarification",
+      "false_clarification": true,
+      "decisions_called": false,
+      "decisions_plan": false
+    },
+    {
+      "dataset": "taxi",
+      "case_id": "taxi-3",
+      "repeat": 2,
+      "arm": "before",
+      "seconds": 1.8171615418978035,
+      "correct": false,
+      "expected_kind": "chart",
+      "kind": "clarification",
+      "false_clarification": true,
+      "decisions_called": false,
+      "decisions_plan": false
+    },
+    {
+      "dataset": "diamonds",
+      "case_id": "diamonds-3",
+      "repeat": 1,
+      "arm": "before",
+      "seconds": 1.5246376669965684,
+      "correct": false,
+      "expected_kind": "chart",
+      "kind": "clarification",
+      "false_clarification": true,
+      "decisions_called": false,
+      "decisions_plan": false
+    },
+    {
+      "dataset": "diamonds",
+      "case_id": "diamonds-3",
+      "repeat": 2,
+      "arm": "before",
+      "seconds": 1.4571539158932865,
+      "correct": false,
+      "expected_kind": "chart",
+      "kind": "clarification",
+      "false_clarification": true,
+      "decisions_called": false,
+      "decisions_plan": false
+    },
+    {
+      "dataset": "diamonds",
+      "case_id": "diamonds-3",
+      "repeat": 0,
+      "arm": "before",
+      "seconds": 1.647403708891943,
+      "correct": false,
+      "expected_kind": "chart",
+      "kind": "clarification",
+      "false_clarification": true,
+      "decisions_called": false,
+      "decisions_plan": false
+    },
+    {
+      "dataset": "penguins",
+      "case_id": "penguins-3",
+      "repeat": 1,
+      "arm": "before",
+      "seconds": 1.3856938751414418,
+      "correct": false,
+      "expected_kind": "chart",
+      "kind": "clarification",
+      "false_clarification": true,
+      "decisions_called": false,
+      "decisions_plan": false
+    },
+    {
+      "dataset": "penguins",
+      "case_id": "penguins-3",
+      "repeat": 2,
+      "arm": "before",
+      "seconds": 1.2858560420572758,
+      "correct": false,
+      "expected_kind": "chart",
+      "kind": "clarification",
+      "false_clarification": true,
+      "decisions_called": false,
+      "decisions_plan": false
+    },
+    {
+      "dataset": "penguins",
+      "case_id": "penguins-3",
+      "repeat": 0,
+      "arm": "before",
+      "seconds": 1.274551333161071,
+      "correct": false,
+      "expected_kind": "chart",
+      "kind": "clarification",
+      "false_clarification": true,
+      "decisions_called": false,
+      "decisions_plan": false
+    },
+    {
+      "dataset": "tips",
+      "case_id": "tips-4",
+      "repeat": 0,
+      "arm": "before",
+      "seconds": 1.5977229580748826,
+      "correct": false,
+      "expected_kind": "chart",
+      "kind": "clarification",
+      "false_clarification": true,
+      "decisions_called": false,
+      "decisions_plan": false
+    }
+  ],
+  "runtime": {
+    "model": "gpt-6-luna",
+    "query_planner_default": "decisions",
+    "generative_fallback": "gpt-6-luna",
+    "tests_passed": 322
+  },
+  "benchmark_notes": [
+    "36 distinct questions, three repetitions per arm, same dataset state for both arms.",
+    "Twenty original frozen questions plus sixteen extended filter/ranking/default cases.",
+    "The old planner keeps its original prompt and scalar-only output contract. Both arms share current ingestion/roles/labels to isolate planning.",
+    "Final run only; earlier diagnostic and interrupted runs excluded.",
+    "Normal production aggregate cache; transfer, browser rendering, ingestion and optional result narrative excluded."
+  ],
+  "routes": {
+    "decision_chart": 75,
+    "unsupported": 6,
+    "choice_capacity": 6,
+    "filter_count_mismatch": 12,
+    "ambiguous": 3,
+    "measure_count_mismatch": 3,
+    "ranking_objective_clarification": 3
+  },
+  "source_fingerprints": {
+    "backend/modules/query_decisions.py": "e331eb5dea5a1b1c3059900278c3f2c705ef071d0720f4c99c9df6c332d38072",
+    "backend/services/query_service.py": "9997e854fc59fb9290ed6008969dbc85fefea7ee89689e49f08aa527f897bdcb",
+    "backend/core/config.py": "9c7cb550816be103e289d62c3d455694d02558f9cd39db578c0e22e9b778ae77",
+    "backend/models.py": "4155aaa27b910f61a30a098018b45e61b2ce130c03cc3e9e9d6f1cb499575461",
+    "backend/evals/fresh_accuracy_gold_2026-10-03.json": "7d52429b8b5c3e1d9517ed03ce292ec34600dd1ca26a8be659064d51420f2b60"
+  },
+  "baseline_source_fingerprint": "bc5066f9db0c27b6b02d0feb0df819385b3b626843ef0cda6bd4465a7403217f",
+  "per_dataset": [
+    {
+      "dataset": "bike",
+      "before": {
+        "cases": 12,
+        "correct": 12,
+        "median_seconds": 1.5299136254470795
+      },
+      "decisions": {
+        "cases": 12,
+        "correct": 12,
+        "median_seconds": 0.25892799999564886
+      }
+    },
+    {
+      "dataset": "bank",
+      "before": {
+        "cases": 18,
+        "correct": 15,
+        "median_seconds": 1.5175781875150278
+      },
+      "decisions": {
+        "cases": 18,
+        "correct": 18,
+        "median_seconds": 0.9019646040396765
+      }
+    },
+    {
+      "dataset": "retail",
+      "before": {
+        "cases": 15,
+        "correct": 15,
+        "median_seconds": 1.54320687497966
+      },
+      "decisions": {
+        "cases": 15,
+        "correct": 15,
+        "median_seconds": 0.2742349999025464
+      }
+    },
+    {
+      "dataset": "taxi",
+      "before": {
+        "cases": 18,
+        "correct": 16,
+        "median_seconds": 1.3697099374840036
+      },
+      "decisions": {
+        "cases": 18,
+        "correct": 18,
+        "median_seconds": 1.3372282709460706
+      }
+    },
+    {
+      "dataset": "wine",
+      "before": {
+        "cases": 6,
+        "correct": 6,
+        "median_seconds": 1.5778878335841
+      },
+      "decisions": {
+        "cases": 6,
+        "correct": 6,
+        "median_seconds": 0.8637853334657848
+      }
+    },
+    {
+      "dataset": "diamonds",
+      "before": {
+        "cases": 12,
+        "correct": 9,
+        "median_seconds": 1.4514763744082302
+      },
+      "decisions": {
+        "cases": 12,
+        "correct": 12,
+        "median_seconds": 0.4209796459181234
+      }
+    },
+    {
+      "dataset": "penguins",
+      "before": {
+        "cases": 12,
+        "correct": 9,
+        "median_seconds": 1.3018318546237424
+      },
+      "decisions": {
+        "cases": 12,
+        "correct": 12,
+        "median_seconds": 1.559020500513725
+      }
+    },
+    {
+      "dataset": "tips",
+      "before": {
+        "cases": 15,
+        "correct": 14,
+        "median_seconds": 1.4330135839991271
+      },
+      "decisions": {
+        "cases": 15,
+        "correct": 15,
+        "median_seconds": 0.16951766703277826
+      }
+    }
+  ],
+  "taxi_after_request_capacity_fix": {
+    "date": "2026-10-07",
+    "repeats": 3,
+    "datasets": [
+      "taxi"
+    ],
+    "scope": "Live question to computed chart/clarification; excludes ingestion, transfer and browser. Real full files; independent CSV/Decimal numerical oracle.",
+    "enriched": true,
+    "summary": [
+      {
+        "arm": "before",
+        "cases": 18,
+        "correct": 15,
+        "chart_cases": 15,
+        "false_clarifications": 3,
+        "unsafe_charts": 0,
+        "median_seconds": 1.5310682294657454,
+        "p95_seconds": 2.102222250076011,
+        "median_chart_seconds": 1.546840833965689,
+        "decisions_plan_count": 0,
+        "errors": 0
+      },
+      {
+        "arm": "decisions",
+        "cases": 18,
+        "correct": 18,
+        "chart_cases": 15,
+        "false_clarifications": 0,
+        "unsafe_charts": 0,
+        "median_seconds": 0.2780305420747027,
+        "p95_seconds": 2.2116563750896603,
+        "median_chart_seconds": 0.24377670814283192,
+        "decisions_plan_count": 12,
+        "errors": 0
+      }
+    ],
+    "failures": [
+      {
+        "dataset": "taxi",
+        "case_id": "taxi-3",
+        "repeat": 1,
+        "arm": "before",
+        "seconds": 1.8977979579940438,
+        "correct": false,
+        "expected_kind": "chart",
+        "kind": "clarification",
+        "false_clarification": true,
+        "decisions_called": false,
+        "decisions_plan": false
+      },
+      {
+        "dataset": "taxi",
+        "case_id": "taxi-3",
+        "repeat": 0,
+        "arm": "before",
+        "seconds": 2.0321857910603285,
+        "correct": false,
+        "expected_kind": "chart",
+        "kind": "clarification",
+        "false_clarification": true,
+        "decisions_called": false,
+        "decisions_plan": false
+      },
+      {
+        "dataset": "taxi",
+        "case_id": "taxi-3",
+        "repeat": 2,
+        "arm": "before",
+        "seconds": 2.102222250076011,
+        "correct": false,
+        "expected_kind": "chart",
+        "kind": "clarification",
+        "false_clarification": true,
+        "decisions_called": false,
+        "decisions_plan": false
+      }
+    ],
+    "note": "Separate three-repeat paired rerun after splitting bounded context from bounded supplied choices. Do not combine timings with the broad run without identifying batches."
+  },
+  "broad_run_note": "Taxi used the generative fallback due to a supplied-choice body cap in this broad run. The subsequent paired taxi recheck verifies the final capacity fix. The other seven datasets did not hit that cap.",
+  "validation": {
+    "backend_tests": 322,
+    "backend_status": "passed",
+    "frontend_typescript": "passed",
+    "frontend_helpers": "passed",
+    "diff_check": "passed"
+  },
+  "final_source_sha256": {
+    "backend/modules/query_decisions.py": "8a284defda1f428d470c16610f46ffb1fef6756a6df7e092c5aabfdde69d6715",
+    "backend/services/query_service.py": "9997e854fc59fb9290ed6008969dbc85fefea7ee89689e49f08aa527f897bdcb",
+    "backend/modules/schema_interpretation.py": "4fb259a0e0c096d0de7effbb5b29319aa58e043e76914bb2615b3fe00034373c",
+    "frontend/src/lib/columnLabels.ts": "0e8d2dc298a21bb5d307dbb80f8a68d34d2a8b6fd58e8295da7bddf7c2934c76"
+  }
+}

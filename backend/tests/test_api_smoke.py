@@ -206,7 +206,7 @@ class ApiSmokeTests(unittest.TestCase):
                 self.assertEqual(initial_status.status_code, 200)
                 self.assertIn(initial_status.json()["status"], {"pending", "running"})
                 stored_dataset = DATASETS[dataset_id]
-                original_frame = stored_dataset.df.copy(deep=True)
+                original_frame = stored_dataset.sample_frame(1000).copy(deep=True)
                 original_column_types = dict(stored_dataset.column_types)
 
                 release_summary.set()
@@ -221,7 +221,7 @@ class ApiSmokeTests(unittest.TestCase):
                 self.assertEqual(final_status.status_code, 200)
                 self.assertEqual(final_status.json()["status"], "done")
                 self.assertEqual(final_status.json()["summary"], "Prepared after upload.")
-                pd.testing.assert_frame_equal(stored_dataset.df, original_frame)
+                pd.testing.assert_frame_equal(stored_dataset.sample_frame(1000), original_frame)
                 self.assertEqual(stored_dataset.column_types, original_column_types)
         finally:
             release_summary.set()

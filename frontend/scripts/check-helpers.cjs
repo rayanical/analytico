@@ -36,11 +36,12 @@ assert.equal(formatValue(0.2, 'percentage'), '20%');
 assert.equal(formatValue(1200, 'currency', { aggregation: 'count' }), '1,200');
 assert.equal(formatValue(null), '—');
 assert.equal(formatValue('001', 'identifier'), '001');
-assert.equal(getColumnDisplayName({ name: 'life_expectancy', original_name: 'LifeExp' }), 'Life Expectancy');
-assert.equal(getColumnDisplayName({ name: 'LifeExp' }), 'Life Exp');
-assert.equal(getColumnDisplayName({ name: 'GdpPercap' }), 'Gdp Percap');
+assert.equal(getColumnDisplayName({ name: 'life_expectancy', original_name: 'LifeExp' }), 'LifeExp');
+assert.equal(getColumnDisplayName({ name: 'LifeExp' }), 'LifeExp');
+assert.equal(getColumnDisplayName({ name: 'GdpPercap' }), 'GdpPercap');
 assert.equal(getColumnDisplayName({ name: 'gdp_per_cap', display_name: 'GDP per Capita', original_name: 'GDPpc' }), 'GDP per Capita');
 assert.equal(getColumnSourceName({ name: 'life_expectancy', original_name: 'LifeExp' }), 'LifeExp');
+assert.equal(getColumnDisplayName({ name: 'trip_distance', original_name: 'trip_distance', display_name: 'Trip Distance' }), 'Trip Distance');
 const unlabeledColumns = [{ name: 'life_expectancy' }, { name: 'gdp_per_cap', display_name: 'Old label' }];
 const labeledColumns = mergeColumnLabels(unlabeledColumns, {
   life_expectancy: 'Life Expectancy',

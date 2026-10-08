@@ -5,28 +5,16 @@ export interface ColumnLabelSource {
   display_name?: string | null;
 }
 
-/** Preserve the existing snake_case-to-title-case fallback for unlabeled columns. */
-export function humanizeColumnName(name: string): string {
-  return name
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, character => character.toUpperCase());
-}
-
 /** The original source header (or stable key) remains available as a tooltip. */
 export function getColumnSourceName(column: ColumnLabelSource): string {
   return column.original_name?.trim() || column.name?.trim() || column.column?.trim() || '';
 }
 
-/** Prefer an explicit display label and otherwise use the existing humanization. */
+/** Prefer an AI or user label and otherwise preserve the original source name. */
 export function getColumnDisplayName(column: ColumnLabelSource): string {
   const displayName = column.display_name?.trim();
   if (displayName) return displayName;
-  // Humanize the normalized stable key for a familiar fallback. Keep the exact
-  // source header available separately as a tooltip through getColumnSourceName.
-  const stableName = column.name?.trim() || column.column?.trim() || column.original_name?.trim() || '';
-  return humanizeColumnName(stableName);
+  return getColumnSourceName(column);
 }
 
 /** Merge server enrichment labels by stable column key without changing that key. */

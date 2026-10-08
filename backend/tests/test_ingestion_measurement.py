@@ -59,13 +59,13 @@ class IngestionMeasurementTests(unittest.TestCase):
 
     def test_failed_parse_has_sanitized_error_record(self):
         output = io.StringIO()
-        with patch("services.csv_ingestion.read_csv_fast", side_effect=ValueError("secret input")), \
+        with patch("modules.disk_dataset.DiskDataset.from_csv", side_effect=ValueError("secret input")), \
              contextlib.redirect_stdout(output):
             with self.assertRaises(HTTPException):
                 upload_csv(UploadFile(filename="private-name.csv", file=io.BytesIO(b"ignored")))
         record = json.loads(next(line for line in output.getvalue().splitlines() if line.startswith('{')))
         self.assertEqual(record["status"], "error")
-        self.assertIn("csv_parse", record["phase_seconds"])
+        self.assertIn("disk_ingestion", record["phase_seconds"])
         self.assertNotIn("secret", output.getvalue())
 
     def test_direct_dataframe_ingestion_does_not_claim_csv_parse(self):

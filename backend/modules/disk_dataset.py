@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import csv
 import difflib
 import io
+import logging
 import math
 import os
 import re
@@ -13,11 +13,12 @@ import tempfile
 import threading
 import unicodedata
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 from time import perf_counter
-from typing import Any, BinaryIO, Optional, TextIO
+from typing import Any, BinaryIO, Callable, Optional, TextIO
 
 import numpy as np
 import pandas as pd
@@ -30,15 +31,17 @@ from models import (
 from modules.column_usage import infer_column_usage, default_chart_plan
 from modules.column_statistics import ColumnStatistics, MIN_CALENDAR_YEAR, MAX_CALENDAR_YEAR
 from modules.import_policy import (
-    ColumnOverride, ImportSettings, parse_locale_numbers, policy_date_formats,
-    read_csv_headers, reader_options, resolve_column_policy, validate_csv_structure,
-    prepare_numeric_source,
+    ColumnOverride, ImportSettings, MAX_CSV_FIELD_CHARS, native_csv_validation_enabled,
+    native_csv_validation_supported, parse_locale_numbers, policy_date_formats,
+    CSVStructureError, read_csv_headers, reader_options, resolve_column_policy, validate_csv_structure,
+    validate_csv_headers, prepare_numeric_source, unsupported_date_reason,
 )
 from modules.data_janitor import (
     UNIVERSAL_CURRENCY_KEYWORDS, _column_tokens,
     _is_date_name, _is_identifier_name, _unique_normalized_headers,
 )
 from utils.filtering import FilterValidationError, resolve_effective_limit
+from utils.source_files import StagedSource, materialize_staged_source
 
 
 DEFAULT_CHUNK_SIZE = 50_000
@@ -51,6 +54,7 @@ DEFAULT_MAX_ROWS = 5_000_000
 DUCKDB_MEMORY_LIMIT = "64MB"
 DUCKDB_THREADS = 4
 DUCKDB_TEMP_LIMIT = "1GB"
+logger = logging.getLogger(__name__)
 
 def _duckdb_thread_count() -> int:
     """Cap the per-dataset worker budget to the host; allow a lower local budget."""
@@ -163,6 +167,27 @@ def _copy_source(
     return total
 
 
+def _source_contains_quote_byte(source_path: Path) -> bool:
+    """Scan a copied source in bounded chunks for CSV quote syntax."""
+    with source_path.open("rb") as source:
+        while True:
+            chunk = source.read(1024 * 1024)
+            if not chunk:
+                return False
+            if b'"' in chunk:
+                return True
+
+
+def _has_leading_blank_physical_line(source_path: Path, encoding: str) -> bool:
+    """Detect an initial empty physical line using the configured BOM handling."""
+    try:
+        with source_path.open("r", encoding=encoding, newline="") as source:
+            first_line = source.readline()
+    except (OSError, UnicodeError, LookupError):
+        return False
+    return bool(first_line) and first_line.rstrip("\r\n") == ""
+
+
 def _date_expr(column: str, fmt: str) -> str:
     if fmt == "ISO8601":
         return f"TRY_CAST({column} AS TIMESTAMP)"
@@ -248,6 +273,7 @@ class DiskDataset:
         self._plans: dict[str, _Plan] = {}
         self._clean_to_raw: dict[str, str] = {}
         self._max_rows = DEFAULT_MAX_ROWS
+        self._native_validation_skipped = False
         self.ingestion_timings: dict[str, float] = {}
         self.csv_loader = "pandas"
         self.csv_fallback_reason: Optional[str] = None
@@ -269,6 +295,8 @@ class DiskDataset:
         max_rows: int = DEFAULT_MAX_ROWS,
         import_settings: ImportSettings | dict[str, Any] | None = None,
         column_overrides: list[ColumnOverride | dict[str, Any]] | None = None,
+        staged_source: Optional[StagedSource] = None,
+        on_source_loaded: Optional[Callable[["DiskDataset"], Any]] = None,
     ) -> "DiskDataset":
         """Copy and ingest a CSV using the current reader's exact parser options."""
         if type(chunk_size) is not int or not 1 <= chunk_size <= MAX_CHUNK_SIZE:
@@ -284,6 +312,7 @@ class DiskDataset:
             raise RuntimeError("DuckDB is required for disk-backed ingestion.") from error
 
         dataset = cls()
+        dataset._ingestion_threads = thread_count
         dataset.filename = Path(filename).name or "dataset.csv"
         dataset._max_rows = max_rows
         dataset.import_settings = ImportSettings.model_validate(import_settings or {})
@@ -291,6 +320,8 @@ class DiskDataset:
             item if isinstance(item, ColumnOverride) else ColumnOverride.model_validate(item)
             for item in (column_overrides or [])
         ]
+        validation_pool = None
+        validation_future = None
         try:
             dataset._temporary_directory = tempfile.TemporaryDirectory(
                 prefix="analytico-dataset-", dir=str(temp_root) if temp_root else None,
@@ -302,22 +333,69 @@ class DiskDataset:
             spill_path = managed / "spill"
             spill_path.mkdir(mode=0o700)
             stage_started = perf_counter()
-            _copy_source(source, dataset.raw_source_path, max_file_bytes)
+            source_linked = (
+                materialize_staged_source(staged_source, dataset.raw_source_path, max_file_bytes)
+                if staged_source is not None
+                else False
+            )
+            if staged_source is None:
+                _copy_source(source, dataset.raw_source_path, max_file_bytes)
+            if not source_linked:
+                os.chmod(dataset.raw_source_path, 0o400)
             dataset.ingestion_timings["source_copy"] = perf_counter() - stage_started
             stage_started = perf_counter()
-            try:
-                validate_csv_structure(
-                    dataset.raw_source_path, dataset.import_settings,
-                    max_rows=max_rows, max_columns=MAX_COLUMNS,
-                )
+            if (native_csv_validation_enabled()
+                    and native_csv_validation_supported(dataset.import_settings)
+                    and not _source_contains_quote_byte(dataset.raw_source_path)):
+                try:
+                    dataset.original_headers = read_csv_headers(
+                        dataset.raw_source_path, dataset.import_settings,
+                    )
+                except CSVStructureError:
+                    # Re-run the canonical validator to retain its established
+                    # error message for malformed or empty headers.
+                    validate_csv_structure(
+                        dataset.raw_source_path, dataset.import_settings,
+                        max_rows=max_rows, max_columns=MAX_COLUMNS,
+                    )
+                    raise
+                validate_csv_headers(dataset.original_headers, max_columns=MAX_COLUMNS)
+                if len(dataset.original_headers) > 1:
+                    dataset._native_validation_skipped = True
+                else:
+                    # Single-column blank and whitespace records do not share
+                    # exact semantics between the existing reader and DuckDB.
+                    validate_csv_structure(
+                        dataset.raw_source_path, dataset.import_settings,
+                        max_rows=max_rows, max_columns=MAX_COLUMNS,
+                    )
+            else:
+                if native_csv_validation_supported(dataset.import_settings):
+                    # The strict reader and native loader read the same immutable
+                    # snapshot. Join before callbacks, type analysis or publication.
+                    validation_pool = ThreadPoolExecutor(
+                        max_workers=1, thread_name_prefix="csv-validation",
+                    )
+
+                    def validate_source():
+                        scan_started = perf_counter()
+                        validate_csv_structure(
+                            dataset.raw_source_path, dataset.import_settings,
+                            max_rows=max_rows, max_columns=MAX_COLUMNS,
+                        )
+                        return perf_counter() - scan_started
+
+                    validation_future = validation_pool.submit(validate_source)
+                else:
+                    validate_csv_structure(
+                        dataset.raw_source_path, dataset.import_settings,
+                        max_rows=max_rows, max_columns=MAX_COLUMNS,
+                    )
                 dataset.original_headers = read_csv_headers(
                     dataset.raw_source_path, dataset.import_settings,
                 )
-            except (UnicodeDecodeError, csv.Error):
-                dataset.original_headers = []
             dataset.ingestion_timings["structure_validation"] = perf_counter() - stage_started
             stage_started = perf_counter()
-            os.chmod(dataset.raw_source_path, 0o400)
             dataset._connection = duckdb.connect(
                 str(dataset.database_path),
                 config={
@@ -332,13 +410,42 @@ class DiskDataset:
             stage_started = perf_counter()
             dataset._ingest_csv(chunk_size)
             dataset.ingestion_timings["csv_load"] = perf_counter() - stage_started
+            if validation_future is not None:
+                wait_started = perf_counter()
+                scan_seconds = validation_future.result()
+                dataset.ingestion_timings["structure_validation"] += scan_seconds
+                dataset.ingestion_timings["structure_validation_wait"] = perf_counter() - wait_started
+            if dataset.row_count == 0:
+                raise ValueError("CSV is empty.")
+            if dataset.row_count > max_rows:
+                raise ValueError(f"CSV file exceeds the {max_rows}-row ingestion limit.")
+            if on_source_loaded is not None:
+                try:
+                    on_source_loaded(dataset)
+                except Exception:
+                    logger.warning("Optional source-loaded callback failed; continuing ingestion.")
             dataset._analyze_and_build()
             if dataset.row_count > max_rows:
                 raise ValueError(f"CSV file exceeds the {max_rows}-row ingestion limit.")
             return dataset
-        except Exception:
-            dataset.close()
+        except Exception as load_error:
+            validation_error = None
+            try:
+                if validation_future is not None:
+                    validation_future.result()
+            except Exception as error:
+                validation_error = error
+            finally:
+                if validation_pool is not None:
+                    validation_pool.shutdown(wait=True)
+                    validation_pool = None
+                dataset.close()
+            if validation_error is not None and validation_error is not load_error:
+                raise validation_error from load_error
             raise
+        finally:
+            if validation_pool is not None:
+                validation_pool.shutdown(wait=True)
 
     @property
     def source_path(self) -> Path:
@@ -350,6 +457,35 @@ class DiskDataset:
         if self._closed or self._connection is None:
             raise RuntimeError("Disk dataset is closed.")
 
+    def raw_source_snapshot(
+        self, limit: int = 12, *, evenly_spaced: bool = True,
+    ) -> tuple[list[str], list[list[Optional[str]]], int]:
+        """Return a bounded sample of original parsed values before type analysis."""
+        with self._lock:
+            self._ensure_open()
+            if type(limit) is not int or not 0 <= limit <= 1_000:
+                raise ValueError("Raw source snapshot limit must be between 0 and 1000.")
+            row_count = int(self.row_count)
+            if not limit or not row_count:
+                return list(self.parsed_headers), [], row_count
+
+            sample_size = min(limit, row_count)
+            if evenly_spaced and sample_size > 1 and row_count > sample_size:
+                positions = sorted({
+                    round(index * (row_count - 1) / (sample_size - 1))
+                    for index in range(sample_size)
+                })
+            else:
+                positions = list(range(sample_size))
+            placeholders = ", ".join("?" for _ in positions)
+            projection = ", ".join(f"LEFT({_q(column)}, 160)" for column in self._raw_columns)
+            rows = self._connection.execute(
+                f"SELECT {projection} FROM source_data "
+                f"WHERE _row_ordinal IN ({placeholders}) ORDER BY _row_ordinal",
+                positions,
+            ).fetchall()
+            return list(self.parsed_headers), [list(row) for row in rows], row_count
+
     def _ingest_csv(self, requested_chunk_size: int) -> None:
         """Bulk-load raw UTF-8 text, retaining the established reader as fallback."""
         import duckdb
@@ -360,10 +496,27 @@ class DiskDataset:
         if self.import_settings.encoding not in {'utf-8', 'utf-8-sig'}:
             self.csv_fallback_reason = 'encoding'
             return self._ingest_csv_chunks(requested_chunk_size)
+        # DuckDB's native reader can interpret a leading empty physical line as
+        # a data record instead of skipping it like pandas and the strict
+        # validator. Decode with the configured encoding so utf-8-sig removes
+        # a BOM before deciding whether the first physical line is blank.
+        if _has_leading_blank_physical_line(
+            self.source_path, self.import_settings.encoding,
+        ):
+            self.csv_fallback_reason = 'leading_blank_record'
+            return self._ingest_csv_chunks(requested_chunk_size)
         try:
             headers = pd.read_csv(self.source_path, nrows=0, **reader_options(self.import_settings)).columns.tolist()
         except pd.errors.EmptyDataError as error:
             raise ValueError("The CSV file is empty.") from error
+        except pd.errors.ParserError:
+            if self._native_validation_skipped:
+                validate_csv_structure(
+                    self.source_path, self.import_settings,
+                    max_rows=self._max_rows, max_columns=MAX_COLUMNS,
+                )
+                self._native_validation_skipped = False
+            raise
         # Single-column blank physical lines have different native-reader semantics.
         # Retain the original reader for this class instead of filtering decoded
         # values, which would incorrectly discard quoted empty/whitespace records.
@@ -395,10 +548,49 @@ class DiskDataset:
         self.csv_loader = "native"
         self.row_count = self._connection.execute('SELECT count(*) FROM source_data').fetchone()[0]
         if self.row_count > self._max_rows:
+            if self._native_validation_skipped:
+                validate_csv_structure(
+                    self.source_path, self.import_settings,
+                    max_rows=self._max_rows, max_columns=MAX_COLUMNS,
+                )
             raise ValueError('CSV exceeds the configured row limit.')
+        if self._native_validation_skipped:
+            checks = []
+            for column in self._raw_columns:
+                quoted = _q(column)
+                checks.append(f"({quoted} IS NOT NULL AND instr({quoted}, chr(0)) > 0)")
+                checks.append(
+                    f"({quoted} IS NOT NULL AND length({quoted}) > {MAX_CSV_FIELD_CHARS})"
+                )
+            invalid = self._connection.execute(
+                "SELECT _row_ordinal FROM source_data WHERE "
+                + " OR ".join(checks) + " LIMIT 1"
+            ).fetchone()
+            if invalid is not None:
+                # SQL validates values after parsing; the strict reader supplies
+                # the established structural error and catches parser mismatches.
+                validate_csv_structure(
+                    self.source_path, self.import_settings,
+                    max_rows=self._max_rows, max_columns=MAX_COLUMNS,
+                )
+                self._connection.execute("DROP TABLE source_data")
+                self.row_count = 0
+                self.csv_loader = "pandas"
+                self.csv_fallback_reason = "native_validation_mismatch"
+                self._native_validation_skipped = False
+                return self._ingest_csv_chunks(requested_chunk_size)
+            self._native_validation_skipped = False
 
     def _ingest_csv_chunks(self, requested_chunk_size: int) -> None:
         self._ensure_open()
+        if self._native_validation_skipped:
+            # A pandas fallback must never inherit the native fast path's
+            # skipped preflight. This also covers the bounded-buffer fallback.
+            validate_csv_structure(
+                self.source_path, self.import_settings,
+                max_rows=self._max_rows, max_columns=MAX_COLUMNS,
+            )
+            self._native_validation_skipped = False
         options = reader_options(self.import_settings)
         try:
             header = pd.read_csv(self.source_path, nrows=0, **options)
@@ -466,29 +658,68 @@ class DiskDataset:
             column = _q(raw_column)
             trimmed = f"TRIM({column})"
             currency_trim = f"TRIM(REGEXP_REPLACE({trimmed}, {currency}, '', 'g'))"
-            expressions = {
-                "nonnull": f"COUNT({column})",
-                "plain": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, {_literal(_PLAIN_NUMBER.pattern)}))",
-                "integer": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, {_literal(_INTEGER_TEXT.pattern)}))",
-                "bigint": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, {_literal(_INTEGER_TEXT.pattern)}) AND TRY_CAST({trimmed} AS BIGINT) IS NOT NULL)",
-                "uint64": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, {_literal(_INTEGER_TEXT.pattern)}) AND TRY_CAST({trimmed} AS UBIGINT) IS NOT NULL)",
-                "percent": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, '.*%$'))",
-                "percent_inner_plain": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH(TRIM(REGEXP_REPLACE({trimmed}, '%$', '')), {_literal(_PLAIN_NUMBER.pattern)}))",
-                "currency_symbol": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_MATCHES({column}, {currency}))",
-                "currency_plain": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({currency_trim}, {_literal(_PLAIN_NUMBER.pattern)}))",
-                "currency_grouped": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({currency_trim}, {_literal(_US_GROUPED_NUMBER.pattern)}))",
-                "comma": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND STRPOS({trimmed}, ',') > 0)",
-                "ambiguous_grouped": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, {_literal(_AMBIGUOUS_GROUPED.pattern)}))",
-                "grouped_integer": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, '^[+-]?[1-9][0-9]{{0,2}}(,[0-9]{{3}})+$'))",
-                "grouped_decimal": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, {_literal(_US_GROUPED_NUMBER.pattern)}))",
-                "numeric_like": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, {_literal(_NUMERIC_LIKE.pattern)}))",
-                "leading_zero": f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND REGEXP_FULL_MATCH({trimmed}, '^[+-]?0[0-9]+$'))",
+            plain = f"REGEXP_FULL_MATCH({trimmed}, {_literal(_PLAIN_NUMBER.pattern)})"
+            integer = f"REGEXP_FULL_MATCH({trimmed}, {_literal(_INTEGER_TEXT.pattern)})"
+            comma = f"STRPOS({trimmed}, ',') > 0"
+            # These are exact per-value grammar proofs, not sampled type or role
+            # guesses. Nonmatching values retain the complete original checks.
+            predicates = {
+                "plain": plain,
+                "integer": integer,
+                "bigint": f"CASE WHEN {integer} THEN TRY_CAST({trimmed} AS BIGINT) IS NOT NULL ELSE FALSE END",
+                "uint64": f"CASE WHEN {integer} THEN TRY_CAST({trimmed} AS UBIGINT) IS NOT NULL ELSE FALSE END",
+                "percent": f"REGEXP_FULL_MATCH({trimmed}, '.*%$')",
+                "percent_inner_plain": f"CASE WHEN {plain} THEN TRUE ELSE REGEXP_FULL_MATCH(TRIM(REGEXP_REPLACE({trimmed}, '%$', '')), {_literal(_PLAIN_NUMBER.pattern)}) END",
+                "currency_symbol": f"CASE WHEN {plain} THEN FALSE ELSE REGEXP_MATCHES({column}, {currency}) END",
+                "currency_plain": f"CASE WHEN {plain} THEN TRUE ELSE REGEXP_FULL_MATCH({currency_trim}, {_literal(_PLAIN_NUMBER.pattern)}) END",
+                "currency_grouped": f"CASE WHEN {plain} THEN FALSE ELSE REGEXP_FULL_MATCH({currency_trim}, {_literal(_US_GROUPED_NUMBER.pattern)}) END",
+                "comma": comma,
+                "ambiguous_grouped": f"CASE WHEN {comma} THEN REGEXP_FULL_MATCH({trimmed}, {_literal(_AMBIGUOUS_GROUPED.pattern)}) ELSE FALSE END",
+                "grouped_integer": f"CASE WHEN {comma} THEN REGEXP_FULL_MATCH({trimmed}, '^[+-]?[1-9][0-9]{{0,2}}(,[0-9]{{3}})+$') ELSE FALSE END",
+                "grouped_decimal": f"CASE WHEN {comma} THEN REGEXP_FULL_MATCH({trimmed}, {_literal(_US_GROUPED_NUMBER.pattern)}) ELSE FALSE END",
+                "numeric_like": f"CASE WHEN {plain} THEN TRUE ELSE REGEXP_FULL_MATCH({trimmed}, {_literal(_NUMERIC_LIKE.pattern)}) END",
+                "leading_zero": f"REGEXP_FULL_MATCH({trimmed}, '^[+-]?0[0-9]+$')",
             }
+            expressions = {"nonnull": f"COUNT({column})"}
+            expressions.update({
+                name: f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND ({predicate}))"
+                for name, predicate in predicates.items()
+            })
             for name, expression in expressions.items():
                 alias = f"s{index}_{name}"
                 projections.append(f"{expression} AS {_q(alias)}")
                 slots.append((raw_column, name))
         return projections, slots
+
+    def _collect_column_statistics(self) -> dict[str, dict[str, int]]:
+        """Run exact, small aggregate batches within the shared engine budget."""
+        queries = []
+        for start in range(0, len(self._raw_columns), 4):
+            projections, slots = self._stats_projection(self._raw_columns[start:start + 4])
+            queries.append((f"SELECT {', '.join(projections)} FROM source_data", slots))
+
+        def collect(group):
+            cursor = self._connection.cursor()
+            counts: dict[str, dict[str, int]] = {}
+            try:
+                for sql, slots in group:
+                    row = cursor.execute(sql).fetchone()
+                    for index, (raw, name) in enumerate(slots):
+                        counts.setdefault(raw, {})[name] = int(row[index] or 0)
+                return counts
+            finally:
+                cursor.close()
+
+        # Cursors share the database's thread scheduler and 64 MB memory cap.
+        # Smaller/lower-thread imports avoid a second worker entirely.
+        if len(queries) < 2 or self._ingestion_threads < 2:
+            return collect(queries)
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="column-statistics") as pool:
+            futures = [pool.submit(collect, queries[index::2]) for index in range(2)]
+            counts = {}
+            for future in futures:
+                counts.update(future.result())
+            return counts
 
     def _precision_guard_counts(
         self, raw: str, conditions: dict[str, str],
@@ -812,6 +1043,15 @@ class DiskDataset:
             if force:
                 raise ValueError(f"Column '{clean}' has no values to parse as dates.")
             return None, None
+        if unsupported_date_reason(sample):
+            if force:
+                raise ValueError(
+                    f"Could not parse '{clean}' without losing timezone or submicrosecond precision."
+                )
+            return None, (
+                f"Could not safely parse '{clean}' as date without losing timezone or "
+                "submicrosecond precision; retained source values"
+            )
         candidates: list[str] = []
         for fmt in policy_date_formats(date_order):
             try:
@@ -845,8 +1085,11 @@ class DiskDataset:
 
         parts = [f"COUNT({column})"]
         for index, fmt in enumerate(candidates):
+            parsed = _date_expr(column, fmt)
             parts.append(
-                f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND {_date_expr(column, fmt)} IS NOT NULL) AS {_q(f'valid_{index}')}"
+                f"COUNT(*) FILTER (WHERE {column} IS NOT NULL AND {parsed} IS NOT NULL "
+                f"AND {parsed} BETWEEN TIMESTAMP '1677-09-21 00:12:43.145225' "
+                f"AND TIMESTAMP '2262-04-11 23:47:16.854775') AS {_q(f'valid_{index}')}"
             )
         pairs: list[tuple[int, int]] = []
         for left in range(len(candidates)):
@@ -898,20 +1141,8 @@ class DiskDataset:
                     f"SELECT {_q(raw)} FROM source_data WHERE {_q(raw)} IS NOT NULL ORDER BY _row_ordinal LIMIT 100"
                 ).fetchall()]
 
-        stats: dict[str, dict[str, int]] = {}
-        # DuckDB keeps aggregate state for every projected column. Small
-        # batches avoid exhausting the fixed 64 MB connection cap on wide
-        # uploads while retaining SQL's exact full-column consensus checks.
-        stats_batch_size = 4
-        for start in range(0, len(self._raw_columns), stats_batch_size):
-            selected = self._raw_columns[start:start + stats_batch_size]
-            projections, slots = self._stats_projection(selected)
-            raw_result = self._connection.execute(
-                f"SELECT {', '.join(projections)} FROM source_data"
-            ).fetchone()
-            for offset, (raw, name) in enumerate(slots):
-                stats.setdefault(raw, {})[name] = int(raw_result[offset] or 0)
-        self.row_count = int(self._connection.execute("SELECT COUNT(*) FROM source_data").fetchone()[0])
+        # Loading already established row_count; do not scan the source again.
+        stats = self._collect_column_statistics()
 
         renamed_count = sum(a != b for a, b in zip(self.parsed_headers, self.columns))
         if renamed_count:

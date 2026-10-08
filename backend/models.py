@@ -207,13 +207,22 @@ class QueryFilterPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     column: StrictStr = Field(min_length=1, max_length=256)
-    operator: FilterOperator
-    value: StrictStr | int | float | bool
+    operator: Optional[FilterOperator] = None
+    value: StrictStr | int | float | bool | None = None
+    values: Optional[list[StrictStr | int | float | bool | None]] = Field(default=None, min_length=1, max_length=50)
 
     @model_validator(mode="after")
     def validate_value(self):
-        if type(self.value) is float and not math.isfinite(self.value):
-            raise ValueError("The filter value must be finite.")
+        if self.values is not None:
+            if self.operator is not None or self.value is not None:
+                raise ValueError("Use either a membership filter or a scalar comparison.")
+            candidates = self.values
+        else:
+            if self.operator is None or self.value is None:
+                raise ValueError("A comparison requires an operator and non-null value.")
+            candidates = [self.value]
+        if any(type(value) is float and not math.isfinite(value) for value in candidates):
+            raise ValueError("Filter values must be finite.")
         return self
 
 

@@ -20,7 +20,7 @@ from modules.intelligence import detect_semantic_type
 from services.csv_ingestion import ingest_csv, _config_integer, _source_size
 from services.response_builders import get_column_summary
 from utils.dataframe_utils import read_csv_fast
-from utils.source_files import retain_source
+from utils.source_files import StagedSource, retain_source
 
 MAX_STAGED_IMPORTS = 4
 MAX_STAGED_BYTES = 512 * 1024 * 1024
@@ -41,6 +41,11 @@ class StagedImport:
     busy: bool = False
     removed: bool = False
     preview_valid: bool = False
+
+    @property
+    def source_snapshot(self) -> StagedSource:
+        """Explicit reuse capability; ordinary paths never opt into linking."""
+        return StagedSource(self.owner, self.path, self.size)
 
 
 _imports: dict[str, StagedImport] = {}
@@ -197,7 +202,8 @@ def confirm_import(import_id, settings=None, column_overrides=None, *, ai_column
         if not item.preview_valid or (settings is not None and settings != item.settings):
             raise HTTPException(409, "Refresh the preview with these settings before confirming.")
         response = ingest_csv(item.path, item.filename, "/imports/confirm", import_settings=item.settings,
-                              column_overrides=column_overrides or [], ai_column_analysis=ai_column_analysis)
+                              column_overrides=column_overrides or [], ai_column_analysis=ai_column_analysis,
+                              staged_source=item.source_snapshot)
         item.removed = True
         return response
     except CSVStructureError as error:

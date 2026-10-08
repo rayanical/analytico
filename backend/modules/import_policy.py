@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import math
+import os
 import re
 import unicodedata
 from contextlib import contextmanager
@@ -134,6 +135,38 @@ def _coerce_settings(settings: Optional[ImportSettings]) -> ImportSettings:
     return ImportSettings.model_validate(settings)
 
 
+def native_csv_validation_enabled() -> bool:
+    """Return whether the opt-in native structural-validation experiment is on."""
+    value = os.getenv("ANALYTICO_NATIVE_VALIDATION", "0").strip()
+    if value not in {"0", "1"}:
+        raise RuntimeError("ANALYTICO_NATIVE_VALIDATION must be 0 or 1.")
+    return value == "1"
+
+
+def native_csv_validation_supported(settings: Optional[ImportSettings] = None) -> bool:
+    """Identify settings whose syntax the strict UTF-8 native reader can validate."""
+    policy = _coerce_settings(settings)
+    return policy.encoding in {"utf-8", "utf-8-sig"} and all(
+        "\x00" not in token for token in policy.null_values
+    )
+
+
+def validate_csv_headers(
+    headers: list[str], *, max_columns: int = 256, max_header_bytes: int = MAX_HEADER_BYTES,
+) -> None:
+    """Apply the stable header constraints shared by both validation paths."""
+    if not headers:
+        raise CSVStructureError("CSV header has no columns.", row_number=1)
+    if len(headers) > max_columns:
+        raise CSVStructureError(f"CSV exceeds the {max_columns}-column limit.", row_number=1,
+                                limit_exceeded=True)
+    if any(len(header.encode("utf-8")) > max_header_bytes for header in headers):
+        raise CSVStructureError(f"CSV header names exceed the {max_header_bytes}-byte limit.",
+                                row_number=1, limit_exceeded=True)
+    if any("\x00" in header for header in headers):
+        raise CSVStructureError("CSV contains a NUL byte in the header.", row_number=1)
+
+
 def reader_options(settings: Optional[ImportSettings] = None) -> dict:
     """Return pandas reader kwargs that preserve source lexemes and configured nulls."""
     policy = _coerce_settings(settings)
@@ -250,17 +283,10 @@ def validate_csv_structure(
         except UnicodeError as error:
             raise CSVStructureError(f"CSV encoding could not be decoded as {policy.encoding}.") from error
 
+        validate_csv_headers(
+            headers, max_columns=max_columns, max_header_bytes=max_header_bytes,
+        )
         width = len(headers)
-        if width == 0:
-            raise CSVStructureError("CSV header has no columns.", row_number=1)
-        if width > max_columns:
-            raise CSVStructureError(f"CSV exceeds the {max_columns}-column limit.", row_number=1,
-                                    limit_exceeded=True)
-        if any(len(header.encode("utf-8")) > max_header_bytes for header in headers):
-            raise CSVStructureError(f"CSV header names exceed the {max_header_bytes}-byte limit.",
-                                    row_number=1, limit_exceeded=True)
-        if any("\x00" in header for header in headers):
-            raise CSVStructureError("CSV contains a NUL byte in the header.", row_number=1)
 
         try:
             for row in reader:

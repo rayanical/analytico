@@ -1,0 +1,415 @@
+{
+  "date": "2026-10-06",
+  "model": "gpt-6-luna",
+  "threshold": 0.85,
+  "repeats": 3,
+  "distinct_columns": 98,
+  "scored_roles_per_arm": 294,
+  "promoted": false,
+  "default_context": "original",
+  "summary": {
+    "original": {
+      "calls": 24,
+      "evaluated": 294,
+      "correct": 288,
+      "accuracy_including_unknowns": 0.9795918367346939,
+      "unknown": 6,
+      "wrong": 0,
+      "failed_calls": 0,
+      "median_classifier_seconds": 0.2163727085571736,
+      "median_role_ready_after_local_seconds": 0.22542454209178686,
+      "median_input_tokens": 4111.5
+    },
+    "local_context": {
+      "calls": 24,
+      "evaluated": 294,
+      "correct": 273,
+      "accuracy_including_unknowns": 0.9285714285714286,
+      "unknown": 21,
+      "wrong": 0,
+      "failed_calls": 0,
+      "median_classifier_seconds": 0.24331531242933124,
+      "median_role_ready_after_local_seconds": 0.2464983124518767,
+      "median_input_tokens": 6863.5
+    },
+    "local_context_summary": {
+      "calls": 24,
+      "evaluated": 294,
+      "correct": 277,
+      "accuracy_including_unknowns": 0.9421768707482994,
+      "unknown": 17,
+      "wrong": 0,
+      "failed_calls": 1,
+      "median_classifier_seconds": 0.22716735443100333,
+      "median_role_ready_after_local_seconds": 1.5465890410123393,
+      "median_input_tokens": 6032
+    }
+  },
+  "manifest_hashes": {
+    "fresh_accuracy_gold_sha256": "7d52429b8b5c3e1d9517ed03ce292ec34600dd1ca26a8be659064d51420f2b60",
+    "real_dataset_manifest_sha256": "7facc20f3b400632919e0941125b6af7d36af32d3aa5811a25ff9818b36bd29a"
+  },
+  "datasets": [
+    {
+      "dataset": "bike",
+      "rows": 17379,
+      "columns": 17,
+      "source_sha256": "e03de4ee4ef4dc376ac6e04bf829673c6269e8eba5c60fa121640fa2f829504f",
+      "integrity": {
+        "source_unchanged": true,
+        "snapshot_unchanged": true,
+        "original_schema_unchanged": true
+      },
+      "arms": {
+        "original": {
+          "correct": 51,
+          "evaluated": 51,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.2669397920835763
+        },
+        "local_context": {
+          "correct": 42,
+          "evaluated": 51,
+          "unknown": 9,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.29817987489514053
+        },
+        "local_context_summary": {
+          "correct": 44,
+          "evaluated": 51,
+          "unknown": 7,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 1.5576530820690095
+        }
+      }
+    },
+    {
+      "dataset": "bank",
+      "rows": 45211,
+      "columns": 17,
+      "source_sha256": "d1513ec63b385506f7cfce9f2c5caa9fe99e7ba4e8c3fa264b3aaf0f849ed32d",
+      "integrity": {
+        "source_unchanged": true,
+        "snapshot_unchanged": true,
+        "original_schema_unchanged": true
+      },
+      "arms": {
+        "original": {
+          "correct": 48,
+          "evaluated": 51,
+          "unknown": 3,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.23132291715592146
+        },
+        "local_context": {
+          "correct": 45,
+          "evaluated": 51,
+          "unknown": 6,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.6484762497711927
+        },
+        "local_context_summary": {
+          "correct": 45,
+          "evaluated": 51,
+          "unknown": 6,
+          "wrong": 0,
+          "failed_calls": 1,
+          "median_role_ready_seconds": 1.797960041789338
+        }
+      }
+    },
+    {
+      "dataset": "retail",
+      "rows": 541909,
+      "columns": 8,
+      "source_sha256": "50e9f56b0ee4bd0662a397c68295f48945972135f57322cd5208f4f809eb67ac",
+      "integrity": {
+        "source_unchanged": true,
+        "snapshot_unchanged": true,
+        "original_schema_unchanged": true
+      },
+      "arms": {
+        "original": {
+          "correct": 24,
+          "evaluated": 24,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.18605875014327466
+        },
+        "local_context": {
+          "correct": 24,
+          "evaluated": 24,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.21845454070717096
+        },
+        "local_context_summary": {
+          "correct": 24,
+          "evaluated": 24,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 1.406644876115024
+        }
+      }
+    },
+    {
+      "dataset": "taxi",
+      "rows": 1068755,
+      "columns": 20,
+      "source_sha256": "b217661724e4d6270063d1eb460dca49aef1187383d6ce30025405d7bb4945c1",
+      "integrity": {
+        "source_unchanged": true,
+        "snapshot_unchanged": true,
+        "original_schema_unchanged": true
+      },
+      "arms": {
+        "original": {
+          "correct": 57,
+          "evaluated": 60,
+          "unknown": 3,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.23965045786462724
+        },
+        "local_context": {
+          "correct": 57,
+          "evaluated": 60,
+          "unknown": 3,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.2518618330359459
+        },
+        "local_context_summary": {
+          "correct": 57,
+          "evaluated": 60,
+          "unknown": 3,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 1.7310846669133753
+        }
+      }
+    },
+    {
+      "dataset": "wine",
+      "rows": 4898,
+      "columns": 12,
+      "source_sha256": "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836",
+      "integrity": {
+        "source_unchanged": true,
+        "snapshot_unchanged": true,
+        "original_schema_unchanged": true
+      },
+      "arms": {
+        "original": {
+          "correct": 36,
+          "evaluated": 36,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.2086365839932114
+        },
+        "local_context": {
+          "correct": 36,
+          "evaluated": 36,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.2052420841064304
+        },
+        "local_context_summary": {
+          "correct": 35,
+          "evaluated": 36,
+          "unknown": 1,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 1.533584623830393
+        }
+      }
+    },
+    {
+      "dataset": "diamonds",
+      "rows": 53940,
+      "columns": 10,
+      "source_sha256": "9574730b03aba241d899c4a97511c5061b19358fab89510774fb6c24168345c4",
+      "integrity": {
+        "source_unchanged": true,
+        "snapshot_unchanged": true,
+        "original_schema_unchanged": true
+      },
+      "arms": {
+        "original": {
+          "correct": 30,
+          "evaluated": 30,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.20846720901317894
+        },
+        "local_context": {
+          "correct": 30,
+          "evaluated": 30,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.19584454223513603
+        },
+        "local_context_summary": {
+          "correct": 30,
+          "evaluated": 30,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 1.6783581657800823
+        }
+      }
+    },
+    {
+      "dataset": "penguins",
+      "rows": 344,
+      "columns": 7,
+      "source_sha256": "e07636bd8af74260099ea2f8678e2eabbf35def579940cc76f67061ee16c06c1",
+      "integrity": {
+        "source_unchanged": true,
+        "snapshot_unchanged": true,
+        "original_schema_unchanged": true
+      },
+      "arms": {
+        "original": {
+          "correct": 21,
+          "evaluated": 21,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.2301178330089897
+        },
+        "local_context": {
+          "correct": 21,
+          "evaluated": 21,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.2555734170600772
+        },
+        "local_context_summary": {
+          "correct": 21,
+          "evaluated": 21,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 1.3717465829104185
+        }
+      }
+    },
+    {
+      "dataset": "tips",
+      "rows": 244,
+      "columns": 7,
+      "source_sha256": "e54cc4d2ce1bff65d32ca60b3e4b802e06bde1d7e7caf6f796f6bf7370e863b0",
+      "integrity": {
+        "source_unchanged": true,
+        "snapshot_unchanged": true,
+        "original_schema_unchanged": true
+      },
+      "arms": {
+        "original": {
+          "correct": 21,
+          "evaluated": 21,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.1902472919318825
+        },
+        "local_context": {
+          "correct": 18,
+          "evaluated": 21,
+          "unknown": 3,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 0.20804520789533854
+        },
+        "local_context_summary": {
+          "correct": 21,
+          "evaluated": 21,
+          "unknown": 0,
+          "wrong": 0,
+          "failed_calls": 0,
+          "median_role_ready_seconds": 1.6072655841708183
+        }
+      }
+    }
+  ],
+  "live_integration": {
+    "local_ready_seconds": 0.30720995902083814,
+    "roles_available_seconds": 1.9904872498009354,
+    "labels_available_seconds": 3.6254905418027192,
+    "completion_seconds": 3.6255031668115407,
+    "status": "done",
+    "physical_version_unchanged": true,
+    "roles": {
+      "instant": "identifier",
+      "dteday": "temporal",
+      "season": "categorical",
+      "yr": "categorical",
+      "mnth": "unknown",
+      "hr": "temporal",
+      "holiday": "categorical",
+      "weekday": "categorical",
+      "workingday": "categorical",
+      "weathersit": "categorical",
+      "temp": "metric",
+      "atemp": "metric",
+      "hum": "metric",
+      "windspeed": "metric",
+      "casual": "metric",
+      "registered": "metric",
+      "cnt": "metric"
+    },
+    "labels": {
+      "instant": "Instant",
+      "dteday": "Date",
+      "season": "Season",
+      "yr": "Year",
+      "mnth": "Month",
+      "hr": "Hour",
+      "holiday": "Holiday",
+      "weekday": "Weekday",
+      "workingday": "Working Day",
+      "weathersit": "Weather Situation",
+      "temp": "Temperature",
+      "hum": "Humidity",
+      "windspeed": "Wind Speed",
+      "registered": "Registered"
+    },
+    "coverage": {
+      "total_columns": 17,
+      "selected_columns": 17,
+      "completed_columns": 17,
+      "failed_columns": 0,
+      "skipped_columns": 0,
+      "complete": true,
+      "stop_reason": null
+    },
+    "prompt_versions": [
+      "schema-decisions-context-v2"
+    ],
+    "decision_thresholds": [
+      0.85
+    ]
+  },
+  "scope": "72 live role calls and 24 live descriptions; eight full real datasets; randomized paired arms; fixed .85 threshold; no gold in model input; roles applied to isolated clones with production guards. Unknown counts as miss. 98 unique columns repeated3times, not294 independentexamples. Role-ready timing starts afterlocalpreparation, excludes transfer/render/polling; summary wait included for summaryarm. No tuning/promotion fromsamefixtures. One summary-arm roleproviderfailure retained in scores; originalrolespreserved.",
+  "raw_artifact": "/private/tmp/analytico-decisions-context-2026-10-06.json",
+  "checks": {
+    "backend_tests": 271,
+    "targeted_role_and_scheduler_checks": 20,
+    "diff_check": true
+  }
+}

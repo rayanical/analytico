@@ -471,14 +471,14 @@ class CsvDiskIntegrationTests(unittest.TestCase):
             self.assertEqual(sum(row["amount"] for row in charts[1]["data"]), 70)
             self.assertEqual(charts[0]["data"], charts[1]["data"])
 
-    def test_auto_engine_uses_pandas_for_small_and_disk_for_large_sources(self):
+    def test_auto_engine_uses_disk_for_every_source_size(self):
         with patch.dict(os.environ, {"ANALYTICO_DISK_THRESHOLD_BYTES": "100"}):
             small = self.upload("segment,amount\nA,1\n", "auto")
             large_contents = "segment,amount\n" + "".join("A,1\n" for _ in range(100))
             large = self.upload(large_contents, "auto")
 
-        self.assertFalse(hasattr(DATASETS[small["dataset_id"]], "disk"))
-        self.assertTrue(hasattr(DATASETS[small["dataset_id"]], "df"))
+        self.assertTrue(hasattr(DATASETS[small["dataset_id"]], "disk"))
+        self.assertFalse(hasattr(DATASETS[small["dataset_id"]], "df"))
         self.assertTrue(hasattr(DATASETS[large["dataset_id"]], "disk"))
         self.assertFalse(hasattr(DATASETS[large["dataset_id"]], "df"))
 

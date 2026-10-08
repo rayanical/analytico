@@ -1,0 +1,431 @@
+{
+  "date": "2026-10-07",
+  "default_engine": "auto resolves DuckDB at all CSV sizes; imports preloaded at FastAPI startup",
+  "compatibility": "Explicit pandas comparison mode and bounded fallback reader remain for differing CSV/encoding semantics. Strict quoted CSV validation is retained and overlaps native loading. Empty datasets reject before AI starts. Full-column date checks preserve values outside datetime64[ns] range as text.",
+  "scope": "Warm imports/engine; stage preview -> confirm/store -> first default-chart aggregation. Excludes HTTP transfer/serialization, browser rendering and verification.",
+  "resources": {
+    "duckdb_threads": 4,
+    "duckdb_memory_limit": "64MB",
+    "engine_selection": "auto; each worker asserts DuckDB resolved"
+  },
+  "phase_note": "Phase intervals can nest or overlap. Use executor start/end events for overlap; never sum phase durations as wall time.",
+  "backend_tests_passed": 308,
+  "offline_full_source_matches": 24,
+  "offline_runs": 24,
+  "live_full_source_value_matches": 6,
+  "live_runs": 6,
+  "live_gold_chart_matches": 6,
+  "gold_query_scope": "Two explicit chart questions, each repeated three times; plans and grouped values checked against an independent streaming csv/Decimal oracle. This does not score every AI column role or establish universal answer accuracy.",
+  "offline": [
+    {
+      "dataset": "bike",
+      "bytes": 1156736,
+      "runs": 3,
+      "successes": 3,
+      "verification_successes": 3,
+      "median_stage_preview_seconds": 0.06371179199777544,
+      "median_confirm_seconds": 0.22580779087729752,
+      "median_default_chart_seconds": 0.0019907078240066767,
+      "median_stage_to_chart_seconds": 0.291563207982108,
+      "median_engine_preload_seconds": 0.11136420792900026,
+      "median_ingestion_peak_mib": 200.5625,
+      "source_matches_gold": 3,
+      "rows_match_gold": 3,
+      "exact_previous_fingerprint_matches": 3,
+      "default_chart_hashes_identical": true,
+      "upload_metadata_hashes_identical": true,
+      "phase_medians_seconds_non_additive": {
+        "disk/chart_metadata": 0.0012168330140411854,
+        "disk/column_profiles": 0.012724207947030663,
+        "disk/column_validation_and_type_plan": 0.15432020789012313,
+        "disk/csv_load": 0.03632508288137615,
+        "disk/engine_setup": 0.005365791963413358,
+        "disk/source_copy": 0.000341000035405159,
+        "disk/structure_validation": 0.03089529206044972,
+        "disk/structure_validation_wait": 3.4158583730459213e-06,
+        "disk/typed_materialization": 0.011788540985435247,
+        "disk_ingestion": 0.22318262490443885,
+        "response_and_storage": 6.345892325043678e-05
+      },
+      "median_validator_load_overlap_seconds": 0.02371783391572535
+    },
+    {
+      "dataset": "bank",
+      "bytes": 4610348,
+      "runs": 3,
+      "successes": 3,
+      "verification_successes": 3,
+      "median_stage_preview_seconds": 0.0932628340087831,
+      "median_confirm_seconds": 0.6033403330948204,
+      "median_default_chart_seconds": 0.0029099578969180584,
+      "median_stage_to_chart_seconds": 0.6993173328228295,
+      "median_engine_preload_seconds": 0.10694908304139972,
+      "median_ingestion_peak_mib": 214.0,
+      "source_matches_gold": 3,
+      "rows_match_gold": 3,
+      "exact_previous_fingerprint_matches": 3,
+      "default_chart_hashes_identical": true,
+      "upload_metadata_hashes_identical": true,
+      "phase_medians_seconds_non_additive": {
+        "disk/chart_metadata": 0.0008459580130875111,
+        "disk/column_profiles": 0.0239205420948565,
+        "disk/column_validation_and_type_plan": 0.4257868330460042,
+        "disk/csv_load": 0.09564862516708672,
+        "disk/engine_setup": 0.006299000000581145,
+        "disk/source_copy": 0.0003336251247674227,
+        "disk/structure_validation": 0.094833750044927,
+        "disk/structure_validation_wait": 3.6668498069047928e-06,
+        "disk/typed_materialization": 0.0475918750744313,
+        "disk_ingestion": 0.6007397910580039,
+        "response_and_storage": 6.237509660422802e-05
+      },
+      "median_validator_load_overlap_seconds": 0.08114170795306563
+    },
+    {
+      "dataset": "retail",
+      "bytes": 47758972,
+      "runs": 3,
+      "successes": 3,
+      "verification_successes": 3,
+      "median_stage_preview_seconds": 0.09699370781891048,
+      "median_confirm_seconds": 1.940506833139807,
+      "median_default_chart_seconds": 0.007240583887323737,
+      "median_stage_to_chart_seconds": 1.9991628748830408,
+      "median_engine_preload_seconds": 0.10979212494567037,
+      "median_ingestion_peak_mib": 296.59375,
+      "source_matches_gold": 3,
+      "rows_match_gold": 3,
+      "exact_previous_fingerprint_matches": 3,
+      "default_chart_hashes_identical": true,
+      "upload_metadata_hashes_identical": true,
+      "phase_medians_seconds_non_additive": {
+        "disk/chart_metadata": 0.0031776251271367073,
+        "disk/column_profiles": 0.03960737492889166,
+        "disk/column_validation_and_type_plan": 0.7778416250366718,
+        "disk/csv_load": 0.7412967919372022,
+        "disk/engine_setup": 0.00540887494571507,
+        "disk/source_copy": 0.00034258305095136166,
+        "disk/structure_validation": 0.758545583114028,
+        "disk/structure_validation_wait": 0.007658916991204023,
+        "disk/typed_materialization": 0.3661608330439776,
+        "disk_ingestion": 1.93786674994044,
+        "response_and_storage": 6.866687908768654e-05
+      },
+      "median_validator_load_overlap_seconds": 0.7412857920862734
+    },
+    {
+      "dataset": "taxi",
+      "bytes": 139634545,
+      "runs": 3,
+      "successes": 3,
+      "verification_successes": 3,
+      "median_stage_preview_seconds": 0.25234833313152194,
+      "median_confirm_seconds": 8.349423917010427,
+      "median_default_chart_seconds": 0.019452041015028954,
+      "median_stage_to_chart_seconds": 8.81963983294554,
+      "median_engine_preload_seconds": 0.11088108294643462,
+      "median_ingestion_peak_mib": 345.53125,
+      "source_matches_gold": 3,
+      "rows_match_gold": 3,
+      "exact_previous_fingerprint_matches": 3,
+      "default_chart_hashes_identical": true,
+      "upload_metadata_hashes_identical": false,
+      "phase_medians_seconds_non_additive": {
+        "disk/chart_metadata": 0.008679624879732728,
+        "disk/column_profiles": 0.20689970813691616,
+        "disk/column_validation_and_type_plan": 3.3498805831186473,
+        "disk/csv_load": 3.5073340837843716,
+        "disk/engine_setup": 0.005574624985456467,
+        "disk/source_copy": 0.00035533285699784756,
+        "disk/structure_validation": 2.3680859990417957,
+        "disk/structure_validation_wait": 6.709014996886253e-06,
+        "disk/typed_materialization": 1.3045642080251127,
+        "disk_ingestion": 8.345419374993071,
+        "response_and_storage": 9.120814502239227e-05
+      },
+      "median_validator_load_overlap_seconds": 2.3613026251550764
+    },
+    {
+      "dataset": "wine",
+      "bytes": 264426,
+      "runs": 3,
+      "successes": 3,
+      "verification_successes": 3,
+      "median_stage_preview_seconds": 0.037224499974399805,
+      "median_confirm_seconds": 0.08383562508970499,
+      "median_default_chart_seconds": 0.0012396671809256077,
+      "median_stage_to_chart_seconds": 0.12159270909614861,
+      "median_engine_preload_seconds": 0.10799733316525817,
+      "median_ingestion_peak_mib": 182.234375,
+      "source_matches_gold": 3,
+      "rows_match_gold": 3,
+      "exact_previous_fingerprint_matches": 3,
+      "default_chart_hashes_identical": true,
+      "upload_metadata_hashes_identical": true,
+      "phase_medians_seconds_non_additive": {
+        "disk/chart_metadata": 0.0007104589603841305,
+        "disk/column_profiles": 0.007360916817560792,
+        "disk/column_validation_and_type_plan": 0.051297208992764354,
+        "disk/csv_load": 0.009723542025312781,
+        "disk/engine_setup": 0.0049142499919980764,
+        "disk/source_copy": 0.00033204187639057636,
+        "disk/structure_validation": 0.008597875013947487,
+        "disk/structure_validation_wait": 3.1248200684785843e-06,
+        "disk/typed_materialization": 0.00364929111674428,
+        "disk_ingestion": 0.08134041703306139,
+        "response_and_storage": 6.154202856123447e-05
+      },
+      "median_validator_load_overlap_seconds": 0.0
+    },
+    {
+      "dataset": "diamonds",
+      "bytes": 2772143,
+      "runs": 3,
+      "successes": 3,
+      "verification_successes": 3,
+      "median_stage_preview_seconds": 0.04939645784907043,
+      "median_confirm_seconds": 0.4494272500742227,
+      "median_default_chart_seconds": 0.0032110409811139107,
+      "median_stage_to_chart_seconds": 0.5020860829390585,
+      "median_engine_preload_seconds": 0.11126720905303955,
+      "median_ingestion_peak_mib": 199.0625,
+      "source_matches_gold": 3,
+      "rows_match_gold": 3,
+      "exact_previous_fingerprint_matches": 3,
+      "default_chart_hashes_identical": true,
+      "upload_metadata_hashes_identical": true,
+      "phase_medians_seconds_non_additive": {
+        "disk/chart_metadata": 0.002064584055915475,
+        "disk/column_profiles": 0.01984891714528203,
+        "disk/column_validation_and_type_plan": 0.31760545913130045,
+        "disk/csv_load": 0.06549916602671146,
+        "disk/engine_setup": 0.005158707965165377,
+        "disk/source_copy": 0.000337416073307395,
+        "disk/structure_validation": 0.07001704094000161,
+        "disk/structure_validation_wait": 3.582797944545746e-06,
+        "disk/typed_materialization": 0.03199504199437797,
+        "disk_ingestion": 0.4468125409912318,
+        "response_and_storage": 6.0999998822808266e-05
+      },
+      "median_validator_load_overlap_seconds": 0.05514820804819465
+    },
+    {
+      "dataset": "penguins",
+      "bytes": 13478,
+      "runs": 3,
+      "successes": 3,
+      "verification_successes": 3,
+      "median_stage_preview_seconds": 0.02715812507085502,
+      "median_confirm_seconds": 0.03780387504957616,
+      "median_default_chart_seconds": 0.0012129161041229963,
+      "median_stage_to_chart_seconds": 0.0664752081502229,
+      "median_engine_preload_seconds": 0.10872300015762448,
+      "median_ingestion_peak_mib": 174.578125,
+      "source_matches_gold": 3,
+      "rows_match_gold": 3,
+      "exact_previous_fingerprint_matches": 3,
+      "default_chart_hashes_identical": true,
+      "upload_metadata_hashes_identical": true,
+      "phase_medians_seconds_non_additive": {
+        "disk/chart_metadata": 0.000492708059027791,
+        "disk/column_profiles": 0.0032650420907884836,
+        "disk/column_validation_and_type_plan": 0.021843000082299113,
+        "disk/csv_load": 0.003207417204976082,
+        "disk/engine_setup": 0.004641833016648889,
+        "disk/source_copy": 0.0003289158921688795,
+        "disk/structure_validation": 0.0009783750865608454,
+        "disk/structure_validation_wait": 3.5420525819063187e-06,
+        "disk/typed_materialization": 0.0006262080278247595,
+        "disk_ingestion": 0.03546212497167289,
+        "response_and_storage": 5.433289334177971e-05
+      },
+      "median_validator_load_overlap_seconds": 0.0
+    },
+    {
+      "dataset": "tips",
+      "bytes": 9729,
+      "runs": 3,
+      "successes": 3,
+      "verification_successes": 3,
+      "median_stage_preview_seconds": 0.03177741589024663,
+      "median_confirm_seconds": 0.04141741688363254,
+      "median_default_chart_seconds": 0.001215792028233409,
+      "median_stage_to_chart_seconds": 0.07445666706189513,
+      "median_engine_preload_seconds": 0.11012283293530345,
+      "median_ingestion_peak_mib": 169.453125,
+      "source_matches_gold": 3,
+      "rows_match_gold": 3,
+      "exact_previous_fingerprint_matches": 3,
+      "default_chart_hashes_identical": true,
+      "upload_metadata_hashes_identical": true,
+      "phase_medians_seconds_non_additive": {
+        "disk/chart_metadata": 0.00036683306097984314,
+        "disk/column_profiles": 0.003459624946117401,
+        "disk/column_validation_and_type_plan": 0.025578832952305675,
+        "disk/csv_load": 0.003208291018381715,
+        "disk/engine_setup": 0.004736416973173618,
+        "disk/source_copy": 0.00033108307980000973,
+        "disk/structure_validation": 0.0008285839576274157,
+        "disk/structure_validation_wait": 3.7080608308315277e-06,
+        "disk/typed_materialization": 0.000671125017106533,
+        "disk_ingestion": 0.039017500123009086,
+        "response_and_storage": 5.595805123448372e-05
+      },
+      "median_validator_load_overlap_seconds": 0.0
+    }
+  ],
+  "live_gpt_6_luna": [
+    {
+      "dataset": "retail",
+      "runs": 3,
+      "successes": 3,
+      "verification_successes": 3,
+      "physical_values_reference_matches": 3,
+      "median_stage_preview_seconds": 0.0741061249282211,
+      "median_confirm_seconds": 2.0333134590182453,
+      "median_default_chart_seconds": 0.014557582791894674,
+      "median_stage_to_chart_seconds": 2.143681125016883,
+      "median_enrichment_done_seconds": 5.915212665917352,
+      "median_nl_query_seconds": 1.3540706250350922,
+      "median_chart_analysis_seconds": 2.375597625039518,
+      "nl_query_gold_plan_matches": 3,
+      "nl_query_gold_value_matches": 3,
+      "enrichment_successes": 3,
+      "chart_analysis_successes": 3,
+      "ai_component_medians_seconds": {
+        "ai_chart_analysis": 2.3730953328777105,
+        "ai_decisions": 0.24115191702730954,
+        "ai_labels": 5.1069556248839945,
+        "ai_query_planner": 1.337438833899796,
+        "ai_summary": 1.6721090411301702
+      },
+      "median_query_sql_seconds": 0.0073973750695586205,
+      "median_all_enrichment_seconds_from_start": 5.989318790845573,
+      "role_proposal_ready_seconds_from_start": [
+        2.628104208037257,
+        2.2658581249415874,
+        2.3772740000858903
+      ],
+      "query_latency_range_seconds": [
+        1.348530416144058,
+        8.813016625121236
+      ],
+      "first_chart_latency_range_seconds": [
+        2.042467375053093,
+        2.1529014999978244
+      ],
+      "label_latency_range_seconds": [
+        1.962535958038643,
+        11.001097042113543
+      ]
+    },
+    {
+      "dataset": "taxi",
+      "runs": 3,
+      "successes": 3,
+      "verification_successes": 3,
+      "physical_values_reference_matches": 3,
+      "median_stage_preview_seconds": 2.131558542139828,
+      "median_confirm_seconds": 8.562451750040054,
+      "median_default_chart_seconds": 0.05036091688089073,
+      "median_stage_to_chart_seconds": 10.604113999987021,
+      "median_enrichment_done_seconds": 9.119415916968137,
+      "median_nl_query_seconds": 1.5611627090256661,
+      "median_chart_analysis_seconds": 1.8860055410768837,
+      "nl_query_gold_plan_matches": 3,
+      "nl_query_gold_value_matches": 3,
+      "enrichment_successes": 3,
+      "chart_analysis_successes": 3,
+      "ai_component_medians_seconds": {
+        "ai_chart_analysis": 1.8847833338659257,
+        "ai_decisions": 0.2628463751170784,
+        "ai_labels": 5.124644916970283,
+        "ai_query_planner": 1.5389183750376105,
+        "ai_summary": 1.7032813339028507
+      },
+      "median_query_sql_seconds": 0.010359958047047257,
+      "median_all_enrichment_seconds_from_start": 10.951103916857392,
+      "role_proposal_ready_seconds_from_start": [
+        10.949095041956753,
+        10.987448041094467,
+        9.228208082960919
+      ],
+      "query_latency_range_seconds": [
+        1.1931690000928938,
+        1.829717957880348
+      ],
+      "first_chart_latency_range_seconds": [
+        9.019411040935665,
+        10.744410292012617
+      ],
+      "label_latency_range_seconds": [
+        4.744414624990895,
+        6.300039249937981
+      ]
+    }
+  ],
+  "prior_small_file_first_upload_engine_comparison_seconds": {
+    "bike": {
+      "pandas": 0.3815941670909524,
+      "disk": 0.6158597499597818,
+      "disk_preloaded": 0.31069416692480445
+    },
+    "bank": {
+      "pandas": 1.0317692500539124,
+      "disk": 1.1297292921226472,
+      "disk_preloaded": 0.7495683750603348
+    },
+    "wine": {
+      "pandas": 0.11974362493492663,
+      "disk": 0.4241597920190543,
+      "disk_preloaded": 0.11767116677947342
+    },
+    "diamonds": {
+      "pandas": 0.6358335418626666,
+      "disk": 0.8669162909500301,
+      "disk_preloaded": 0.5646640828344971
+    },
+    "penguins": {
+      "pandas": 0.08481358294375241,
+      "disk": 0.3803017910104245,
+      "disk_preloaded": 0.07252445793710649
+    },
+    "tips": {
+      "pandas": 0.09836520813405514,
+      "disk": 0.38891937490552664,
+      "disk_preloaded": 0.07900120806880295
+    }
+  },
+  "small_file_memory_tradeoff": "Prior comparison: DuckDB added roughly 64\u201381 MiB process RSS versus pandas. The 64 MB engine budget is not a whole-process RSS cap.",
+  "profile_reproducibility_diagnostic": {
+    "diagnostic_only": true,
+    "differences": [
+      {
+        "path": "profile.top_metrics.1.average",
+        "type": "numeric",
+        "absolute_difference": 8.810729923425242e-13,
+        "relative_difference": 5.970607855196467e-15,
+        "within_tolerance": true
+      },
+      {
+        "path": "profile.top_metrics.1.total",
+        "type": "numeric",
+        "absolute_difference": 9.238719940185547e-07,
+        "relative_difference": 5.857877719749139e-15,
+        "within_tolerance": true
+      }
+    ]
+  },
+  "verification_budget": "Full-source verification runs after measured readiness/RSS/AI/query/analysis, with one thread and 1GB query budget. The measured application remains four threads and 64MB.",
+  "raw_batches": {
+    "offline": "/private/tmp/analytico-unified-pipeline-final-2026-10-07",
+    "live": "/private/tmp/analytico-unified-pipeline-live-public-2026-10-07"
+  },
+  "excluded_batches": {
+    "/private/tmp/analytico-unified-pipeline-2026-10-07": "Exact verifier ran under production budget and failed on large files; excluded.",
+    "/private/tmp/analytico-unified-pipeline-live-2026-10-07": "Incorrect benchmark-only configured-key guard skipped all calls; excluded.",
+    "/private/tmp/analytico-unified-pipeline-live-final-2026-10-07": "Sandbox blocked provider access; excluded from live latency/accuracy.",
+    "/private/tmp/analytico-unified-pipeline-live-network-2026-10-07": "Approval rejected before execution; no provider calls. Retry authorized after verifying public fixture provenance."
+  },
+  "remaining_headroom": "Local cost is dominated by native raw-table loading and full-column statistics/type validation. Meaningful further gains require fewer scans/materializations or a measured memory-budget change; more threads and removing the overlapped quote-aware validator are not proven general wins. Variable source staging and AI label/planner tail latency remain."
+}

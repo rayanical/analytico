@@ -17,7 +17,7 @@ from modules.schema_interpretation import apply_schema_roles
 from storage import DATASETS
 
 
-def result_for(snapshot):
+def result_for(snapshot, **options):
     return {'interpretation_proposals': {c['column']: {'status': 'ok', 'runtime_status': 'clarification',
         'decision': {'scope': 'role_only', 'role': 'metric', 'unit': 'unknown',
                      'recommended_aggregation': 'unknown', 'parsing_policy': 'preserve_source',
@@ -36,7 +36,7 @@ class AutomaticSchemaRoleTests(unittest.TestCase):
                     entered.set(); release.wait(2)
                     return result_for(snapshot)
                 try:
-                    with patch.dict(os.environ, {'OPENAI_API_KEY':'offline-test','COLUMN_INTERPRETER':'off',
+                    with patch.dict(os.environ, {'OPENAI_API_KEY':'offline-test','COLUMN_INTERPRETER':'off', 'COLUMN_ROLE_BACKEND':'responses',
                                                  'ANALYTICO_INGESTION_ENGINE':engine}), \
                          patch('services.enrichment_service.manager',manager), \
                          patch('services.ingestion_service._generate_business_summary',return_value=None), \
@@ -122,6 +122,61 @@ class AutomaticSchemaRoleTests(unittest.TestCase):
             self.assertTrue(all(p['label_runtime_status']=='clarification' for p in result['interpretation_proposals'].values()))
         finally:
             DATASETS.pop(response.dataset_id).close()
+
+    def test_decisions_roles_publish_while_independent_labels_are_pending(self):
+        for engine in ('pandas', 'disk'):
+            with self.subTest(engine=engine):
+                manager = EnrichmentManager(max_workers=1, max_pending=0, max_records=2)
+                labels_started = threading.Event()
+                labels_release = threading.Event()
+                response = None
+                def labels(snapshot):
+                    labels_started.set()
+                    labels_release.wait(3)
+                    return {'interpretation_proposals': {'observations': {'status': 'uncertain',
+                        'decision': {'scope': 'role_only', 'role': 'unknown',
+                            'evidence_strength': 'unknown', 'needs_clarification': True,
+                            'display_name': 'Observation count', 'label_evidence_strength': 'strong'}}},
+                        'coverage': {'complete': True}}
+                try:
+                    with patch.dict(os.environ, {'OPENAI_API_KEY': 'offline-test',
+                            'COLUMN_ROLE_BACKEND': 'decisions', 'COLUMN_INTERPRETER': 'off',
+                            'COLUMN_ROLE_CONTEXT': 'original',
+                            'ANALYTICO_INGESTION_ENGINE': engine}), \
+                         patch('services.enrichment_service.manager', manager), \
+                         patch('services.ingestion_service._generate_business_summary', return_value=None), \
+                         patch('modules.schema_decisions.analyze_schema_decisions', side_effect=result_for) as role_request, \
+                         patch('modules.schema_interpretation.analyze_schema_labels', side_effect=labels), \
+                         patch('modules.schema_interpretation.analyze_schema', side_effect=AssertionError('No legacy role request')):
+                        response = ingest_csv(io.BytesIO(b'group,observations,account_code\nA,3,001\nB,8,002\nA,4,003\n'),
+                            'roles.csv', '/test', ai_column_analysis=True)
+                        dataset = DATASETS[response.dataset_id]
+                        original = dataset.sample_frame(3).to_dict()
+                        version = dataset.cache_version
+                        self.assertTrue(labels_started.wait(1))
+                        deadline = time.monotonic() + 2
+                        while manager.get_status(dataset.id).get('column_roles', {}).get('observations') != 'metric':
+                            self.assertLess(time.monotonic(), deadline)
+                            time.sleep(.005)
+                        self.assertNotEqual(manager.get_status(dataset.id)['status'], 'done')
+                        self.assertEqual(dataset.column_types['observations'], 'metric')
+                        self.assertFalse(role_request.call_args.kwargs['enriched_context'])
+                        labels_release.set()
+                        while manager.get_status(dataset.id)['status'] != 'done':
+                            self.assertLess(time.monotonic(), deadline)
+                            time.sleep(.005)
+                        status = manager.get_status(dataset.id)
+                        self.assertEqual(status['column_roles']['observations'], 'metric')
+                        self.assertEqual(status['column_labels']['observations'], 'Observation count')
+                        self.assertEqual(status['interpretation_proposals']['observations']['decision']['role'], 'metric')
+                        self.assertEqual(dataset.column_types['account_code'], 'identifier')
+                        self.assertEqual(dataset.sample_frame(3).to_dict(), original)
+                        self.assertEqual(dataset.cache_version, version)
+                finally:
+                    labels_release.set()
+                    manager.shutdown()
+                    if response:
+                        DATASETS.pop(response.dataset_id).close()
 
     def test_stale_job_cannot_change_replaced_dataset(self):
         result={'interpretation_proposals':{}}

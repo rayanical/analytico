@@ -1,0 +1,588 @@
+{
+  "date": "2026-10-07",
+  "implementation": "Guarded statistics promoted in modules/disk_dataset.py",
+  "local_baseline": {
+    "scope": "Preloaded local stage-preview -> confirm -> default chart; excludes HTTP/browser/AI and verification.",
+    "ai_calls": 0,
+    "production_arm": "Current production implementation; baseline freezes pre-guard statistics",
+    "summary": [
+      {
+        "dataset": "bank",
+        "mode": "baseline",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 0.7920704158023,
+        "median_stage_preview_seconds": 0.1000107079744339,
+        "median_confirm_seconds": 0.6921775829978287,
+        "median_default_chart_seconds": 0.0030006670858711004,
+        "median_peak_mib": 212.75,
+        "median_database_and_spill_mib": 9.302301406860352,
+        "median_database_and_spill_allocated_mib": 9.3046875,
+        "phase_medians_non_additive": {
+          "source_copy": 0.00033900002017617226,
+          "structure_validation": 0.14509058301337063,
+          "engine_setup": 0.005571084097027779,
+          "csv_load": 0.10714400000870228,
+          "structure_validation_wait": 5.250098183751106e-06,
+          "column_validation_and_type_plan": 0.43990020803175867,
+          "typed_materialization": 0.04598820814862847,
+          "column_profiles": 0.024699874920770526,
+          "chart_metadata": 0.0008564169984310865
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 0.0
+      },
+      {
+        "dataset": "bank",
+        "mode": "production",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 0.7502167499624193,
+        "median_stage_preview_seconds": 0.10130837513133883,
+        "median_confirm_seconds": 0.64540662500076,
+        "median_default_chart_seconds": 0.002965708961710334,
+        "median_peak_mib": 216.453125,
+        "median_database_and_spill_mib": 9.302301406860352,
+        "median_database_and_spill_allocated_mib": 9.3046875,
+        "phase_medians_non_additive": {
+          "source_copy": 0.0003457919228821993,
+          "structure_validation": 0.09780770889483392,
+          "engine_setup": 0.005813499912619591,
+          "csv_load": 0.155478083062917,
+          "structure_validation_wait": 4.707835614681244e-06,
+          "column_validation_and_type_plan": 0.39979512500576675,
+          "typed_materialization": 0.045929166954010725,
+          "column_profiles": 0.024556332966312766,
+          "chart_metadata": 0.0008896659128367901
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 5.284083965879027,
+        "stage_to_chart_range_seconds": [
+          0.7452455000020564,
+          0.777660584077239
+        ]
+      },
+      {
+        "dataset": "bike",
+        "mode": "baseline",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 0.32545512495562434,
+        "median_stage_preview_seconds": 0.06431391695514321,
+        "median_confirm_seconds": 0.2558493330143392,
+        "median_default_chart_seconds": 0.0021127089858055115,
+        "median_peak_mib": 198.359375,
+        "median_database_and_spill_mib": 3.623541831970215,
+        "median_database_and_spill_allocated_mib": 3.625,
+        "phase_medians_non_additive": {
+          "source_copy": 0.0003442091401666403,
+          "structure_validation": 0.056138376239687204,
+          "engine_setup": 0.005409750156104565,
+          "csv_load": 0.03388820798136294,
+          "structure_validation_wait": 6.7909713834524155e-06,
+          "column_validation_and_type_plan": 0.15770737500861287,
+          "typed_materialization": 0.011891250032931566,
+          "column_profiles": 0.014196333941072226,
+          "chart_metadata": 0.0012304999399930239
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 0.0
+      },
+      {
+        "dataset": "bike",
+        "mode": "production",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 0.29433462489396334,
+        "median_stage_preview_seconds": 0.06389150000177324,
+        "median_confirm_seconds": 0.22698887484148145,
+        "median_default_chart_seconds": 0.0020789168775081635,
+        "median_peak_mib": 201.609375,
+        "median_database_and_spill_mib": 3.623541831970215,
+        "median_database_and_spill_allocated_mib": 3.625,
+        "phase_medians_non_additive": {
+          "source_copy": 0.00033916602842509747,
+          "structure_validation": 0.056729584001004696,
+          "engine_setup": 0.005722791887819767,
+          "csv_load": 0.03223845805041492,
+          "structure_validation_wait": 3.875000402331352e-06,
+          "column_validation_and_type_plan": 0.1306372918188572,
+          "typed_materialization": 0.012234542053192854,
+          "column_profiles": 0.013518415857106447,
+          "chart_metadata": 0.001246958039700985
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 9.562147797151532,
+        "stage_to_chart_range_seconds": [
+          0.28652112488634884,
+          0.2959889161866158
+        ]
+      },
+      {
+        "dataset": "diamonds",
+        "mode": "baseline",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 0.5655174590647221,
+        "median_stage_preview_seconds": 0.052423124900087714,
+        "median_confirm_seconds": 0.5088863749988377,
+        "median_default_chart_seconds": 0.0032478340435773134,
+        "median_peak_mib": 196.46875,
+        "median_database_and_spill_mib": 6.75056266784668,
+        "median_database_and_spill_allocated_mib": 6.75390625,
+        "phase_medians_non_additive": {
+          "source_copy": 0.00034799985587596893,
+          "structure_validation": 0.12404395802877843,
+          "engine_setup": 0.005389207974076271,
+          "csv_load": 0.06114291702397168,
+          "structure_validation_wait": 4.624947905540466e-06,
+          "column_validation_and_type_plan": 0.32057858305051923,
+          "typed_materialization": 0.03328266693279147,
+          "column_profiles": 0.020486499881371856,
+          "chart_metadata": 0.002029750030487776
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 0.0
+      },
+      {
+        "dataset": "diamonds",
+        "mode": "production",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 0.511473499936983,
+        "median_stage_preview_seconds": 0.049876625183969736,
+        "median_confirm_seconds": 0.45916870911605656,
+        "median_default_chart_seconds": 0.003212834009900689,
+        "median_peak_mib": 199.3125,
+        "median_database_and_spill_mib": 6.75056266784668,
+        "median_database_and_spill_allocated_mib": 6.75390625,
+        "phase_medians_non_additive": {
+          "source_copy": 0.000355415977537632,
+          "structure_validation": 0.07919279183261096,
+          "engine_setup": 0.008650082862004638,
+          "csv_load": 0.059753083158284426,
+          "structure_validation_wait": 4.332978278398514e-06,
+          "column_validation_and_type_plan": 0.2792151249013841,
+          "typed_materialization": 0.031636874889954925,
+          "column_profiles": 0.02076795813627541,
+          "chart_metadata": 0.002060666913166642
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 9.556550069580416,
+        "stage_to_chart_range_seconds": [
+          0.5111326249316335,
+          0.523354458855465
+        ]
+      },
+      {
+        "dataset": "penguins",
+        "mode": "baseline",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 0.069862499833107,
+        "median_stage_preview_seconds": 0.028894959017634392,
+        "median_confirm_seconds": 0.03979679197072983,
+        "median_default_chart_seconds": 0.0013164589181542397,
+        "median_peak_mib": 172.609375,
+        "median_database_and_spill_mib": 0.04842948913574219,
+        "median_database_and_spill_allocated_mib": 0.05078125,
+        "phase_medians_non_additive": {
+          "source_copy": 0.000350958202034235,
+          "structure_validation": 0.0010108749847859144,
+          "engine_setup": 0.0049643749371171,
+          "csv_load": 0.0036870420444756746,
+          "structure_validation_wait": 5.709007382392883e-06,
+          "column_validation_and_type_plan": 0.022865707986056805,
+          "typed_materialization": 0.0007380831521004438,
+          "column_profiles": 0.003549208864569664,
+          "chart_metadata": 0.0004964589606970549
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 0.0
+      },
+      {
+        "dataset": "penguins",
+        "mode": "production",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 0.07313950010575354,
+        "median_stage_preview_seconds": 0.029138833982869983,
+        "median_confirm_seconds": 0.04265345889143646,
+        "median_default_chart_seconds": 0.0012974590063095093,
+        "median_peak_mib": 175.203125,
+        "median_database_and_spill_mib": 0.04842948913574219,
+        "median_database_and_spill_allocated_mib": 0.05078125,
+        "phase_medians_non_additive": {
+          "source_copy": 0.0003602919168770313,
+          "structure_validation": 0.00116416672244668,
+          "engine_setup": 0.005023290868848562,
+          "csv_load": 0.0035204999148845673,
+          "structure_validation_wait": 3.7918798625469208e-06,
+          "column_validation_and_type_plan": 0.025324000045657158,
+          "typed_materialization": 0.0006715420167893171,
+          "column_profiles": 0.003777874866500497,
+          "chart_metadata": 0.0005179999861866236
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": -4.690642734621431,
+        "stage_to_chart_range_seconds": [
+          0.07138745789416134,
+          0.15101774991489947
+        ]
+      },
+      {
+        "dataset": "retail",
+        "mode": "baseline",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 2.24234054191038,
+        "median_stage_preview_seconds": 0.07046899991109967,
+        "median_confirm_seconds": 2.1187044580001384,
+        "median_default_chart_seconds": 0.007238457910716534,
+        "median_peak_mib": 292.09375,
+        "median_database_and_spill_mib": 16.02372169494629,
+        "median_database_and_spill_allocated_mib": 16.27734375,
+        "phase_medians_non_additive": {
+          "source_copy": 0.0003450419753789902,
+          "structure_validation": 0.7716342920903116,
+          "engine_setup": 0.006563666043803096,
+          "csv_load": 0.8603354999795556,
+          "structure_validation_wait": 5.666865035891533e-06,
+          "column_validation_and_type_plan": 0.7911613329779357,
+          "typed_materialization": 0.3716328330338001,
+          "column_profiles": 0.04700200003571808,
+          "chart_metadata": 0.003188458038493991
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 0.0
+      },
+      {
+        "dataset": "retail",
+        "mode": "production",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 2.3141959169879556,
+        "median_stage_preview_seconds": 0.05979437497444451,
+        "median_confirm_seconds": 2.2455440000630915,
+        "median_default_chart_seconds": 0.00726716686040163,
+        "median_peak_mib": 302.046875,
+        "median_database_and_spill_mib": 15.773727416992188,
+        "median_database_and_spill_allocated_mib": 16.27734375,
+        "phase_medians_non_additive": {
+          "source_copy": 0.0004138750955462456,
+          "structure_validation": 0.8327737080398947,
+          "engine_setup": 0.011024000123143196,
+          "csv_load": 0.8932997919619083,
+          "structure_validation_wait": 6.292015314102173e-06,
+          "column_validation_and_type_plan": 0.7924799169413745,
+          "typed_materialization": 0.3704644169192761,
+          "column_profiles": 0.04193329089321196,
+          "chart_metadata": 0.0031879590824246407
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": -3.2044809311772893,
+        "stage_to_chart_range_seconds": [
+          1.9694187089335173,
+          2.602816415950656
+        ]
+      },
+      {
+        "dataset": "taxi",
+        "mode": "baseline",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 11.484342415817082,
+        "median_stage_preview_seconds": 2.332103957887739,
+        "median_confirm_seconds": 9.375910167116672,
+        "median_default_chart_seconds": 0.021532790968194604,
+        "median_peak_mib": 357.015625,
+        "median_database_and_spill_mib": 61.31847095489502,
+        "median_database_and_spill_allocated_mib": 62.0703125,
+        "phase_medians_non_additive": {
+          "source_copy": 0.00040791602805256844,
+          "structure_validation": 2.6551660418044776,
+          "engine_setup": 0.007370708975940943,
+          "csv_load": 3.911798458080739,
+          "structure_validation_wait": 6.209127604961395e-06,
+          "column_validation_and_type_plan": 3.652017957996577,
+          "typed_materialization": 1.321919082896784,
+          "column_profiles": 0.22318070800974965,
+          "chart_metadata": 0.009191249962896109
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 0.0
+      },
+      {
+        "dataset": "taxi",
+        "mode": "production",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 10.000830499920994,
+        "median_stage_preview_seconds": 1.4668064159341156,
+        "median_confirm_seconds": 8.512168708024547,
+        "median_default_chart_seconds": 0.021807166980579495,
+        "median_peak_mib": 354.921875,
+        "median_database_and_spill_mib": 61.31855010986328,
+        "median_database_and_spill_allocated_mib": 62.0703125,
+        "phase_medians_non_additive": {
+          "source_copy": 0.00038362503983080387,
+          "structure_validation": 2.4171157497912645,
+          "engine_setup": 0.00572558306157589,
+          "csv_load": 3.7365199998021126,
+          "structure_validation_wait": 5.915993824601173e-06,
+          "column_validation_and_type_plan": 3.2650513341650367,
+          "typed_materialization": 1.3764965829905123,
+          "column_profiles": 0.21859425003640354,
+          "chart_metadata": 0.008977917023003101
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 12.917691428748125,
+        "stage_to_chart_range_seconds": [
+          8.914836375042796,
+          11.211570624960586
+        ]
+      },
+      {
+        "dataset": "tips",
+        "mode": "baseline",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 0.07661937503144145,
+        "median_stage_preview_seconds": 0.032017374876886606,
+        "median_confirm_seconds": 0.042964749969542027,
+        "median_default_chart_seconds": 0.001235166098922491,
+        "median_peak_mib": 167.609375,
+        "median_database_and_spill_mib": 0.03396415710449219,
+        "median_database_and_spill_allocated_mib": 0.03515625,
+        "phase_medians_non_additive": {
+          "source_copy": 0.0003312078770250082,
+          "structure_validation": 0.0008039171807467937,
+          "engine_setup": 0.004923125030472875,
+          "csv_load": 0.0034288750030100346,
+          "structure_validation_wait": 3.6249402910470963e-06,
+          "column_validation_and_type_plan": 0.02623591711744666,
+          "typed_materialization": 0.0006777909584343433,
+          "column_profiles": 0.0033657499589025974,
+          "chart_metadata": 0.0003523330669850111
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 0.0
+      },
+      {
+        "dataset": "tips",
+        "mode": "production",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 0.08583279186859727,
+        "median_stage_preview_seconds": 0.03510116715915501,
+        "median_confirm_seconds": 0.04936933401040733,
+        "median_default_chart_seconds": 0.0012850831262767315,
+        "median_peak_mib": 170.09375,
+        "median_database_and_spill_mib": 0.03396415710449219,
+        "median_database_and_spill_allocated_mib": 0.03515625,
+        "phase_medians_non_additive": {
+          "source_copy": 0.00035441690124571323,
+          "structure_validation": 0.0008637090213596821,
+          "engine_setup": 0.005020040785893798,
+          "csv_load": 0.00351491617038846,
+          "structure_validation_wait": 3.6249402910470963e-06,
+          "column_validation_and_type_plan": 0.03150129201821983,
+          "typed_materialization": 0.000878083985298872,
+          "column_profiles": 0.004101834027096629,
+          "chart_metadata": 0.0003784580621868372
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": -12.024917761825925,
+        "stage_to_chart_range_seconds": [
+          0.07924745790660381,
+          0.09485883312299848
+        ]
+      },
+      {
+        "dataset": "wine",
+        "mode": "baseline",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 0.1406702499371022,
+        "median_stage_preview_seconds": 0.04024945804849267,
+        "median_confirm_seconds": 0.09907999983988702,
+        "median_default_chart_seconds": 0.001291333930566907,
+        "median_peak_mib": 181.359375,
+        "median_database_and_spill_mib": 0.7890663146972656,
+        "median_database_and_spill_allocated_mib": 0.79296875,
+        "phase_medians_non_additive": {
+          "source_copy": 0.00034570787101984024,
+          "structure_validation": 0.012810165761038661,
+          "engine_setup": 0.006902791792526841,
+          "csv_load": 0.010587250115349889,
+          "structure_validation_wait": 5.292007699608803e-06,
+          "column_validation_and_type_plan": 0.058085833908990026,
+          "typed_materialization": 0.003976374864578247,
+          "column_profiles": 0.00834883307106793,
+          "chart_metadata": 0.0007419579196721315
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 0.0
+      },
+      {
+        "dataset": "wine",
+        "mode": "production",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 0.12242691614665091,
+        "median_stage_preview_seconds": 0.0376844999846071,
+        "median_confirm_seconds": 0.08320545894093812,
+        "median_default_chart_seconds": 0.0014776249881833792,
+        "median_peak_mib": 183.015625,
+        "median_database_and_spill_mib": 0.7890663146972656,
+        "median_database_and_spill_allocated_mib": 0.79296875,
+        "phase_medians_non_additive": {
+          "source_copy": 0.00033541605807840824,
+          "structure_validation": 0.012961707776412368,
+          "engine_setup": 0.005017584189772606,
+          "csv_load": 0.01068979105912149,
+          "structure_validation_wait": 5.58304600417614e-06,
+          "column_validation_and_type_plan": 0.04564733384177089,
+          "typed_materialization": 0.0037819580174982548,
+          "column_profiles": 0.007853124989196658,
+          "chart_metadata": 0.0007061250507831573
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 12.968864275572422,
+        "stage_to_chart_range_seconds": [
+          0.12063958402723074,
+          0.18069362500682473
+        ]
+      }
+    ],
+    "resources": "4 DuckDB threads; memory varied only in named memory arms; stats uses existing 2-worker scheduler",
+    "storage_scope": "Database, WAL and spill logical/allocated bytes after readiness, excluding retained source; not peak disk use.",
+    "verification": "Exact old full-source typed/schema/statistics fingerprints; verifier runs after clocks/RSS with 1 thread/1GB."
+  },
+  "retail_followup": {
+    "scope": "Preloaded local stage-preview -> confirm -> default chart; excludes HTTP/browser/AI and verification.",
+    "ai_calls": 0,
+    "production_arm": "Current production implementation; baseline freezes pre-guard statistics",
+    "summary": [
+      {
+        "dataset": "retail",
+        "mode": "baseline",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 2.340767083922401,
+        "median_stage_preview_seconds": 0.10037775011733174,
+        "median_confirm_seconds": 2.217193959048018,
+        "median_default_chart_seconds": 0.007403583964332938,
+        "median_peak_mib": 292.046875,
+        "median_database_and_spill_mib": 16.023794174194336,
+        "median_database_and_spill_allocated_mib": 16.27734375,
+        "phase_medians_non_additive": {
+          "source_copy": 0.0003547919914126396,
+          "structure_validation": 0.8021840830333531,
+          "engine_setup": 0.008385292021557689,
+          "csv_load": 0.863035875139758,
+          "structure_validation_wait": 6.125075742602348e-06,
+          "column_validation_and_type_plan": 0.8357132498640567,
+          "typed_materialization": 0.37156999995931983,
+          "column_profiles": 0.04342374997213483,
+          "chart_metadata": 0.003610583022236824
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 0.0
+      },
+      {
+        "dataset": "retail",
+        "mode": "production",
+        "runs": 3,
+        "exact_matches": 3,
+        "median_stage_to_chart_seconds": 2.1065078747924417,
+        "median_stage_preview_seconds": 0.052653750171884894,
+        "median_confirm_seconds": 2.0456107910722494,
+        "median_default_chart_seconds": 0.007816999917849898,
+        "median_peak_mib": 300.890625,
+        "median_database_and_spill_mib": 15.773797035217285,
+        "median_database_and_spill_allocated_mib": 16.27734375,
+        "phase_medians_non_additive": {
+          "source_copy": 0.0003379581030458212,
+          "structure_validation": 0.7829494590405375,
+          "engine_setup": 0.0067047919146716595,
+          "csv_load": 0.7922187082003802,
+          "structure_validation_wait": 4.458939656615257e-06,
+          "column_validation_and_type_plan": 0.8010651669465005,
+          "typed_materialization": 0.38953720801509917,
+          "column_profiles": 0.04811045899987221,
+          "chart_metadata": 0.0034944158978760242
+        },
+        "errors": [],
+        "reduction_percent_vs_same_batch_baseline": 10.007796620986886
+      }
+    ],
+    "resources": "4 DuckDB threads; memory varied only in named memory arms; stats uses existing 2-worker scheduler",
+    "storage_scope": "Database, WAL and spill logical/allocated bytes after readiness, excluding retained source; not peak disk use.",
+    "verification": "Exact old full-source typed/schema/statistics fingerprints; verifier runs after clocks/RSS with 1 thread/1GB."
+  },
+  "tests": {
+    "backend_passed": 309,
+    "functional_differential_values": 3989,
+    "predicates_per_value": 16,
+    "fresh_full_file_matches": 54,
+    "fresh_full_file_runs": 54
+  },
+  "active_improvements": [
+    "DuckDB for all CSV sizes with compatibility fallback",
+    "Native CSV loading overlapped with canonical structural validation",
+    "Startup engine preloading",
+    "Immutable application-owned source snapshot reuse",
+    "Two statistics workers within four DuckDB threads and 64 MB engine budget",
+    "Exact per-value guarded full-column statistics",
+    "Early background GPT-6 Luna summary and labels",
+    "Decisions API for GPT-6 Luna roles",
+    "Automatic compatible semantic updates and optional Review data",
+    "Full-column precision and date-range validation"
+  ],
+  "experiments_not_promoted": [
+    "128/256 MB memory caps",
+    "Forced uncompressed storage",
+    "Native-only structural validation"
+  ],
+  "previous_ai_baselines": {
+    "note": "No new provider requests in this promotion. Same-day live measurements and previous role accuracy benchmark retained; SQL optimization preserves all checked physical values and deterministic metadata. These are evaluated cases, not universal accuracy.",
+    "role_accuracy_date": "2026-10-06",
+    "role_scored_decisions": 490,
+    "role_correct": 480,
+    "role_unknown": 10,
+    "role_wrong": 0,
+    "role_median_seconds": 0.21921912499237806,
+    "live_date": "2026-10-07",
+    "datasets": [
+      {
+        "dataset": "retail",
+        "runs": 3,
+        "physical_values_reference_matches": 3,
+        "query_gold_plan_matches": 3,
+        "query_gold_value_matches": 3,
+        "median_query_chart_ready_seconds": 1.3540706250350922,
+        "median_role_provider_seconds": 0.24115191702730954,
+        "median_labels_provider_seconds": 5.1069556248839945,
+        "query_ready_range_seconds": [
+          1.3319726248737425,
+          8.793369708117098
+        ]
+      },
+      {
+        "dataset": "taxi",
+        "runs": 3,
+        "physical_values_reference_matches": 3,
+        "query_gold_plan_matches": 3,
+        "query_gold_value_matches": 3,
+        "median_query_chart_ready_seconds": 1.5611627090256661,
+        "median_role_provider_seconds": 0.2628463751170784,
+        "median_labels_provider_seconds": 5.124644916970283,
+        "query_ready_range_seconds": [
+          1.1698148751165718,
+          1.807895665988326
+        ]
+      }
+    ]
+  }
+}

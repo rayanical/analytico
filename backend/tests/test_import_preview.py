@@ -4,13 +4,17 @@ import io
 import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
+
+from fastapi import HTTPException
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
 from main import app
 from services import import_preview
+from services.csv_ingestion import ingest_csv
 from storage import DATASETS, get_dataset
 
 
@@ -69,17 +73,20 @@ class ImportPreviewTests(unittest.TestCase):
             for enabled in (False, True):
                 with self.subTest(engine=engine, enabled=enabled), \
                      patch.dict(os.environ, {"OPENAI_API_KEY": "offline-test", "COLUMN_INTERPRETER": "off",
-                                             "ANALYTICO_INGESTION_ENGINE": engine}), \
+                                             "ANALYTICO_INGESTION_ENGINE": engine, "COLUMN_ROLE_BACKEND": "decisions"}), \
                      patch("services.enrichment_service.enqueue_enrichment", side_effect=run_job), \
                      patch("services.ingestion_service._generate_business_summary", return_value="Summary"), \
-                     patch("modules.schema_interpretation.analyze_schema", return_value={
+                     patch("modules.schema_decisions.analyze_schema_decisions", return_value={
                          "interpretation_proposals": {c: {"status": "uncertain", "decision": None} for c in ("group", "amount")},
-                         "coverage": {"complete": True}}) as interpret:
+                         "coverage": {"complete": True}}) as interpret, \
+                     patch("modules.schema_interpretation.analyze_schema_labels", return_value={
+                         "interpretation_proposals": {}, "coverage": {"complete": True}}) as labels:
                     preview = self.stage("group,amount\nA,12\nB,34\n")
                     # Omitted flag must retain local column detection.
                     response = self.confirm(preview, **({"ai_column_analysis": True} if enabled else {}))
                     self.assertEqual(response.status_code, 200, response.text)
                     self.assertEqual(interpret.call_count, 1 if enabled else 0)
+                    self.assertEqual(labels.call_count, 1 if enabled else 0)
                     self.assertEqual(len(results[-1]["interpretation_proposals"]), 2 if enabled else 0)
                     self.assertEqual(results[-1]["summary"], "Summary")
                     if not enabled:
@@ -112,6 +119,91 @@ class ImportPreviewTests(unittest.TestCase):
         self.assertIn("row", response.json()["detail"].lower())
         self.assertEqual(len(DATASETS), 0)
         self.assertIn(preview["import_id"], import_preview._imports)
+
+    @staticmethod
+    def dataset_source(dataset):
+        return dataset.source_path if hasattr(dataset, "source_path") else dataset.disk.source_path
+
+    def test_confirm_reuses_owned_snapshot_and_dataset_source_survives_stage_cleanup(self):
+        text = "group,amount\nA,12\nB,34\n"
+        for engine in ("pandas", "disk"):
+            with self.subTest(engine=engine), patch.dict(os.environ, {"ANALYTICO_INGESTION_ENGINE": engine}):
+                preview = self.stage(text)
+                item = import_preview._imports[preview["import_id"]]
+                staged_path = item.path
+                staged_stat = staged_path.stat()
+                self.assertEqual(staged_stat.st_mode & 0o222, 0, "staged snapshots must be read-only")
+                result = self.confirm(preview)
+                self.assertEqual(result.status_code, 200, result.text)
+                dataset = get_dataset(result.json()["dataset_id"])
+                dataset_path = self.dataset_source(dataset)
+                self.assertFalse(staged_path.exists(), "successful confirmation should release the staged owner")
+                self.assertTrue(dataset_path.exists(), "the dataset must own its source after stage cleanup")
+                self.assertEqual(dataset_path.read_text(), text)
+                dataset_stat = dataset_path.stat()
+                self.assertEqual((dataset_stat.st_dev, dataset_stat.st_ino),
+                                 (staged_stat.st_dev, staged_stat.st_ino))
+
+    def test_confirmation_rechecks_configured_size_limit_without_consuming_stage(self):
+        text = "group,amount\nA,12\nB,34\n"
+        preview = self.stage(text)
+        item = import_preview._imports[preview["import_id"]]
+        with patch.dict(os.environ, {"ANALYTICO_MAX_UPLOAD_BYTES": "1"}):
+            with self.assertRaises(HTTPException) as raised:
+                import_preview.confirm_import(item.id)
+        self.assertEqual(raised.exception.status_code, 413)
+        self.assertEqual(item.path.read_text(), text)
+        response = import_preview.confirm_import(item.id)
+        self.assertEqual(self.dataset_source(get_dataset(response.dataset_id)).read_text(), text)
+
+    def test_failed_confirmation_keeps_snapshot_for_retry_on_both_engines(self):
+        text = "group,amount\nA,12\nB,34\n"
+        for engine in ("pandas", "disk"):
+            with self.subTest(engine=engine), patch.dict(os.environ, {"ANALYTICO_INGESTION_ENGINE": engine}):
+                preview = self.stage(text)
+                item = import_preview._imports[preview["import_id"]]
+                staged_path = item.path
+                with patch.object(import_preview, "ingest_csv", side_effect=RuntimeError("temporary failure")):
+                    with self.assertRaises(RuntimeError):
+                        import_preview.confirm_import(preview["import_id"])
+                self.assertIn(item.id, import_preview._imports)
+                self.assertEqual(staged_path.read_text(), text)
+                response = import_preview.confirm_import(preview["import_id"])
+                dataset = get_dataset(response.dataset_id)
+                self.assertEqual(self.dataset_source(dataset).read_text(), text)
+                self.assertFalse(staged_path.exists())
+
+    def test_hardlink_failure_falls_back_to_copy_for_both_engines(self):
+        text = "group,amount\nA,12\nB,34\n"
+        for engine in ("pandas", "disk"):
+            with self.subTest(engine=engine), patch.dict(os.environ, {"ANALYTICO_INGESTION_ENGINE": engine}), \
+                    patch("utils.source_files.os.link", side_effect=OSError("links unavailable")):
+                preview = self.stage(text)
+                item = import_preview._imports[preview["import_id"]]
+                staged_stat = item.path.stat()
+                response = import_preview.confirm_import(preview["import_id"])
+                dataset = get_dataset(response.dataset_id)
+                dataset_path = self.dataset_source(dataset)
+                dataset_stat = dataset_path.stat()
+                self.assertNotEqual((dataset_stat.st_dev, dataset_stat.st_ino),
+                                    (staged_stat.st_dev, staged_stat.st_ino))
+                self.assertEqual(dataset_path.read_text(), text)
+                self.assertFalse(item.path.exists())
+
+    def test_direct_external_paths_remain_independent_copies_for_both_engines(self):
+        text = "group,amount\nA,12\nB,34\n"
+        for engine in ("pandas", "disk"):
+            with self.subTest(engine=engine), patch.dict(os.environ, {"ANALYTICO_INGESTION_ENGINE": engine}):
+                with tempfile.TemporaryDirectory(prefix="external-csv-") as directory:
+                    external_path = Path(directory) / "input.csv"
+                    external_path.write_text(text)
+                    response = ingest_csv(external_path, "input.csv", "/test/direct",
+                                          enqueue_enrichment=False)
+                    dataset = get_dataset(response.dataset_id)
+                    retained_path = self.dataset_source(dataset)
+                    self.assertFalse(os.path.samefile(external_path, retained_path))
+                    external_path.write_text("changed,source\nX,Y\n")
+                    self.assertEqual(retained_path.read_text(), text)
 
     def test_wrong_delimiter_is_correctable_without_reupload(self):
         preview = self.stage("group;amount\nA;1234,56\nB;5678,90\n")

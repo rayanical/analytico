@@ -139,16 +139,21 @@ def ingest_dataframe(
         return response
 
 
-def queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = None, *, ai_column_analysis=None) -> str:
+def queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = None, *, ai_column_analysis=None,
+                             early_enrichment=None) -> str:
     """Optional setup failure cannot invalidate a successfully ingested dataset."""
     try:
-        return _queue_dataset_enrichment(dataset, source_frame, ai_column_analysis=ai_column_analysis)
+        return _queue_dataset_enrichment(dataset, source_frame, ai_column_analysis=ai_column_analysis,
+                                         early_enrichment=early_enrichment)
     except Exception:
+        if early_enrichment is not None:
+            early_enrichment.cancel()
         from services.enrichment_service import disable_enrichment
         return disable_enrichment(dataset.id, dataset.cache_version, "unavailable")["status"]
 
 
-def _queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = None, *, ai_column_analysis=None) -> str:
+def _queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = None, *, ai_column_analysis=None,
+                              early_enrichment=None) -> str:
     """Queue bounded source context; jobs never change the dataset's parsed view."""
     from services.enrichment_service import enqueue_enrichment, manager
     from modules.data_janitor import _interpretation_input
@@ -161,7 +166,27 @@ def _queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = No
     key_name = "AI_GATEWAY_API_KEY" if provider == "jev" else "OPENAI_API_KEY"
     has_interpreter_key = ai_column_analysis is not False and provider in {"luna", "jev"} and bool(os.getenv(key_name, "").strip())
     if not has_summary_key and not has_interpreter_key:
+        if early_enrichment is not None:
+            early_enrichment.cancel()
         return manager.disable(dataset.id, dataset.cache_version, "not_configured")["status"]
+
+    early_futures = {}
+    if early_enrichment is not None:
+        current = DATASETS.get(dataset.id)
+        can_use = (current is dataset and current.cache_version == dataset.cache_version
+                   and early_enrichment.bind_after_store(dataset))
+        if can_use:
+            if has_summary_key and "summary" in early_enrichment.futures:
+                early_futures["summary"] = early_enrichment.futures["summary"]
+            if (has_interpreter_key and provider == "luna"
+                    and os.getenv("COLUMN_ROLE_BACKEND", "decisions").strip().lower() == "decisions"
+                    and "labels" in early_enrichment.futures):
+                early_futures["labels"] = early_enrichment.futures["labels"]
+        for name, future in early_enrichment.futures.items():
+            if name not in early_futures:
+                future.cancel()
+        if not can_use:
+            early_enrichment.cancel()
 
     summary_frame = dataset.sample_frame(3).iloc[:, :20].copy(deep=True)
     payloads = []
@@ -195,7 +220,12 @@ def _queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = No
             "decision": result.decision.model_dump() if result.decision else None,
         }
 
-    def schema_proposals():
+    role_backend = os.getenv("COLUMN_ROLE_BACKEND", "decisions").strip().lower()
+    role_context = os.getenv("COLUMN_ROLE_CONTEXT", "original").strip().lower()
+    if role_context not in {"original", "local", "summary"}:
+        role_context = "original"
+
+    def schema_proposals(summary=None):
         from modules.schema_interpretation import dataset_snapshot, analyze_schema, apply_schema_roles
         if not is_current():
             return None
@@ -205,7 +235,28 @@ def _queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = No
             snapshot = dataset_snapshot(current, source_frame)
         if not is_current():
             return None
-        return apply_schema_roles(dataset_id, version, analyze_schema(snapshot))
+        if role_backend == 'decisions':
+            if role_context == 'summary' and isinstance(summary, str) and summary.strip():
+                snapshot['dataset_description'] = summary.strip()
+            from modules.schema_decisions import analyze_schema_decisions
+            result = analyze_schema_decisions(snapshot, enriched_context=role_context != 'original')
+        else:
+            result = analyze_schema(snapshot)
+        return apply_schema_roles(dataset_id, version, result)
+
+    def label_proposals(precomputed=None):
+        from modules.schema_interpretation import dataset_snapshot, analyze_schema_labels, apply_schema_roles
+        if precomputed is None:
+            if not is_current():
+                return None
+            with lease_dataset(dataset_id) as current:
+                if current.cache_version != version:
+                    return None
+                snapshot = dataset_snapshot(current, source_frame)
+            if not is_current():
+                return None
+            precomputed = analyze_schema_labels(snapshot)
+        return apply_schema_roles(dataset_id, version, precomputed)
 
     def work():
         result = run_parallel_enrichment(
@@ -213,6 +264,10 @@ def _queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = No
             [(column, lambda payload=payload: proposal(payload)) for column, payload in payloads],
             total_columns=len(dataset.column_names), is_current=is_current,
             schema=schema_proposals if has_interpreter_key and provider == "luna" else None,
+            labels=label_proposals if has_interpreter_key and provider == "luna" and role_backend == "decisions" else None,
+            schema_after_summary=role_backend == "decisions" and role_context == "summary",
+            early_futures=early_futures,
+            early_handlers={"labels": label_proposals} if "labels" in early_futures else None,
             publish=lambda result: manager.update(dataset_id, version,
                 result if ai_column_analysis is not False else {**result, "coverage": None}),
         )
@@ -220,4 +275,7 @@ def _queue_dataset_enrichment(dataset, source_frame: Optional[pd.DataFrame] = No
             result["coverage"] = None
         return result
 
-    return enqueue_enrichment(dataset_id, version, work)["status"]
+    status = enqueue_enrichment(dataset_id, version, work)["status"]
+    if status in {"disabled", "error"} and early_enrichment is not None:
+        early_enrichment.cancel()
+    return status

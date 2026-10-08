@@ -1,0 +1,440 @@
+{
+  "date": "2026-10-06",
+  "model": "gpt-6-luna",
+  "promoted": true,
+  "threshold": 0.85,
+  "role_requests": 80,
+  "label_requests": 16,
+  "role_repeats_per_arm_per_dataset": 5,
+  "unique_columns": 98,
+  "scored_roles_per_arm": 490,
+  "responses": {
+    "correct": 468,
+    "unknown": 22,
+    "wrong": 0,
+    "correct_coverage": 0.9551020408163265,
+    "median_seconds": 3.04887914552819
+  },
+  "decisions": {
+    "correct": 480,
+    "unknown": 10,
+    "wrong": 0,
+    "correct_coverage": 0.9795918367346939,
+    "median_seconds": 0.21921912499237806
+  },
+  "median_call_speedup": 13.907906737763847,
+  "threshold_selection": {
+    "selected_threshold": 0.85,
+    "training_datasets": [
+      "bike",
+      "bank",
+      "retail",
+      "taxi",
+      "wine"
+    ],
+    "responses_baseline_correct_columns": 351,
+    "responses_baseline_evaluated_columns": 370,
+    "responses_baseline_correct_coverage": 0.9486486486486486,
+    "selection_rule": "highest feasible threshold",
+    "feasible_thresholds": [
+      0.8,
+      0.85
+    ],
+    "heldout_predictions_read_before_selection": false
+  },
+  "calibration_curve": [
+    {
+      "threshold": 0.8,
+      "correct_columns": 360,
+      "evaluated_columns": 370,
+      "wrong_classifications": 0,
+      "unknown_columns": 10
+    },
+    {
+      "threshold": 0.85,
+      "correct_columns": 360,
+      "evaluated_columns": 370,
+      "wrong_classifications": 0,
+      "unknown_columns": 10
+    },
+    {
+      "threshold": 0.9,
+      "correct_columns": 345,
+      "evaluated_columns": 370,
+      "wrong_classifications": 0,
+      "unknown_columns": 25
+    },
+    {
+      "threshold": 0.95,
+      "correct_columns": 345,
+      "evaluated_columns": 370,
+      "wrong_classifications": 0,
+      "unknown_columns": 25
+    }
+  ],
+  "heldout": {
+    "datasets": [
+      {
+        "dataset": "diamonds",
+        "calls": 5,
+        "evaluated_columns": 50,
+        "correct_columns": 50,
+        "correct_coverage": 1.0,
+        "unknown_columns": 0,
+        "wrong_classifications": 0,
+        "unavailable_columns": 0,
+        "opaque_columns": 0,
+        "opaque_unknown_abstentions": 0,
+        "opaque_unavailable": 0,
+        "changed_roles_vs_original": 0,
+        "wrong_new_changes_vs_original": 0,
+        "request_failed_calls": 0,
+        "request_failed_columns": 0,
+        "coverage_incomplete_calls": 0,
+        "coverage_missing_calls": 0,
+        "coverage_failed_columns_reported": 0,
+        "model_refusal_columns": 0,
+        "proposal_error_codes": []
+      },
+      {
+        "dataset": "penguins",
+        "calls": 5,
+        "evaluated_columns": 35,
+        "correct_columns": 35,
+        "correct_coverage": 1.0,
+        "unknown_columns": 0,
+        "wrong_classifications": 0,
+        "unavailable_columns": 0,
+        "opaque_columns": 0,
+        "opaque_unknown_abstentions": 0,
+        "opaque_unavailable": 0,
+        "changed_roles_vs_original": 5,
+        "wrong_new_changes_vs_original": 0,
+        "request_failed_calls": 0,
+        "request_failed_columns": 0,
+        "coverage_incomplete_calls": 0,
+        "coverage_missing_calls": 0,
+        "coverage_failed_columns_reported": 0,
+        "model_refusal_columns": 0,
+        "proposal_error_codes": []
+      },
+      {
+        "dataset": "tips",
+        "calls": 5,
+        "evaluated_columns": 35,
+        "correct_columns": 35,
+        "correct_coverage": 1.0,
+        "unknown_columns": 0,
+        "wrong_classifications": 0,
+        "unavailable_columns": 0,
+        "opaque_columns": 0,
+        "opaque_unknown_abstentions": 0,
+        "opaque_unavailable": 0,
+        "changed_roles_vs_original": 5,
+        "wrong_new_changes_vs_original": 0,
+        "request_failed_calls": 0,
+        "request_failed_columns": 0,
+        "coverage_incomplete_calls": 0,
+        "coverage_missing_calls": 0,
+        "coverage_failed_columns_reported": 0,
+        "model_refusal_columns": 0,
+        "proposal_error_codes": []
+      }
+    ],
+    "calls": 15,
+    "evaluated_columns": 120,
+    "correct_columns": 120,
+    "correct_coverage": 1.0,
+    "unknown_columns": 0,
+    "wrong_classifications": 0,
+    "unavailable_columns": 0,
+    "opaque_columns": 0,
+    "opaque_unknown_abstentions": 0,
+    "opaque_unavailable": 0,
+    "changed_roles_vs_original": 10,
+    "wrong_new_changes_vs_original": 0,
+    "request_failed_calls": 0,
+    "request_failed_columns": 0,
+    "coverage_incomplete_calls": 0,
+    "coverage_missing_calls": 0,
+    "coverage_failed_columns_reported": 0,
+    "model_refusal_columns": 0,
+    "proposal_error_codes": []
+  },
+  "datasets": [
+    {
+      "dataset": "bike",
+      "rows": 17379,
+      "columns": 17,
+      "source_sha256": "e03de4ee4ef4dc376ac6e04bf829673c6269e8eba5c60fa121640fa2f829504f",
+      "source_verified": true,
+      "responses_seconds_median": 4.219285957980901,
+      "decisions_seconds_median": 0.2532300418242812,
+      "speedup": 16.661869688070833,
+      "responses_applied": {
+        "correct": 80,
+        "evaluated": 85,
+        "unknown": 5,
+        "wrong": 0
+      },
+      "decisions_applied": {
+        "correct": 85,
+        "evaluated": 85,
+        "unknown": 0,
+        "wrong": 0
+      },
+      "labels_seconds_median": 2.9582247709622607,
+      "snapshots_unchanged": true,
+      "local_schema_unchanged": true
+    },
+    {
+      "dataset": "bank",
+      "rows": 45211,
+      "columns": 17,
+      "source_sha256": "d1513ec63b385506f7cfce9f2c5caa9fe99e7ba4e8c3fa264b3aaf0f849ed32d",
+      "source_verified": true,
+      "responses_seconds_median": 4.238592749927193,
+      "decisions_seconds_median": 0.23450391716323793,
+      "speedup": 18.074720461819464,
+      "responses_applied": {
+        "correct": 76,
+        "evaluated": 85,
+        "unknown": 9,
+        "wrong": 0
+      },
+      "decisions_applied": {
+        "correct": 80,
+        "evaluated": 85,
+        "unknown": 5,
+        "wrong": 0
+      },
+      "labels_seconds_median": 3.009502000059001,
+      "snapshots_unchanged": true,
+      "local_schema_unchanged": true
+    },
+    {
+      "dataset": "retail",
+      "rows": 541909,
+      "columns": 8,
+      "source_sha256": "50e9f56b0ee4bd0662a397c68295f48945972135f57322cd5208f4f809eb67ac",
+      "source_verified": true,
+      "responses_seconds_median": 2.499769916990772,
+      "decisions_seconds_median": 0.2069025409873575,
+      "speedup": 12.081871518163313,
+      "responses_applied": {
+        "correct": 40,
+        "evaluated": 40,
+        "unknown": 0,
+        "wrong": 0
+      },
+      "decisions_applied": {
+        "correct": 40,
+        "evaluated": 40,
+        "unknown": 0,
+        "wrong": 0
+      },
+      "labels_seconds_median": 1.889904979034327,
+      "snapshots_unchanged": true,
+      "local_schema_unchanged": true
+    },
+    {
+      "dataset": "taxi",
+      "rows": 1068755,
+      "columns": 20,
+      "source_sha256": "b217661724e4d6270063d1eb460dca49aef1187383d6ce30025405d7bb4945c1",
+      "source_verified": true,
+      "responses_seconds_median": 4.99757554102689,
+      "decisions_seconds_median": 0.22891708300448954,
+      "speedup": 21.831378748299347,
+      "responses_applied": {
+        "correct": 95,
+        "evaluated": 100,
+        "unknown": 5,
+        "wrong": 0
+      },
+      "decisions_applied": {
+        "correct": 95,
+        "evaluated": 100,
+        "unknown": 5,
+        "wrong": 0
+      },
+      "labels_seconds_median": 3.3881802080431953,
+      "snapshots_unchanged": true,
+      "local_schema_unchanged": true
+    },
+    {
+      "dataset": "wine",
+      "rows": 4898,
+      "columns": 12,
+      "source_sha256": "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836",
+      "source_verified": true,
+      "responses_seconds_median": 3.1006224579177797,
+      "decisions_seconds_median": 0.2251933750230819,
+      "speedup": 13.768710813983633,
+      "responses_applied": {
+        "correct": 60,
+        "evaluated": 60,
+        "unknown": 0,
+        "wrong": 0
+      },
+      "decisions_applied": {
+        "correct": 60,
+        "evaluated": 60,
+        "unknown": 0,
+        "wrong": 0
+      },
+      "labels_seconds_median": 3.2873537921113893,
+      "snapshots_unchanged": true,
+      "local_schema_unchanged": true
+    },
+    {
+      "dataset": "diamonds",
+      "rows": 53940,
+      "columns": 10,
+      "source_sha256": "9574730b03aba241d899c4a97511c5061b19358fab89510774fb6c24168345c4",
+      "source_verified": true,
+      "responses_seconds_median": 2.8618409580085427,
+      "decisions_seconds_median": 0.2118508331477642,
+      "speedup": 13.508754794522957,
+      "responses_applied": {
+        "correct": 50,
+        "evaluated": 50,
+        "unknown": 0,
+        "wrong": 0
+      },
+      "decisions_applied": {
+        "correct": 50,
+        "evaluated": 50,
+        "unknown": 0,
+        "wrong": 0
+      },
+      "labels_seconds_median": 2.914564791484736,
+      "snapshots_unchanged": true,
+      "local_schema_unchanged": true
+    },
+    {
+      "dataset": "penguins",
+      "rows": 344,
+      "columns": 7,
+      "source_sha256": "e07636bd8af74260099ea2f8678e2eabbf35def579940cc76f67061ee16c06c1",
+      "source_verified": true,
+      "responses_seconds_median": 2.2856911250855774,
+      "decisions_seconds_median": 0.1952136668842286,
+      "speedup": 11.708663443329026,
+      "responses_applied": {
+        "correct": 35,
+        "evaluated": 35,
+        "unknown": 0,
+        "wrong": 0
+      },
+      "decisions_applied": {
+        "correct": 35,
+        "evaluated": 35,
+        "unknown": 0,
+        "wrong": 0
+      },
+      "labels_seconds_median": 1.8150888545205817,
+      "snapshots_unchanged": true,
+      "local_schema_unchanged": true
+    },
+    {
+      "dataset": "tips",
+      "rows": 244,
+      "columns": 7,
+      "source_sha256": "e54cc4d2ce1bff65d32ca60b3e4b802e06bde1d7e7caf6f796f6bf7370e863b0",
+      "source_verified": true,
+      "responses_seconds_median": 2.4338760829996318,
+      "decisions_seconds_median": 0.19266645913012326,
+      "speedup": 12.632588432820256,
+      "responses_applied": {
+        "correct": 32,
+        "evaluated": 35,
+        "unknown": 3,
+        "wrong": 0
+      },
+      "decisions_applied": {
+        "correct": 35,
+        "evaluated": 35,
+        "unknown": 0,
+        "wrong": 0
+      },
+      "labels_seconds_median": 3.2395842500263825,
+      "snapshots_unchanged": true,
+      "local_schema_unchanged": true
+    }
+  ],
+  "manifest_hashes": {
+    "fresh_accuracy_gold_sha256": "7d52429b8b5c3e1d9517ed03ce292ec34600dd1ca26a8be659064d51420f2b60",
+    "real_dataset_manifest_sha256": "7facc20f3b400632919e0941125b6af7d36af32d3aa5811a25ff9818b36bd29a"
+  },
+  "live_integration": {
+    "local_ready_seconds": 0.3288920840714127,
+    "roles_available_seconds": 0.7386252088472247,
+    "labels_available_seconds": 3.7118326670024544,
+    "completion_seconds": 3.7118375420104712,
+    "status": "done",
+    "physical_version_unchanged": true,
+    "roles": {
+      "instant": "identifier",
+      "dteday": "temporal",
+      "season": "categorical",
+      "yr": "categorical",
+      "mnth": "temporal",
+      "hr": "temporal",
+      "holiday": "categorical",
+      "weekday": "categorical",
+      "workingday": "categorical",
+      "weathersit": "categorical",
+      "temp": "metric",
+      "atemp": "metric",
+      "hum": "metric",
+      "windspeed": "metric",
+      "casual": "metric",
+      "registered": "metric",
+      "cnt": "metric"
+    },
+    "labels": {
+      "instant": "Instant",
+      "dteday": "Date",
+      "season": "Season",
+      "yr": "Year",
+      "mnth": "Month",
+      "hr": "Hour",
+      "holiday": "Holiday",
+      "weekday": "Weekday",
+      "workingday": "Working Day",
+      "weathersit": "Weather Situation",
+      "temp": "Temperature",
+      "atemp": "Feels-Like Temperature",
+      "hum": "Humidity",
+      "windspeed": "Wind Speed",
+      "registered": "Registered Users"
+    },
+    "coverage": {
+      "total_columns": 17,
+      "selected_columns": 17,
+      "completed_columns": 17,
+      "failed_columns": 0,
+      "skipped_columns": 0,
+      "complete": true,
+      "stop_reason": null
+    },
+    "prompt_versions": [
+      "schema-decisions-v1"
+    ],
+    "decision_thresholds": [
+      0.85
+    ]
+  },
+  "checks": {
+    "backend_tests": 260,
+    "frontend_types": true,
+    "frontend_helpers": true,
+    "diff_check": true
+  },
+  "scope": "Classifier wall-clock request time; excludes CSV preparation and browser polling. Responses baseline generates roles and labels together; Decisions generates roles only. Labels use independent Responses and remain separately timed. Threshold .85 calibrated on five datasets by offline re-gating validated live answers, then checked on three heldout datasets. Repeated columns are not independent examples; no universal accuracy or end-to-end 10x claim.",
+  "raw_artifacts": [
+    "/private/tmp/analytico-decisions-roles-2026-10-06.json",
+    "/private/tmp/analytico-decisions-calibrated-2026-10-06.json"
+  ]
+}

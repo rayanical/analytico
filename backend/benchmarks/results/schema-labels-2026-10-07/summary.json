@@ -1,0 +1,539 @@
+{
+  "metadata": {
+    "benchmark": "schema-label-readability",
+    "model": "gpt-6-luna",
+    "reasoning_effort": "none",
+    "public_gold_manifest": "/Users/rayan/.gemini/antigravity/scratch/analytico/backend/evals/fresh_accuracy_gold_2026-10-03.json",
+    "source_commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+    "before_prompt_sha256": "bc0c9b0ac1fb032a92ebd22a953804b864e6659249ac20e8f7c89fa4d3974275",
+    "after_prompt_sha256": "2455a44182f691908a318b2614d0eb336db3c96166614e5c69140dea22f7f727",
+    "before_prompt_version": "schema-label-v1",
+    "after_prompt_version": "schema-label-v3",
+    "calls_per_dataset": 2,
+    "labels_and_source_headers_are_saved_for_manual_no_invention_review": true,
+    "novel_terms_are_review_signals_not_automatic_hallucination_verdicts": true,
+    "application_invariant_checks": {
+      "reviewed_user_label_preserved": true,
+      "label-benchmark-user-label_reported_label": "Reviewed Customer",
+      "source_header_echo_not_applied": true,
+      "label-benchmark-source-echo_reported_label": null
+    },
+    "skipped_datasets": {},
+    "started_at_epoch": 1791406957,
+    "elapsed_note": "call_seconds measures one request for all columns in the dataset per prompt arm.",
+    "rows_and_columns": [
+      {
+        "dataset": "bike",
+        "rows": 17379,
+        "columns": 17
+      },
+      {
+        "dataset": "bank",
+        "rows": 45211,
+        "columns": 17
+      },
+      {
+        "dataset": "retail",
+        "rows": 541909,
+        "columns": 8
+      },
+      {
+        "dataset": "taxi",
+        "rows": 1068755,
+        "columns": 20
+      },
+      {
+        "dataset": "wine",
+        "rows": 4898,
+        "columns": 12
+      },
+      {
+        "dataset": "diamonds",
+        "rows": 53940,
+        "columns": 10
+      },
+      {
+        "dataset": "penguins",
+        "rows": 344,
+        "columns": 7
+      },
+      {
+        "dataset": "tips",
+        "rows": 244,
+        "columns": 7
+      }
+    ],
+    "scoring_invariant_checks": {
+      "technical_header_gets_cosmetic_credit_after_reformat": true,
+      "opaque_header_is_counted_as_retained_when_unlabeled": true,
+      "unsupported_currency_symbol_is_flagged": true
+    }
+  },
+  "overall": {
+    "before": {
+      "columns": 98,
+      "labels_proposed": 91,
+      "technical_headers": 30,
+      "technical_name_echoes": 1,
+      "provider_failures": 0,
+      "formatting_only_labels": 25,
+      "cosmetic_readable_nonopaque": 97,
+      "cosmetic_scored_nonopaque": 98,
+      "technical_readable_nonopaque": 29,
+      "technical_scored_nonopaque": 30,
+      "opaque_columns": 0,
+      "opaque_retained": 0,
+      "opaque_renamed_for_review": 0,
+      "novel_label_term_count": 33,
+      "columns_with_novel_terms": 20,
+      "unsupported_unit_or_currency_symbol_count": 0
+    },
+    "after": {
+      "columns": 98,
+      "labels_proposed": 74,
+      "technical_headers": 30,
+      "technical_name_echoes": 0,
+      "provider_failures": 0,
+      "formatting_only_labels": 28,
+      "cosmetic_readable_nonopaque": 97,
+      "cosmetic_scored_nonopaque": 98,
+      "technical_readable_nonopaque": 29,
+      "technical_scored_nonopaque": 30,
+      "opaque_columns": 0,
+      "opaque_retained": 0,
+      "opaque_renamed_for_review": 0,
+      "novel_label_term_count": 25,
+      "columns_with_novel_terms": 15,
+      "unsupported_unit_or_currency_symbol_count": 0
+    }
+  },
+  "datasets": [
+    {
+      "dataset": "bike",
+      "source": "https://archive.ics.uci.edu/dataset/275/bike+sharing+dataset",
+      "path": "/private/tmp/analytico-real-fixtures/bike.csv",
+      "sha256": "e03de4ee4ef4dc376ac6e04bf829673c6269e8eba5c60fa121640fa2f829504f",
+      "rows": 17379,
+      "columns": 17,
+      "call_seconds": {
+        "before": 3.8962,
+        "after": 2.5658
+      },
+      "provider_stop_reasons": {
+        "before": null,
+        "after": null
+      },
+      "before": {
+        "columns": 17,
+        "labels_proposed": 15,
+        "technical_headers": 0,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 2,
+        "cosmetic_readable_nonopaque": 17,
+        "cosmetic_scored_nonopaque": 17,
+        "technical_readable_nonopaque": 0,
+        "technical_scored_nonopaque": 0,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 15,
+        "columns_with_novel_terms": 10,
+        "unsupported_unit_or_currency_symbol_count": 0
+      },
+      "after": {
+        "columns": 17,
+        "labels_proposed": 13,
+        "technical_headers": 0,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 2,
+        "cosmetic_readable_nonopaque": 17,
+        "cosmetic_scored_nonopaque": 17,
+        "technical_readable_nonopaque": 0,
+        "technical_scored_nonopaque": 0,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 11,
+        "columns_with_novel_terms": 8,
+        "unsupported_unit_or_currency_symbol_count": 0
+      }
+    },
+    {
+      "dataset": "bank",
+      "source": "https://archive.ics.uci.edu/dataset/222/bank+marketing",
+      "path": "/private/tmp/analytico-real-fixtures/bank.csv",
+      "sha256": "d1513ec63b385506f7cfce9f2c5caa9fe99e7ba4e8c3fa264b3aaf0f849ed32d",
+      "rows": 45211,
+      "columns": 17,
+      "call_seconds": {
+        "before": 3.8201,
+        "after": 2.7721
+      },
+      "provider_stop_reasons": {
+        "before": null,
+        "after": null
+      },
+      "before": {
+        "columns": 17,
+        "labels_proposed": 15,
+        "technical_headers": 0,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 0,
+        "cosmetic_readable_nonopaque": 17,
+        "cosmetic_scored_nonopaque": 17,
+        "technical_readable_nonopaque": 0,
+        "technical_scored_nonopaque": 0,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 2,
+        "columns_with_novel_terms": 2,
+        "unsupported_unit_or_currency_symbol_count": 0
+      },
+      "after": {
+        "columns": 17,
+        "labels_proposed": 4,
+        "technical_headers": 0,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 0,
+        "cosmetic_readable_nonopaque": 17,
+        "cosmetic_scored_nonopaque": 17,
+        "technical_readable_nonopaque": 0,
+        "technical_scored_nonopaque": 0,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 1,
+        "columns_with_novel_terms": 1,
+        "unsupported_unit_or_currency_symbol_count": 0
+      }
+    },
+    {
+      "dataset": "retail",
+      "source": "https://archive.ics.uci.edu/dataset/352/online+retail",
+      "path": "/private/tmp/analytico-real-fixtures/retail.csv",
+      "sha256": "50e9f56b0ee4bd0662a397c68295f48945972135f57322cd5208f4f809eb67ac",
+      "rows": 541909,
+      "columns": 8,
+      "call_seconds": {
+        "before": 2.0581,
+        "after": 2.1433
+      },
+      "provider_stop_reasons": {
+        "before": null,
+        "after": null
+      },
+      "before": {
+        "columns": 8,
+        "labels_proposed": 8,
+        "technical_headers": 5,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 4,
+        "cosmetic_readable_nonopaque": 8,
+        "cosmetic_scored_nonopaque": 8,
+        "technical_readable_nonopaque": 5,
+        "technical_scored_nonopaque": 5,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 1,
+        "columns_with_novel_terms": 1,
+        "unsupported_unit_or_currency_symbol_count": 0
+      },
+      "after": {
+        "columns": 8,
+        "labels_proposed": 5,
+        "technical_headers": 5,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 5,
+        "cosmetic_readable_nonopaque": 8,
+        "cosmetic_scored_nonopaque": 8,
+        "technical_readable_nonopaque": 5,
+        "technical_scored_nonopaque": 5,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 0,
+        "columns_with_novel_terms": 0,
+        "unsupported_unit_or_currency_symbol_count": 0
+      }
+    },
+    {
+      "dataset": "taxi",
+      "source": "https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page",
+      "path": "/Users/rayan/.gemini/antigravity/scratch/analytico/backend/datasets/2021_Green_Taxi_Trip_Data_20260221.csv",
+      "sha256": "b217661724e4d6270063d1eb460dca49aef1187383d6ce30025405d7bb4945c1",
+      "rows": 1068755,
+      "columns": 20,
+      "call_seconds": {
+        "before": 3.6368,
+        "after": 3.0245
+      },
+      "provider_stop_reasons": {
+        "before": null,
+        "after": null
+      },
+      "before": {
+        "columns": 20,
+        "labels_proposed": 20,
+        "technical_headers": 19,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 14,
+        "cosmetic_readable_nonopaque": 20,
+        "cosmetic_scored_nonopaque": 20,
+        "technical_readable_nonopaque": 19,
+        "technical_scored_nonopaque": 19,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 15,
+        "columns_with_novel_terms": 7,
+        "unsupported_unit_or_currency_symbol_count": 0
+      },
+      "after": {
+        "columns": 20,
+        "labels_proposed": 20,
+        "technical_headers": 19,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 16,
+        "cosmetic_readable_nonopaque": 20,
+        "cosmetic_scored_nonopaque": 20,
+        "technical_readable_nonopaque": 19,
+        "technical_scored_nonopaque": 19,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 13,
+        "columns_with_novel_terms": 6,
+        "unsupported_unit_or_currency_symbol_count": 0
+      }
+    },
+    {
+      "dataset": "wine",
+      "source": "https://archive.ics.uci.edu/dataset/186/wine+quality",
+      "path": "/private/tmp/analytico-real-fixtures/wine.csv",
+      "sha256": "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836",
+      "rows": 4898,
+      "columns": 12,
+      "call_seconds": {
+        "before": 3.1658,
+        "after": 2.2327
+      },
+      "provider_stop_reasons": {
+        "before": null,
+        "after": null
+      },
+      "before": {
+        "columns": 12,
+        "labels_proposed": 12,
+        "technical_headers": 1,
+        "technical_name_echoes": 1,
+        "provider_failures": 0,
+        "formatting_only_labels": 0,
+        "cosmetic_readable_nonopaque": 11,
+        "cosmetic_scored_nonopaque": 12,
+        "technical_readable_nonopaque": 0,
+        "technical_scored_nonopaque": 1,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 0,
+        "columns_with_novel_terms": 0,
+        "unsupported_unit_or_currency_symbol_count": 0
+      },
+      "after": {
+        "columns": 12,
+        "labels_proposed": 11,
+        "technical_headers": 1,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 0,
+        "cosmetic_readable_nonopaque": 11,
+        "cosmetic_scored_nonopaque": 12,
+        "technical_readable_nonopaque": 0,
+        "technical_scored_nonopaque": 1,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 0,
+        "columns_with_novel_terms": 0,
+        "unsupported_unit_or_currency_symbol_count": 0
+      }
+    },
+    {
+      "dataset": "diamonds",
+      "source": "https://github.com/mwaskom/seaborn-data/blob/71e2436a092d714350de0fc409ca8a8714e7e78f/diamonds.csv",
+      "path": "/private/tmp/analytico-real-fixtures/diamonds.csv",
+      "sha256": "9574730b03aba241d899c4a97511c5061b19358fab89510774fb6c24168345c4",
+      "rows": 53940,
+      "columns": 10,
+      "call_seconds": {
+        "before": 2.6271,
+        "after": 2.3899
+      },
+      "provider_stop_reasons": {
+        "before": null,
+        "after": null
+      },
+      "before": {
+        "columns": 10,
+        "labels_proposed": 7,
+        "technical_headers": 0,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 0,
+        "cosmetic_readable_nonopaque": 10,
+        "cosmetic_scored_nonopaque": 10,
+        "technical_readable_nonopaque": 0,
+        "technical_scored_nonopaque": 0,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 0,
+        "columns_with_novel_terms": 0,
+        "unsupported_unit_or_currency_symbol_count": 0
+      },
+      "after": {
+        "columns": 10,
+        "labels_proposed": 7,
+        "technical_headers": 0,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 0,
+        "cosmetic_readable_nonopaque": 10,
+        "cosmetic_scored_nonopaque": 10,
+        "technical_readable_nonopaque": 0,
+        "technical_scored_nonopaque": 0,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 0,
+        "columns_with_novel_terms": 0,
+        "unsupported_unit_or_currency_symbol_count": 0
+      }
+    },
+    {
+      "dataset": "penguins",
+      "source": "https://github.com/mwaskom/seaborn-data/blob/71e2436a092d714350de0fc409ca8a8714e7e78f/penguins.csv",
+      "path": "/private/tmp/analytico-real-fixtures/penguins.csv",
+      "sha256": "e07636bd8af74260099ea2f8678e2eabbf35def579940cc76f67061ee16c06c1",
+      "rows": 344,
+      "columns": 7,
+      "call_seconds": {
+        "before": 1.8556,
+        "after": 4.3748
+      },
+      "provider_stop_reasons": {
+        "before": null,
+        "after": null
+      },
+      "before": {
+        "columns": 7,
+        "labels_proposed": 7,
+        "technical_headers": 4,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 4,
+        "cosmetic_readable_nonopaque": 7,
+        "cosmetic_scored_nonopaque": 7,
+        "technical_readable_nonopaque": 4,
+        "technical_scored_nonopaque": 4,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 0,
+        "columns_with_novel_terms": 0,
+        "unsupported_unit_or_currency_symbol_count": 0
+      },
+      "after": {
+        "columns": 7,
+        "labels_proposed": 7,
+        "technical_headers": 4,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 4,
+        "cosmetic_readable_nonopaque": 7,
+        "cosmetic_scored_nonopaque": 7,
+        "technical_readable_nonopaque": 4,
+        "technical_scored_nonopaque": 4,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 0,
+        "columns_with_novel_terms": 0,
+        "unsupported_unit_or_currency_symbol_count": 0
+      }
+    },
+    {
+      "dataset": "tips",
+      "source": "https://github.com/mwaskom/seaborn-data/blob/71e2436a092d714350de0fc409ca8a8714e7e78f/tips.csv",
+      "path": "/private/tmp/analytico-real-fixtures/tips.csv",
+      "sha256": "e54cc4d2ce1bff65d32ca60b3e4b802e06bde1d7e7caf6f796f6bf7370e863b0",
+      "rows": 244,
+      "columns": 7,
+      "call_seconds": {
+        "before": 4.1102,
+        "after": 2.0634
+      },
+      "provider_stop_reasons": {
+        "before": null,
+        "after": null
+      },
+      "before": {
+        "columns": 7,
+        "labels_proposed": 7,
+        "technical_headers": 1,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 1,
+        "cosmetic_readable_nonopaque": 7,
+        "cosmetic_scored_nonopaque": 7,
+        "technical_readable_nonopaque": 1,
+        "technical_scored_nonopaque": 1,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 0,
+        "columns_with_novel_terms": 0,
+        "unsupported_unit_or_currency_symbol_count": 0
+      },
+      "after": {
+        "columns": 7,
+        "labels_proposed": 7,
+        "technical_headers": 1,
+        "technical_name_echoes": 0,
+        "provider_failures": 0,
+        "formatting_only_labels": 1,
+        "cosmetic_readable_nonopaque": 7,
+        "cosmetic_scored_nonopaque": 7,
+        "technical_readable_nonopaque": 1,
+        "technical_scored_nonopaque": 1,
+        "opaque_columns": 0,
+        "opaque_retained": 0,
+        "opaque_renamed_for_review": 0,
+        "novel_label_term_count": 0,
+        "columns_with_novel_terms": 0,
+        "unsupported_unit_or_currency_symbol_count": 0
+      }
+    }
+  ],
+  "latency_median_seconds": {
+    "before": 3.4013,
+    "after": 2.47785
+  },
+  "notes": [
+    "One live call per arm per dataset: 16 calls, 98 headers, eight full public source files; bounded raw samples isolate label prompting, not end-to-end ingestion.",
+    "Automated cosmetic scoring is not semantic accuracy. Both arms score 97/98; the remaining flagged header is pH, which is correctly preserved.",
+    "Novel terms are review signals, not proven invention; after proposes fewer expansions. No unsupported unit/currency symbols flagged in either arm.",
+    "No manifest-marked opaque headers in these eight datasets; opaque/user-label preservation covered by functional tests.",
+    "The running benchmark retained a stale v2 metadata string; this compact report corrects it to v3, verified by the after-prompt SHA256. The harness metadata string is also corrected."
+  ]
+}

@@ -20,7 +20,7 @@ Upload a dataset, ask a question, explore the underlying records, and assemble a
 
 | Capability | What you can do |
 | --- | --- |
-| **Natural-language charts** | Ask for comparisons, trends, totals, averages, or counts. Supported questions become validated chart plans; ambiguous requests receive clarification. |
+| **Natural-language charts** | Ask for comparisons, trends, totals, averages, or counts, including filters in your question. Clear supported requests produce a chart directly; material ambiguity receives clarification. |
 | **Automatic CSV preparation** | Detect file settings, validate the full file, profile missing values, and recognize supported numeric, currency, percentage, and date formats. |
 | **AI column understanding** | Enable GPT-6 Luna before upload to infer column roles and readable labels in the background. Start charting after local preparation; review or edit the schema whenever needed. |
 | **Interactive exploration** | Build charts manually, apply structured filters, and drill into matching source rows. Overall answers appear as a single bar with its value. |
@@ -30,9 +30,10 @@ Upload a dataset, ask a question, explore the underlying records, and assemble a
 ## Engineering highlights
 
 - **AI plans; the engine calculates.** Model output passes through structured validation before execution. Pandas and DuckDB perform the aggregations; the app does not execute generated Python or model-written SQL.
-- **A hybrid ingestion engine.** Small CSVs use pandas; files of at least 8 MiB use temporary disk-backed DuckDB by default. Native CSV loading, bounded previews, and a CPU-capped worker budget support larger datasets without putting every row into the browser.
+- **Constrained chart planning.** GPT-6 Luna Decisions selects from real column keys, aggregations, chart styles and filter operands. A generative fallback handles more complex requests. Both receive dataset profiles, available descriptions and active filters, then use the same validated calculation engine.
+- **A bounded ingestion engine.** CSVs use temporary disk-backed DuckDB at every size, preloaded at startup for fast first uploads. Native loading, full-source validation and bounded previews support larger datasets without putting every row into the browser.
 - **Source-preserving interpretation.** Original CSV bytes are retained for the session, missing observations remain null, and conversions require full-column validation. AI display labels do not rename source keys or rewrite values.
-- **Non-blocking enrichment.** A bounded background queue runs optional schema analysis. Compatibility checks, user-override protection, and schema revisions prevent stale enrichment from overwriting reviewed choices.
+- **Non-blocking enrichment.** A bounded background queue runs optional schema analysis. GPT-6 Luna Decisions classifies roles while Responses generates readable labels independently. Compatibility checks, user-override protection, and schema revisions prevent stale enrichment from overwriting reviewed choices.
 - **One calculation path across interactions.** AI questions and manual charts share aggregation logic. Filters apply before calculation, and drill-down uses the same source filters as the chart.
 
 ## Architecture
@@ -41,7 +42,7 @@ Upload a dataset, ask a question, explore the underlying records, and assemble a
 flowchart TD
     CSV[CSV file] --> API[FastAPI ingestion]
     API --> Validate[Full-file validation and type planning]
-    Validate --> Engine[Dataset engine: pandas or DuckDB]
+    Validate --> Engine[DuckDB dataset engine]
     Engine --> Profile[Column profiles and chart metadata]
     Profile --> UI[Next.js / React workspace]
 
@@ -50,7 +51,9 @@ flowchart TD
     Guard --> UI
 
     UI --> Question[Natural-language question]
-    Question --> Plan[GPT-6 Luna: structured chart plan]
+    Question --> Plan[GPT-6 Luna Decisions: bounded choices]
+    Plan -. Complex requests .-> Fallback[Generative Luna planner]
+    Fallback --> Check
     Plan --> Check[Plan validation]
     UI --> Manual[Manual chart configuration]
     Check --> Aggregate[Deterministic aggregation and filters]
@@ -67,10 +70,12 @@ The backend separates ingestion, schema review, query planning, aggregation, and
 
 Analytico handles file validation, supported type conversions, missing-value profiling, and chart metadata automatically—reducing the manual setup needed to explore a new CSV.
 
-| Dataset | Rows | Benchmarked local preparation time |
+| Dataset | Rows | Measured local engine preparation |
 | --- | ---: | ---: |
-| NYC green taxi | 1,068,755 | 10.84 s |
-| Online retail | 541,909 | 2.82 s |
+| NYC green taxi | 1,068,755 | 8.51 s |
+| Online retail | 541,909 | 2.05 s |
+
+The chart-planning benchmark reached a **0.35-second median from question to computed chart**, down from 1.41 seconds, across supported requests on eight public datasets. [Benchmark scorecard](backend/benchmarks/results/query-decisions-2026-10-07/summary.json).
 
 ## Tech stack
 
@@ -80,7 +85,7 @@ Analytico handles file validation, supported type conversions, missing-value pro
 | Visualization & interaction | Recharts, Framer Motion, react-grid-layout |
 | Backend | Python, FastAPI, Pydantic |
 | Data engine | DuckDB, pandas |
-| AI | OpenAI GPT-6 Luna; structured output and local validation |
+| AI | OpenAI GPT-6 Luna; Decisions, Responses, structured output and local validation |
 | Export | html-to-image, jsPDF |
 | Verification | Python unittest, TypeScript, frontend helper checks |
 
@@ -111,7 +116,9 @@ npm run dev
 
 Open [localhost:3000](http://localhost:3000). The included Gapminder dataset lets you explore immediately; the taxi demo requires a separately installed CSV.
 
-For AI features, add your own `OPENAI_API_KEY` to `backend/.env`, which is ignored by Git. Chart planning and descriptions default to `gpt-6-luna`. The upload-time **AI column semantic analysis** toggle enables the batched Luna role/label request; manual charts and local profiling work without a key.
+For AI features, add your own `OPENAI_API_KEY` to `backend/.env`, which is ignored by Git. Chart planning and descriptions default to `gpt-6-luna`. The upload-time **AI column semantic analysis** toggle enables background role inference and a separate batched label request. Manual charts and local profiling work without a key; source headers remain visible when no AI or user label is available.
+
+Chart planning uses Decisions by default. Set `QUERY_PLANNER_BACKEND=generative` in `backend/.env` to use the generative planner for every question.
 
 Data preparation and calculations run locally. Enabled AI features send bounded dataset context to OpenAI; an API key also enables background summary generation. Dataset sessions use memory or temporary disk storage and cannot be reopened after a backend restart. Run the backend on localhost.
 
