@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 // ... imports
 import { BarChart3, Clock, Trash2, ChevronRight, Wand2, Wrench, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
@@ -57,9 +58,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
 
       {/* Logo */}
       <div className={`flex items-center gap-3 border-b border-border/50 p-6 ${!isOpen && 'justify-center px-2 py-6'}`}>
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/60">
-          <BarChart3 className="h-5 w-5 text-primary-foreground" />
-        </div>
+        <Image src="/analytico-logo.svg" alt={isOpen ? '' : 'Analytico'} width={40} height={40} className="shrink-0" unoptimized />
         {isOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="overflow-hidden whitespace-nowrap">
             <h1 className="text-lg font-bold text-foreground">Analytico</h1>
